@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@import "aos/dist/aos.css";
+/* 1. السطر السحري لتفعيل الدارك مود بناءً على الزر في Tailwind v4 */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* 2. تغيير الميديا كويري إلى كلاس .dark ليتفاعل مع next-themes */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  /* إضافة تأثير انتقال ناعم للخلفية عند التبديل */
+  transition: background-color 0.5s ease, color 0.5s ease; 
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-textfield-decoration-container,
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Edge (new) */
+input::-ms-reveal {
+  display: none;
+}
