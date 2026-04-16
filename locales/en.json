@@ -23,7 +23,8 @@
   "googlePlay": "Google Play",
   "poweredBy": "Powered by",
   "verify-reset-code": "Verify Reset Code",
-  "welcomeBack": "Welcome back 👋",
+  "hello": "Hello",
+  "welcomeBack": "Discover the best meals and categories today",
   "email": "Email",
   "enterEmail": "Enter your email",
   "password": "Password",
@@ -83,10 +84,14 @@
   "newPassword": "New Password",
   "enterNewPassword": "Enter your new password",
   "backToLogin": "Back to Login",
-    "subtitle": "Order your favorite meals بسهولة وسرعة",
+    "subtitle": "Order your favorite meals  ",
   "goHome": "Go to Home",
   "feature1": "Browse Restaurants",
-  "feature1Desc": "Discover the best meals near you"
+  "feature1Desc": "Discover the best meals near you",
+  "deliveryTime": "Delivery Time",
+  "minutes": "minutes",
+  "errorLoading": "Error loading data"
+
  
 
   

@@ -1,24 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { useLanguage } from "../context/LanguageContext";
-import {
-  Sun,
-  Moon,
-  Search,
-  Bell,
-  ShoppingCart,
-  User,
-} from "lucide-react";
+
 import Image from "next/image";
-import { useToken } from "@/context/TokenContext";
 
-export default function LogoNav({ logo }) {
-  const { setTheme, resolvedTheme } = useTheme();
+import { StaticImageData } from "next/image";
+import { useParams } from "next/navigation";
+
+export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
   const { t } = useLanguage();
-  const { token } = useToken();
-
+  const params = useParams();
+const id = params?.id;
   return (
     <header className="w-full font-sans shadow-sm dark:shadow-md dark:shadow-yellow-400/5 dark:border-b dark:border-gray-800">
       
@@ -26,7 +19,7 @@ export default function LogoNav({ logo }) {
         
         {/* logo + links */}
         <div className="flex items-center gap-12">
-          <Link href="/">
+          <Link href={`/home/restaurants/${id}`}>
             <Image
               src={logo}
               alt="Logo"
@@ -34,12 +27,7 @@ export default function LogoNav({ logo }) {
             />
           </Link>
 
-          {/* links (always visible) */}
-          <nav className="flex gap-8 text-base font-medium text-gray-600 dark:text-gray-300">
-            <Link href="/home" className="hover:text-yellow-500">
-              {t("home")}
-            </Link>
-          </nav>
+          
         </div>
 
        

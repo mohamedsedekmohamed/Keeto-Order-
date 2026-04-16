@@ -1,6 +1,6 @@
 import LogoNav from "@/components/LogoNav";
-import Footer from "@/components/Footer";
 import NewKeetaLogo from "@/public/NewKeetaLogo.jpeg";
+import Footer from "@/components/Footer";
 
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
       <main className="flex-1">
         {children}
       </main>
-      <Footer />
+        <Footer />
     </div>
 
 

@@ -91,10 +91,10 @@ export default function HomePage() {
             animate={{ opacity: 1, x: 0 }}
             className="text-4xl font-black text-gray-900 dark:text-white"
           >
-            {t("hello") || "مرحباً بك"} <span className="text-yellow-400">👋</span>
+            {t("hello")} <span className="text-yellow-400">👋</span>
           </motion.h1>
           <p className="font-medium text-gray-500 dark:text-zinc-400">
-            اكتشف أفضل المأكولات والتصنيفات اليوم
+            {t("welcomeBack")}
           </p>
         </header>
 
@@ -109,6 +109,12 @@ export default function HomePage() {
           
           <div className="flex gap-6 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
             {content?.cuisines?.map((cuisine, index) => (
+                        <Link 
+      key={cuisine.id} 
+      href={`/home/cuisines/${cuisine.id}`}
+      className="block"
+    >
+      
               <motion.div
                 key={cuisine.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -129,6 +135,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </motion.div>
+              </Link>
             ))}
           </div>
         </section>
@@ -144,6 +151,12 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {content?.categories?.map((category, index) => (
+               <Link 
+      key={category.id} 
+      href={`/home/categories/${category.id}`}
+      className="block"
+    >
+      
               <motion.div
                 key={category.id}
                 whileHover={{ y: -8 }}
@@ -166,6 +179,8 @@ export default function HomePage() {
                   {category.name}
                 </h3>
               </motion.div>
+                  </Link>
+
             ))}
           </div>
         </section>

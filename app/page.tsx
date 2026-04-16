@@ -2,7 +2,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { UtensilsCrossed, ShoppingCart, Home } from "lucide-react";
+import { UtensilsCrossed, Home } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
