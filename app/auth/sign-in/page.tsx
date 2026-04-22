@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Mail, Lock, LogIn, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
-import usePost from "../../../Hooks/usePost";
+import usePost from "../../../hooks/usePost";
 import { useRouter } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 

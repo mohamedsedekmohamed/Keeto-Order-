@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../context/LanguageContext";
 import Image from "next/image";
-import useGet from "../../../../Hooks/useGet";
+import useGet from "../../../../hooks/useGet";
 import Loading from "@/components/Loading";
 
 interface Restaurant {

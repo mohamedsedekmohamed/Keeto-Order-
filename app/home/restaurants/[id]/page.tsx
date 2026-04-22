@@ -7,44 +7,22 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation"; // استيراد useParams
-import { useLanguage } from "../../../../context/LanguageContext"; // تأكد من المسار
+import { usePathname } from "next/navigation"; 
+import { useLanguage } from "../../../../context/LanguageContext"; 
 import { FaApple } from "react-icons/fa";
 import { FaGooglePlay } from "react-icons/fa";
-import Image from "next/image"; // استيراد Image
-import useGet from "../../../../Hooks/useGet"; // استيراد useGet (تأكد من صحة المسار)
-import Loading from "@/components/Loading"; // مكون التحميل (تأكد من مساره)
-
-// --- تعريف هيكل البيانات القادمة من الـ API ---
-interface Restaurant {
-  id: string;
-  name: string;
-  logo: string;
-  cover: string;
-  address: string;
-}
-
-interface RestaurantResponse {
-  success: boolean;
-  data: {
-    data: {
-      restaurant: Restaurant;
-    };
-  };
-}
+import Image from "next/image"; 
+import Loading from "@/components/Loading"; 
+// استيراد الـ Hook الخاص بالـ Context
+import { useRestaurant } from "@/context/RestaurantContext"; 
 
 export default function Home() {
   const { t } = useLanguage();
   const pathname = usePathname(); 
   
-  // 1. جلب ID المطعم من الرابط
-  const params = useParams<{ id: string }>(); 
-  const restaurantId = params.id;
-
-  // 2. جلب بيانات المطعم من الـ API
-  const { data, loading, error } = useGet<RestaurantResponse>(`/api/user/home/restaurants/${restaurantId}`);
-
-  const cards = [
+ 
+const { restaurant, isLoading ,isError } = useRestaurant();
+  const cards = [ 
     {
       title: t("eMenu"),
       desc: t("eMenuDesc"),
@@ -59,19 +37,10 @@ export default function Home() {
     },
   ];
 
-  // 3. التعامل مع حالة التحميل والخطأ
-  if (loading) return <Loading />;
+ 
+  if (isLoading) return <Loading />;
+  if (isError) return <div>error</div>;
   
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-red-500">
-        حدث خطأ أثناء تحميل بيانات المطعم: {error}
-      </div>
-    );
-  }
-
-  // استخراج بيانات المطعم من الاستجابة
-  const restaurant = data?.data?.data?.restaurant;
 
   return (
     <div className="relative flex flex-col items-center min-h-screen px-6 py-10 overflow-hidden transition-colors duration-300 bg-white dark:bg-zinc-950">
@@ -80,7 +49,7 @@ export default function Home() {
       <div className="absolute w-72 h-72 bg-yellow-400/10 blur-3xl rounded-full top-[-80px] left-[-80px]" />
       <div className="absolute w-96 h-96 bg-yellow-400/10 blur-3xl rounded-full bottom-[-120px] right-[-120px]" />
 
-      {/* Restaurant Info (Logo & Name) بدلاً من Keeto */}
+      {/* Restaurant Info */}
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -102,10 +71,10 @@ export default function Home() {
 
         {/* اسم المطعم */}
         <h1 className="px-4 text-4xl font-black tracking-tight text-gray-900 md:text-5xl dark:text-white line-clamp-1">
-          {restaurant?.name || "اسم المطعم"}
+          {restaurant?.name }
         </h1>
         
-        {/* العنوان أو نص ترحيبي */}
+        {/* العنوان */}
         <p className="mt-3 text-xs tracking-[0.2em] text-gray-500 dark:text-zinc-400 font-medium">
           {restaurant?.address}
         </p>

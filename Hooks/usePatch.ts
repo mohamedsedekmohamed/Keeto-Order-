@@ -31,7 +31,6 @@ export default function usePatch<T = any>(
       setError(null);
 
       const url = customUrl || defaultUrl;
-
       const res = await api.patch<T>(url, body);
 
       if (toastMessage) toast.success(toastMessage);
@@ -44,11 +43,11 @@ export default function usePatch<T = any>(
       let errorMessage = "Error, please try again";
 
       if (errorObj?.details && Array.isArray(errorObj.details)) {
-        errorMessage = errorObj.details
-          .map((e: any) => e.message)
-          .join("\n");
+        errorMessage = errorObj.details.map((e: any) => e.message).join("\n");
       } else if (errorObj?.message) {
         errorMessage = errorObj.message;
+      } else if (axiosError.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
       } else if (axiosError.message) {
         errorMessage = axiosError.message;
       }

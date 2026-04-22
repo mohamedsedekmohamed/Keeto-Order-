@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -32,7 +31,6 @@ export default function usePut<T = any>(
       setError(null);
 
       const url = customUrl || defaultUrl;
-
       const res = await api.put<T>(url, body);
 
       if (toastMessage) toast.success(toastMessage);
@@ -42,14 +40,14 @@ export default function usePut<T = any>(
       const axiosError = err as AxiosError<any>;
       const errorObj = axiosError.response?.data?.error;
 
-      let errorMessage = "Error try";
+      let errorMessage = "Error, please try again";
 
       if (errorObj?.details && Array.isArray(errorObj.details)) {
-        errorMessage = errorObj.details
-          .map((e: any) => e.message)
-          .join("\n");
+        errorMessage = errorObj.details.map((e: any) => e.message).join("\n");
       } else if (errorObj?.message) {
         errorMessage = errorObj.message;
+      } else if (axiosError.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
       } else if (axiosError.message) {
         errorMessage = axiosError.message;
       }

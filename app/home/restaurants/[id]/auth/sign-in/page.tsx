@@ -4,16 +4,21 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Lock, LogIn, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useLanguage } from "../../../context/LanguageContext";
-import usePost from "../../../Hooks/usePost";
-import { useRouter } from "next/navigation";
+import { useLanguage } from "../../../../../../context/LanguageContext";
+import usePost from "../../../../../../hooks/usePost";
+import { useRouter, useParams } from "next/navigation"; // استيراد useParams
 import { useToken } from "@/context/TokenContext";
 
 export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
+  const params = useParams(); // جلب הـ id من الرابط
   const [showPassword, setShowPassword] = useState(false);
-const { setToken } = useToken();
+  const { setToken } = useToken();
+
+  // بناء المسار الأساسي بناءً على الـ id الحالي في الرابط
+  const restaurantId = params?.id as string;
+  const basePath = `/home/restaurants/${restaurantId}`;
 
   // 1. Form State
   const [formData, setFormData] = useState({
@@ -36,8 +41,9 @@ const { setToken } = useToken();
       const response = await postData(formData, null, t("loginSuccess"));
       setToken(response.data.data.token);
 
-      router.push("/"); 
-    } catch  {
+      router.back(); 
+    } catch {
+      // Handle error
     }
   };
 
@@ -101,9 +107,10 @@ const { setToken } = useToken();
               <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300">
                 {t("password")}
               </label>
-              <button type="button" className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80">
+              {/* زر "نسيت كلمة المرور" بجانب التسمية (اختياري يمكنك تركه أو استخدام الرابط بالأسفل) */}
+              <Link href={`${basePath}/auth/forgot-password`} className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80">
                 {t("forgotPassword")}
-              </button>
+              </Link>
             </div>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
@@ -151,7 +158,8 @@ const { setToken } = useToken();
         <div className="mt-10 text-center">
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {t("noAccount")}{" "}
-            <Link href="/auth/sign-up" className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
+            {/* ✅ استخدام المسار الديناميكي لإنشاء الحساب */}
+            <Link href={`${basePath}/auth/sign-up`} className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
               {t("createAccount")}
             </Link>
           </p>
@@ -159,7 +167,8 @@ const { setToken } = useToken();
         <div className="mt-10 text-center">
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {t("ForgotPassword")}{" "}
-            <Link href="/auth/forgot-password" className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
+            {/* ✅ استخدام المسار الديناميكي لنسيان كلمة المرور */}
+            <Link href={`${basePath}/auth/forgot-password`} className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
               {t("resetPassword")}
             </Link>
           </p>

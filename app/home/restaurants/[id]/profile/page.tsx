@@ -6,9 +6,9 @@ import {
   User, Mail, Camera, Save, LogOut, Shield, Settings, 
   Phone, MapPin, Wallet, BadgeCheck, Loader2
 } from "lucide-react";
-import { useLanguage } from "../../context/LanguageContext";
-import useGet from "../../Hooks/useGet";
-import usePut from "../../Hooks/usePut"; // استدعاء usePut
+import { useLanguage } from "../../../../../context/LanguageContext";
+import useGet from "../../../../../hooks/useGet";
+import usePut from "../../../../../hooks/usePut"; // استدعاء usePut
 import { redirect } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 
@@ -100,7 +100,7 @@ export default function ProfilePage() {
       
     } catch (error) {
       // الـ Hook سيعالج عرض رسالة الخطأ
-      console.error("Failed to update profile", error);
+      
     }
   };
 

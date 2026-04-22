@@ -6,19 +6,23 @@ type TokenContextType = {
   token: string | null;
   setToken: (token: string | null) => void;
   logout: () => void;
+  isReady: boolean; // 👈 الجديد
 };
 
 const TokenContext = createContext<TokenContextType | undefined>(undefined);
 
 export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setTokenState] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false); // 👈 الجديد
 
-  // load token on first mount
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
+
     if (storedToken) {
       setTokenState(storedToken);
     }
+
+    setIsReady(true); // 👈 مهم جدًا
   }, []);
 
   const setToken = (newToken: string | null) => {
@@ -36,7 +40,7 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <TokenContext.Provider value={{ token, setToken, logout }}>
+    <TokenContext.Provider value={{ token, setToken, logout, isReady }}>
       {children}
     </TokenContext.Provider>
   );

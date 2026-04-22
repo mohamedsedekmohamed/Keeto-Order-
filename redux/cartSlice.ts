@@ -1,89 +1,87 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+// 1. تعريف هيكل الإضافات (Variations)
+export interface CartVariation {
+  variationId: string;
+  optionId: string;
+}
+
+// 2. تحديث هيكل العنصر ليطابق الـ JSON الراجع من الـ API
 export interface CartItem {
-  id: number;
+  cartId: string;         // الـ ID الخاص بصف الاسترجاع/التعديل في السيرفر
+  foodId: string;         // الـ ID الخاص بالوجبة نفسها
   name: string;
-  price: number;
+  image: string;
+  restaurantId: string;
+  restaurantName: string;
   quantity: number;
+  unitPrice: string | number;
+  totalPrice: string | number;
+  variations: CartVariation[] | any[]; 
 }
 
 interface CartState {
   items: CartItem[];
+  isLoading: boolean;
 }
 
 const initialState: CartState = {
   items: [],
+  isLoading: false,
 };
 
 const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
-    // ➕ Add
-    addToCart: (state, action: PayloadAction<Omit<CartItem, "quantity">>) => {
-      const existing = state.items.find(
-        (item) => item.id === action.payload.id
-      );
+    // 📥 المزامنة الكاملة: نستخدمها بعد أي استدعاء للـ GET لملء السلة بالداتا الحقيقية
+    setCartItems: (state, action: PayloadAction<CartItem[]>) => {
+      state.items = action.payload;
+    },
+
+    // ➕ إضافة عنصر محلياً بعد الـ POST
+    addToCartLocal: (state, action: PayloadAction<CartItem>) => {
+      const existing = state.items.find((item) => item.cartId === action.payload.cartId);
 
       if (existing) {
-        existing.quantity += 1;
+        existing.quantity += action.payload.quantity;
+        existing.totalPrice = Number(existing.unitPrice) * existing.quantity; 
       } else {
-        state.items.push({ ...action.payload, quantity: 1 });
+        state.items.push(action.payload);
       }
     },
 
-    // ❌ Remove
-    removeFromCart: (state, action: PayloadAction<number>) => {
-      state.items = state.items.filter(
-        (item) => item.id !== action.payload
-      );
+    // ❌ حذف عنصر (بعد الـ DELETE من الـ API)
+    removeFromCartLocal: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter((item) => item.cartId !== action.payload);
     },
 
-    // ➕➖ Increase
-    increaseQuantity: (state, action: PayloadAction<number>) => {
-      const item = state.items.find((i) => i.id === action.payload);
-      if (item) item.quantity += 1;
-    },
-
-    // ➖ Decrease
-    decreaseQuantity: (state, action: PayloadAction<number>) => {
-      const item = state.items.find((i) => i.id === action.payload);
-
-      if (item) {
-        if (item.quantity > 1) {
-          item.quantity -= 1;
-        } else {
-          // لو 1 → نحذفه
-          state.items = state.items.filter((i) => i.id !== action.payload);
-        }
-      }
-    },
-
-    // ✏️ Set Quantity (manual input)
-    setQuantity: (
+    // ✏️ تحديث الكمية (بعد الـ PUT للـ API)
+    updateQuantityLocal: (
       state,
-      action: PayloadAction<{ id: number; quantity: number }>
+      action: PayloadAction<{ cartId: string; quantity: number }>
     ) => {
-      const item = state.items.find((i) => i.id === action.payload.id);
+      const item = state.items.find((i) => i.cartId === action.payload.cartId);
       if (item) {
         item.quantity = action.payload.quantity;
+        item.totalPrice = Number(item.unitPrice) * item.quantity;
       }
     },
 
-    // 🧹 Clear
-    clearCart: (state) => {
+    // 🧹 تفريغ السلة بالكامل
+    clearCartLocal: (state) => {
       state.items = [];
     },
   },
 });
 
+// 👈 هنا يتم تصدير addToCartLocal وباقي الدوال بشكل صحيح
 export const {
-  addToCart,
-  removeFromCart,
-  increaseQuantity,
-  decreaseQuantity,
-  setQuantity,
-  clearCart,
+  setCartItems,
+  addToCartLocal,
+  removeFromCartLocal,
+  updateQuantityLocal,
+  clearCartLocal,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

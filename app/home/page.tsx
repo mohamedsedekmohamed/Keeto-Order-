@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { RefreshCw, Utensils, LayoutGrid, Store, ChevronRight } from "lucide-react";
-import useGet from "../../Hooks/useGet"; 
+import useGet from "../../hooks/useGet"; 
 import { useLanguage } from "../../context/LanguageContext";
 import Loading from "@/components/Loading";
 import Image from "next/image";
@@ -199,7 +199,7 @@ export default function HomePage() {
               className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
             >
               <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
-                قريباً.. سنضيف أفضل المطاعم هنا 🍕
+               {t("noRestaurants")}
               </p>
             </motion.div>
           ) : (

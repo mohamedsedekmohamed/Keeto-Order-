@@ -8,8 +8,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
-import useGet from "../../../Hooks/useGet"; // تأكد من مسار الـ hook
-import usePost from "../../../Hooks/usePost"; // تأكد من مسار الـ hook
+import usePost from "../../../hooks/usePost"; // تأكد من مسار الـ hook
 import { useRouter } from "next/navigation";
 
 // تعريف واجهات البيانات (Interfaces) لتسهيل التعامل مع TypeScript
@@ -43,26 +42,26 @@ const router = useRouter();
     email: "",
     phone: "",
     password: "",
-    countryId: "",
-    cityId: "",
-    zoneId: "",
+    // countryId: "",
+    // cityId: "",
+    // zoneId: "",
     address: ""
   });
 
   const isRtl = typeof document !== 'undefined' && document.dir === 'rtl';
 
   // 1. جلب بيانات المواقع
-  const { data: locationData, loading: loadingLocations } = useGet<ActiveLocationsResponse>('/api/user/auth/active-locations');
-  const locations = locationData?.data?.data || { countries: [], cities: [], zones: [] };
+  // const { data: locationData, loading: loadingLocations } = useGet<ActiveLocationsResponse>('/api/user/auth/active-locations');
+  // const locations = locationData?.data?.data || { countries: [], cities: [], zones: [] };
 
   // 2. دوال التصفية (Filtering) للمدن والمناطق المعتمدة على الاختيار السابق
-  const filteredCities = useMemo(() => {
-    return locations.cities.filter(city => city.countryId === formData.countryId);
-  }, [locations.cities, formData.countryId]);
+  // const filteredCities = useMemo(() => {
+  //   return locations.cities.filter(city => city.countryId === formData.countryId);
+  // }, [locations.cities, formData.countryId]);
 
-  const filteredZones = useMemo(() => {
-    return locations.zones.filter(zone => zone.cityId === formData.cityId);
-  }, [locations.zones, formData.cityId]);
+  // const filteredZones = useMemo(() => {
+  //   return locations.zones.filter(zone => zone.cityId === formData.cityId);
+  // }, [locations.zones, formData.cityId]);
 
   // 3. إرسال البيانات
   const { postData, loading: isSubmitting } = usePost('/api/user/auth/signup');
@@ -74,14 +73,14 @@ const router = useRouter();
       const newData = { ...prev, [name]: value };
            
 
-      if (name === 'countryId') {
-        newData.cityId = '';
-        newData.zoneId = '';
-      }
+      // if (name === 'countryId') {
+      //   newData.cityId = '';
+      //   newData.zoneId = '';
+      // }
       
-      if (name === 'cityId') {
-        newData.zoneId = '';
-      }
+      // if (name === 'cityId') {
+      //   newData.zoneId = '';
+      // }
       
       return newData;
     });
@@ -100,7 +99,7 @@ const router = useRouter();
     
     } catch (error) {
     
-      console.error("Signup failed", error);
+      // console.error("Signup failed", error);
     }
   };
 
@@ -120,7 +119,17 @@ const router = useRouter();
       >
         {/* خط ديكوري علوي */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1.5 bg-yellow-400 rounded-b-full shadow-[0_2px_10px_rgba(250,204,21,0.4)]"></div>
-
+<button
+  type="button"
+onClick={() => router.push("/")}
+  className="absolute flex items-center gap-2 text-sm font-bold text-gray-600 transition-all left-6 top-6 dark:text-zinc-300 hover:text-yellow-500"
+>
+  <ArrowRight
+    size={18}
+    className={`${isRtl ? '' : 'rotate-180'}`}
+  />
+  {t("back") || "Back"}
+</button>
         {/* Header */}
         <div className="mb-8 text-center">
           <motion.div 
@@ -234,8 +243,7 @@ const router = useRouter();
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {/* Country Select */}
+          {/* <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
                 {t("country") }
@@ -259,7 +267,6 @@ const router = useRouter();
               </div>
             </div>
 
-            {/* City Select */}
             <div>
               <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
                 {t("city") }
@@ -284,7 +291,6 @@ const router = useRouter();
               </div>
             </div>
 
-            {/* Zone Select */}
             <div>
               <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
                 {t("zone")}
@@ -308,7 +314,7 @@ const router = useRouter();
                 </select>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Address Input */}
           <div>
@@ -335,7 +341,7 @@ const router = useRouter();
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            disabled={isSubmitting || loadingLocations}
+            disabled={isSubmitting }
             className="relative flex items-center justify-center w-full py-4.5 mt-6 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl hover:bg-yellow-500 shadow-xl shadow-yellow-400/20 group disabled:opacity-70 disabled:cursor-not-allowed"
           >
             <span className="flex items-center gap-2">
