@@ -28,7 +28,7 @@ type Address = {
 
 const AddressPage = () => {
   const { t } = useLanguage();
-  const restaurant = useRestaurant();
+  const { restaurant } = useRestaurant();
   const { token, isReady } = useToken();
   const params = useParams();
   const router = useRouter();

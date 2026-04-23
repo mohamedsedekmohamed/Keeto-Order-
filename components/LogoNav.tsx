@@ -23,7 +23,7 @@ export default function LogoNav({
   logo: string | StaticImageData;
 }) {
   const { t } = useLanguage();
-  const restaurant = useRestaurant();
+  const { restaurant } = useRestaurant();
   const { token } = useToken();
   const params = useParams();
 
