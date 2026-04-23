@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import api from "../../api/api";
 import { toast } from "react-hot-toast";
-import api from "../api/api";
 import { AxiosError } from "axios";
 
-type UsePostReturn<T> = {
-  postData: (
+type UsePutReturn<T> = {
+  putData: (
     body?: any,
     customUrl?: string | null,
     toastMessage?: string | null
@@ -15,13 +15,13 @@ type UsePostReturn<T> = {
   error: string | null;
 };
 
-export default function usePost<T = any>(
+export default function usePut<T = any>(
   defaultUrl: string = ""
-): UsePostReturn<T> {
+): UsePutReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const postData = async (
+  const putData = async (
     body: any = {},
     customUrl: string | null = null,
     toastMessage: string | null = null
@@ -30,8 +30,8 @@ export default function usePost<T = any>(
       setLoading(true);
       setError(null);
 
-      const url = String(customUrl || defaultUrl);
-      const res = await api.post<T>(url, body);
+      const url = customUrl || defaultUrl;
+      const res = await api.put<T>(url, body);
 
       if (toastMessage) toast.success(toastMessage);
 
@@ -40,7 +40,7 @@ export default function usePost<T = any>(
       const axiosError = err as AxiosError<any>;
       const errorObj = axiosError.response?.data?.error;
 
-      let errorMessage = "Unexpected error occurred"; 
+      let errorMessage = "Error, please try again";
 
       if (errorObj?.details && Array.isArray(errorObj.details)) {
         errorMessage = errorObj.details.map((e: any) => e.message).join("\n");
@@ -61,5 +61,5 @@ export default function usePost<T = any>(
     }
   };
 
-  return { postData, loading, error };
+  return { putData, loading, error };
 }

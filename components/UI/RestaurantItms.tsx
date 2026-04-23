@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Plus, X, Minus, LayoutGrid, Heart } from 'lucide-react';
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCartLocal } from "@/redux/cartSlice"; 
-import usePost from "@/hooks/usePost"; 
+import usePost from "@/app/hooks/usePost"; 
 import { MenuItem, Variation, VariationOption } from '@/types/menu';
 
 export default function RestaurantItms({ menu, restaurantId }: { menu: Record<string, MenuItem[]>, restaurantId: string }) {

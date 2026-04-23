@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import { toast } from "react-hot-toast";
-import api from "../api/api";
+import api from "../../api/api";
 import { AxiosError } from "axios";
 import { useToken } from "@/context/TokenContext";
 

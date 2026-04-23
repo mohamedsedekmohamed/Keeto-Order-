@@ -8,9 +8,9 @@ import {
   clearCartLocal,
   setCartItems
 } from "@/redux/cartSlice";
-import useGet from "@/hooks/useGet";
-import usePut from "@/hooks/usePut";
-import useDelete from "@/hooks/useDelete";
+import useGet from "@/app/hooks/useGet";
+import usePut from "@/app/hooks/usePut";
+import useDelete from "@/app/hooks/useDelete";
 import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../context/LanguageContext";

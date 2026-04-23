@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { RefreshCw, Utensils, LayoutGrid, Store, ChevronRight } from "lucide-react";
-import useGet from "@/hooks/useGet"; 
+import useGet from "@/app/hooks/useGet"; 
 import { useLanguage } from "../../context/LanguageContext";
 import Loading from "@/components/Loading";
 import Image from "next/image";

@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { useParams } from "next/navigation";
-import useGet from "@/hooks/useGet";
+import useGet from "@/app/hooks/useGet";
 
 // ==========================================
 // 1. الأنواع (Types & Interfaces)

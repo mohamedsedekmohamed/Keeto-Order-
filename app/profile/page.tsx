@@ -7,8 +7,8 @@ import {
   Phone, MapPin, Wallet, BadgeCheck, Loader2
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
-import useGet from "../../hooks/useGet";
-import usePut from "../../hooks/usePut"; // استدعاء usePut
+import useGet from "@/app/hooks/useGet";
+import usePut from "@/app/hooks/usePut"; // استدعاء usePut
 import { redirect } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 

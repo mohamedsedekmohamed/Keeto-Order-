@@ -2,49 +2,45 @@
 
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import api from "../api/api";
+import api from "../../api/api";
 import { AxiosError } from "axios";
 
-type DeleteResponse = {
-  success?: boolean;
-  message?: string;
-  error?: {
-    message?: string;
-  };
-};
-
-type UseDeleteReturn<T> = {
-  deleteData: (customUrl?: string | null) => Promise<T>;
+type UsePostReturn<T> = {
+  postData: (
+    body?: any,
+    customUrl?: string | null,
+    toastMessage?: string | null
+  ) => Promise<T>;
   loading: boolean;
   error: string | null;
 };
 
-export default function useDelete<T = DeleteResponse>(
-  defaultUrl: string
-): UseDeleteReturn<T> {
+export default function usePost<T = any>(
+  defaultUrl: string = ""
+): UsePostReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const deleteData = async (customUrl: string | null = null): Promise<T> => {
+  const postData = async (
+    body: any = {},
+    customUrl: string | null = null,
+    toastMessage: string | null = null
+  ): Promise<T> => {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await api.delete<T>(customUrl || defaultUrl);
-      const response = res.data as DeleteResponse;
+      const url = String(customUrl || defaultUrl);
+      const res = await api.post<T>(url, body);
 
-      if (response?.success) {
-        toast.success("Deleted successfully!");
-      } else if (response?.error?.message) {
-        toast.error(response.error.message);
-      }
+      if (toastMessage) toast.success(toastMessage);
 
       return res.data;
     } catch (err) {
       const axiosError = err as AxiosError<any>;
       const errorObj = axiosError.response?.data?.error;
 
-      let errorMessage = "Delete request failed";
+      let errorMessage = "Unexpected error occurred"; 
 
       if (errorObj?.details && Array.isArray(errorObj.details)) {
         errorMessage = errorObj.details.map((e: any) => e.message).join("\n");
@@ -65,5 +61,5 @@ export default function useDelete<T = DeleteResponse>(
     }
   };
 
-  return { deleteData, loading, error };
+  return { postData, loading, error };
 }

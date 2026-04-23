@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useLanguage } from "../../../../../context/LanguageContext";
-import useGet from "@/hooks/useGet";
-import usePost from "@/hooks/usePost";
+import useGet from "@/app/hooks/useGet";
+import usePost from "@/app/hooks/usePost";
 // 👈 أضفنا استيراد Image هنا
 import Image from "next/image"; 
 import { 

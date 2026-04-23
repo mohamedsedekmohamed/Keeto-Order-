@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import api from "../api/api";
+import api from "../../api/api";
 import { toast } from "react-hot-toast";
 import { AxiosError } from "axios";
 
-type UsePutReturn<T> = {
-  putData: (
+type UsePatchReturn<T> = {
+  patchData: (
     body?: any,
     customUrl?: string | null,
     toastMessage?: string | null
@@ -15,13 +15,13 @@ type UsePutReturn<T> = {
   error: string | null;
 };
 
-export default function usePut<T = any>(
+export default function usePatch<T = any>(
   defaultUrl: string = ""
-): UsePutReturn<T> {
+): UsePatchReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const putData = async (
+  const patchData = async (
     body: any = {},
     customUrl: string | null = null,
     toastMessage: string | null = null
@@ -31,7 +31,7 @@ export default function usePut<T = any>(
       setError(null);
 
       const url = customUrl || defaultUrl;
-      const res = await api.put<T>(url, body);
+      const res = await api.patch<T>(url, body);
 
       if (toastMessage) toast.success(toastMessage);
 
@@ -61,5 +61,5 @@ export default function usePut<T = any>(
     }
   };
 
-  return { putData, loading, error };
+  return { patchData, loading, error };
 }

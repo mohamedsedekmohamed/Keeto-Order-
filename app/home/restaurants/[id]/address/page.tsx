@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import useGet from "@/hooks/useGet";
-import usePost from "@/hooks/usePost";
-import usePut from "@/hooks/usePut";
-import useDelete from "@/hooks/useDelete";
+import useGet from "@/app/hooks/useGet";
+import usePost from "@/app/hooks/usePost";
+import usePut from "@/app/hooks/usePut";
+import useDelete from "@/app/hooks/useDelete"; 
 import { useLanguage } from "@/context/LanguageContext";
 import { useToken } from "@/context/TokenContext";
 import { useParams, useRouter } from "next/navigation";

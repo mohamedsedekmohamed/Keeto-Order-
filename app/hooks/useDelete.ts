@@ -1,46 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import api from "../api/api";
 import { toast } from "react-hot-toast";
+import api from "../../api/api";
 import { AxiosError } from "axios";
 
-type UsePatchReturn<T> = {
-  patchData: (
-    body?: any,
-    customUrl?: string | null,
-    toastMessage?: string | null
-  ) => Promise<T>;
+type DeleteResponse = {
+  success?: boolean;
+  message?: string;
+  error?: {
+    message?: string;
+  };
+};
+
+type UseDeleteReturn<T> = {
+  deleteData: (customUrl?: string | null) => Promise<T>;
   loading: boolean;
   error: string | null;
 };
 
-export default function usePatch<T = any>(
-  defaultUrl: string = ""
-): UsePatchReturn<T> {
+export default function useDelete<T = DeleteResponse>(
+  defaultUrl: string
+): UseDeleteReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const patchData = async (
-    body: any = {},
-    customUrl: string | null = null,
-    toastMessage: string | null = null
-  ): Promise<T> => {
+  const deleteData = async (customUrl: string | null = null): Promise<T> => {
     try {
       setLoading(true);
       setError(null);
 
-      const url = customUrl || defaultUrl;
-      const res = await api.patch<T>(url, body);
+      const res = await api.delete<T>(customUrl || defaultUrl);
+      const response = res.data as DeleteResponse;
 
-      if (toastMessage) toast.success(toastMessage);
+      if (response?.success) {
+        toast.success("Deleted successfully!");
+      } else if (response?.error?.message) {
+        toast.error(response.error.message);
+      }
 
       return res.data;
     } catch (err) {
       const axiosError = err as AxiosError<any>;
       const errorObj = axiosError.response?.data?.error;
 
-      let errorMessage = "Error, please try again";
+      let errorMessage = "Delete request failed";
 
       if (errorObj?.details && Array.isArray(errorObj.details)) {
         errorMessage = errorObj.details.map((e: any) => e.message).join("\n");
@@ -61,5 +65,5 @@ export default function usePatch<T = any>(
     }
   };
 
-  return { patchData, loading, error };
+  return { deleteData, loading, error };
 }
