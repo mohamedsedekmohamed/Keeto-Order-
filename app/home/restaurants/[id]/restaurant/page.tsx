@@ -47,8 +47,7 @@ export default function Restaurant() {
       <RestaurantCard restaurant={restaurant} />
       
       {/* تمرير المنيو للـ Items */}
-      <RestaurantItms menu={menu} restaurantId={restaurant.id} />
-
+<RestaurantItms menu={menu || {}} restaurantId={restaurant?.id || ""} />
       {/* زر الانتقال إلى الطلبات */}
       <Link 
         href={`${basePath}/order`} 

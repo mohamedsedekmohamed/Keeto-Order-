@@ -6,7 +6,13 @@ import { addToCartLocal } from "@/redux/cartSlice";
 import usePost from "@/app/hooks/usePost"; 
 import { MenuItem, Variation, VariationOption } from '@/types/menu';
 
-export default function RestaurantItms({ menu, restaurantId }: { menu: Record<string, MenuItem[]>, restaurantId: string }) {
+export default function RestaurantItms({ 
+  menu, 
+  restaurantId 
+}: { 
+  menu: Record<string, MenuItem[]> | null, 
+  restaurantId: string 
+}) {
   const dispatch = useAppDispatch();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
