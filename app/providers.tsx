@@ -3,7 +3,7 @@
 import { ThemeProvider } from "next-themes";
 import { ReactNode } from "react";
 import { Provider } from "react-redux"; 
-import { store, persistor } from "@/redux/Store"; 
+import { store } from "@/redux/Store"; 
 
 interface ProvidersProps {
   children: ReactNode;
