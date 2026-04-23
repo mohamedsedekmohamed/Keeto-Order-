@@ -155,5 +155,21 @@
   "update-address": "Update Address",
   "deleteAddress": "Delete Address",
   "address-updated-success": "Address updated successfully!",
-  "addressDeleted": "Address deleted successfully!"
+  "addressDeleted": "Address deleted successfully!",
+  "myWallet": "My Wallet",
+  "totalBalance": "Total Balance",
+  "addFunds": "Add Funds",
+  "withdraw": "Withdraw",
+  "income": "Income",
+  "spending": "Spending",
+  "recent": "Recent Transactions",
+  "seeAll": "See All",
+  "noTransactions": "No previous transactions",
+  "fundSuccess": "Fund request submitted successfully and pending approval",
+  "amount": "Amount",
+  "receiptImage": "Receipt Image Link",
+  "processing": "Processing...",
+  "confirmPayment": "Confirm Payment",
+  "updateSuccess": "Profile updated successfully!"
 }
+

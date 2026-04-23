@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   User, Mail, Camera, Save, LogOut, Shield, Settings, 
-  Phone, MapPin, Wallet, BadgeCheck, Loader2
+  Phone, MapPin, Wallet, BadgeCheck, Loader2 ,Plus
 } from "lucide-react";
 import { useLanguage } from "../../../../../context/LanguageContext";
 import useGet from "../../../../../hooks/useGet";
 import usePut from "../../../../../hooks/usePut"; // استدعاء usePut
-import { redirect } from "next/navigation";
+import { redirect, useParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
-
+import Link from "next/link";
 // تعريف واجهات البيانات
 interface UserLocation {
   country: string;
@@ -47,7 +47,8 @@ export default function ProfilePage() {
 
   // 1. جلب بيانات المستخدم
   const { data: profileResponse, loading: isFetching, refetch } = useGet<ProfileApiResponse>('/api/user/profile');
-  
+     const params = useParams<{ id: string }>();
+          const basePath = `/home/restaurants/${params.id}`;
   // 2. إعداد دالة التحديث
   const { putData, loading: isUpdating } = usePut('/api/user/profile');
   
@@ -165,12 +166,21 @@ export default function ProfilePage() {
               </p>
 
               {/* Wallet Balance Badge */}
+            
               <div className="flex items-center justify-center gap-2 mt-4">
-                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-yellow-700 bg-yellow-400/20 rounded-2xl dark:text-yellow-400">
-                  <Wallet size={18} />
-                  {walletBalance} {t("currency")}
-                </div>
-              </div>
+  <Link 
+    href={basePath+"/wallet"} // عدل المسار ده بناءً على مسار صفحة المحفظة عندك
+    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-yellow-700 transition-all bg-yellow-400/20 hover:bg-yellow-400/30 active:scale-95 rounded-2xl dark:text-yellow-400 group"
+  >
+    <Wallet size={18} />
+    <span dir="ltr">{walletBalance} {t("currency")}</span>
+    
+    {/* أيقونة صغيرة بتظهر إن في أكشن أو شحن */}
+    <div className="flex items-center justify-center w-5 h-5 transition-colors bg-yellow-500 rounded-full text-zinc-900 group-hover:bg-yellow-400 ms-2">
+      <Plus size={14} strokeWidth={3} />
+    </div>
+  </Link>
+</div>
               
               <div className="pt-8 mt-8 space-y-3 border-t border-gray-100 dark:border-zinc-800">
                 <button 

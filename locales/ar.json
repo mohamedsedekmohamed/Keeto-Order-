@@ -153,6 +153,22 @@
       "addressDeleted": "تم حذف العنوان بنجاح!",
       "update-address": "تحديث العنوان",
       "updateAddress": "تحديث العنوان",
-      "address-updated-success": "تم تحديث العنوان بنجاح!"
+      "address-updated-success": "تم تحديث العنوان بنجاح!",
+      "myWallet": "المحفظة",
+  "totalBalance": "إجمالي الرصيد",
+  "addFunds": "شحن الرصيد",
+  "withdraw": "سحب",
+  "income": "الدخل",
+  "spending": "المصاريف",
+  "recent": "العمليات الأخيرة",
+  "seeAll": "عرض الكل",
+  "noTransactions": "لا توجد عمليات سابقة",
+  "fundSuccess": "تم تقديم طلب الشحن بنجاح وفي انتظار الموافقة",
+  "amount": "المبلغ",
+  "receiptImage": "رابط الإيصال",
+  "processing": "جاري التنفيذ...",
+  "confirmPayment": "تأكيد الدفع",
+  "updateSuccess": "تم تحديث البيانات بنجاح!"
+
 
 }

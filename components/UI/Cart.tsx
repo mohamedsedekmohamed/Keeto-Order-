@@ -135,7 +135,7 @@ export default function Cart() {
     />
   ) : (
     <div className="flex items-center justify-center w-full h-full text-2xl font-bold text-yellow-600 bg-yellow-50">
-      {item.name[0]}
+{item.name?.[0] || "?"}
     </div>
   )}
 </div>
