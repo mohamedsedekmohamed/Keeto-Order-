@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
-import usePost from "../../../hooks/usePost"; // تأكد من مسار الـ hook
+import usePost from "@/hooks/usePost"; // تأكد من مسار الـ hook
 import { useRouter } from "next/navigation";
 
 // تعريف واجهات البيانات (Interfaces) لتسهيل التعامل مع TypeScript
