@@ -4,8 +4,7 @@ import { Search, Plus, X, Minus, LayoutGrid, Heart } from 'lucide-react';
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCartLocal } from "@/redux/cartSlice"; 
 import usePost from "@/app/hooks/usePost"; 
-import { MenuItem, Variation, VariationOption } from '@/types/menu';
-
+import { MenuItem, Variation, VariationOption } from "@/context/RestaurantContext";
 export default function RestaurantItms({ 
   menu, 
   restaurantId 
