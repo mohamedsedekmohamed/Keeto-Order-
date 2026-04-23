@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, ArrowRight } from "lucide-react";
-import { useLanguage } from "../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../context/LanguageContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import usePost from "../../../Hooks/usePost";
+import usePost from "@/hooks/usePost";
 import { useAuth } from "@/context/AuthContext";
 export default function EmailOnlyForm() {
   const { t } = useLanguage();

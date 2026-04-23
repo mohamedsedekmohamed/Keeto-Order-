@@ -2,9 +2,9 @@
 
 import { motion } from "framer-motion";
 import { ShieldCheck, ArrowRight } from "lucide-react";
-import { useLanguage } from "../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../context/LanguageContext";
 import { useRouter } from "next/navigation";
-import usePost from "../../../Hooks/usePost";
+import usePost from "@/hooks/usePost";
 import { useAuth } from "@/context/AuthContext";
 
 export default function VerifyResetCode() {

@@ -15,9 +15,9 @@ import {
   Image as ImageIcon
 } from "lucide-react";
 import { useLanguage } from "../../../../../context/LanguageContext";
-import useGet from "../../../../../hooks/useGet";
+import useGet from "@/hooks/useGet";
 // بافتراض وجود usePost لديك بناءً على نمط usePut
-import usePost from "../../../../../hooks/usePost"; 
+import usePost from "@/hooks/usePost"; 
 import { useParams } from "next/navigation";
 
 // 1. تعريف واجهات البيانات (Interfaces)

@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { KeyRound, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
-import { useLanguage } from "../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../context/LanguageContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import usePost from "../../../Hooks/usePost";
+import usePost from "@/hooks/usePost";
 import { toast } from "react-hot-toast";
 
 export default function ResetPassword() {

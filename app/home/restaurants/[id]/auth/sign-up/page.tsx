@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { 
   Mail, Lock, UserPlus, User, Eye, EyeOff, 
@@ -8,8 +8,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import Link from "next/link";
-import useGet from "../../../../../../hooks/useGet"; // تأكد من مسار الـ hook
-import usePost from "../../../../../../hooks/usePost"; // تأكد من مسار الـ hook
+import usePost from "@/hooks/usePost"; // تأكد من مسار الـ hook
 import { useRouter } from "next/navigation";
 
 // تعريف واجهات البيانات (Interfaces) لتسهيل التعامل مع TypeScript

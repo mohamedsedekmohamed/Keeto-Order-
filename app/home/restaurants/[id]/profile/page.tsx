@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
-  User, Mail, Camera, Save, LogOut, Shield, Settings, 
+  User, Mail, Save, LogOut, Shield, Settings, 
   Phone, MapPin, Wallet, BadgeCheck, Loader2 ,Plus
 } from "lucide-react";
 import { useLanguage } from "../../../../../context/LanguageContext";
-import useGet from "../../../../../hooks/useGet";
-import usePut from "../../../../../hooks/usePut"; // استدعاء usePut
+import useGet from "@/hooks/useGet";
+import usePut from "@/hooks/usePut"; // استدعاء usePut
 import { redirect, useParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import Link from "next/link";
