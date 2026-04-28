@@ -5,7 +5,6 @@ import { useLanguage } from "../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 // 👈 أضفنا استيراد Image هنا
-import Image from "next/image"; 
 import { 
   MapPin, 
   CreditCard, 
@@ -169,13 +168,12 @@ export default function Checkout() {
               }`}
             >
               <div className="relative w-10 h-10 overflow-hidden">
-                <Image
-                  src={method.image}
-                  alt={method.name}
-                  width={40}
-                  height={40}
-                  className="object-contain w-full h-full"
-                />
+              
+                <img
+  src={method.image || "/placeholder.jpg"}
+  alt={method.name || "image"}
+  className="object-cover w-full bg-gray-100 h-44"
+/>
               </div>
               <div className="flex-1">
                 <p className="font-bold">{method.name}</p>

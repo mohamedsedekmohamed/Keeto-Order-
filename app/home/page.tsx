@@ -5,7 +5,6 @@ import { RefreshCw, Utensils, LayoutGrid, Store, ChevronRight } from "lucide-rea
 import useGet from "@/app/hooks/useGet"; 
 import { useLanguage } from "../../context/LanguageContext";
 import Loading from "@/components/Loading";
-import Image from "next/image";
 import Link from "next/link";
 // --- Interfaces لتعريف هيكل البيانات ---
 interface Cuisine {
@@ -123,13 +122,13 @@ export default function HomePage() {
                 className="flex-shrink-0 group"
               >
                 <div className="relative w-40 h-48 rounded-[2.5rem] overflow-hidden shadow-lg group-hover:shadow-yellow-400/20 transition-all duration-500">
-                  <Image
-                    fill 
-                    sizes="(max-width: 768px) 100vw, 160px"
-                    src={cuisine.image} 
-                    alt={cuisine.name}
+              
+                  <img
+  src={cuisine.image || "/placeholder.jpg"}
+  alt={cuisine.name || "image"}
                     className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
-                  />
+/>
+                  
                   <div className="absolute inset-0 flex items-end justify-center p-4 bg-gradient-to-t from-black/90 via-black/20 to-transparent">
                     <span className="font-bold tracking-wide text-center text-white">{cuisine.name}</span>
                   </div>
@@ -167,13 +166,12 @@ export default function HomePage() {
               >
                 <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
                 <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
-                  <Image 
-                    fill 
-                    sizes="(max-width: 768px) 100vw, 160px"
-                    src={category.image} 
-                    alt={category.name}
+                 
+                  <img
+  src={category.cover || "/placeholder.jpg"}
+  alt={category.name || "image"}
                     className="object-cover w-full h-full transition-transform group-hover:scale-110"
-                  />
+/>
                 </div>
                 <h3 className="font-bold text-gray-800 transition-colors dark:text-white group-hover:text-yellow-500">
                   {category.name}
@@ -220,13 +218,12 @@ export default function HomePage() {
                   >
                     {/* Cover Image */}
                     <div className="relative w-full bg-gray-100 h-44 dark:bg-zinc-800">
-                      <Image
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        src={restaurant.cover}
-                        alt={`${restaurant.name} cover`}
+                     
+                      <img
+  src={restaurant.cover || "/placeholder.jpg"}
+  alt={restaurant.name || "image"}
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
+/>
                       {/* Gradient Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
@@ -237,13 +234,12 @@ export default function HomePage() {
                       {/* Logo (Floating over cover) */}
                       <div className="absolute top-[-2.5rem] right-6 w-20 h-20 bg-white dark:bg-zinc-900 rounded-2xl p-1.5 shadow-lg border border-gray-100 dark:border-zinc-700 z-10">
                         <div className="relative w-full h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-zinc-800">
-                          <Image
-                            fill
-                            sizes="80px"
-                            src={restaurant.logo}
-                            alt={`${restaurant.name} logo`}
+                         
+                          <img
+  src={restaurant.logo || "/placeholder.jpg"}
+  alt={restaurant.name || "image"}
                             className="object-cover"
-                          />
+/>
                         </div>
                       </div>
 

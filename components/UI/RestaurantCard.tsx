@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Clock, MapPin, Star, Share2, Heart } from "lucide-react";
 import fallbackLogo from "../../public/logo.jpeg";
 
@@ -12,13 +11,12 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
         <div className="relative flex">
           {/* اللوجو */}
           <div className="absolute left-0 w-24 h-24 overflow-hidden bg-white border-4 border-white rounded-full shadow-sm -top-12 md:-top-16 md:w-36 md:h-36 dark:border-zinc-800 dark:bg-zinc-900">
-            <Image 
-              src={restaurant?.logo || fallbackLogo} 
-              alt={`${restaurant?.name} Logo`} 
-              fill 
-              className="object-cover" 
-              unoptimized
-            />
+         
+            <img
+  src={restaurant?.logo  || "/placeholder.jpg"}
+  alt={restaurant.name || "image"}
+  className="object-cover"
+/>
           </div>
 
           {/* النصوص */}

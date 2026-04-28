@@ -15,7 +15,7 @@ import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Receipt } from "lucide-rea
 import Link from "next/link";
 import { useLanguage } from "../../context/LanguageContext";
 import Loading from "@/components/Loading";
-import Image from "next/image"; 
+
 import { useParams } from "next/navigation";
 export default function Cart() {
   const items = useAppSelector((state) => state.cart.items);
@@ -126,13 +126,12 @@ export default function Cart() {
   {/* 👈 أضفنا relative هنا للحاوية الأساسية */}
   
   {item.image ? (
-    <Image
-      src={item.image}
-      alt={item.name}
-      fill // 👈 سيملأ الـ div الذي يحتوي على relative
-      sizes="80px" // 👈 لأن الـ w-20 تساوي 80 بكسل
-      className="object-cover" // 👈 لضمان عدم تمدد الصورة بشكل سيئ
-    />
+  
+    <img
+  src={item.image || "/placeholder.jpg"}
+  alt={item.name || "image"}
+   className="object-cover"
+/>
   ) : (
     <div className="flex items-center justify-center w-full h-full text-2xl font-bold text-yellow-600 bg-yellow-50">
 {item.name?.[0] || "?"}

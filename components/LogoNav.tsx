@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
-import Image from "next/image";
+
 import {
   Search,
   Bell,
@@ -41,12 +41,12 @@ export default function LogoNav({
         <div className="flex items-center gap-12">
           {/* العودة للرئيسية الخاصة بالمطعم */}
           <Link href={`${basePath}`}>
-            <Image
-              src={restaurant?.logo || logo}
-              alt="logo"
-              width={40}
-              height={40}
-            />
+           
+            <img
+  src={restaurant?.logo || "/placeholder.jpg"}
+  alt={restaurant?.name || "image"}
+  className="object-cover w-10 h-10 rounded-full"
+/>
           </Link>
         </div>
 

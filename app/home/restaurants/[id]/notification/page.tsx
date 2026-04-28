@@ -17,7 +17,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import Image from "next/image";
+
 import toast from "react-hot-toast";
 
 export default function OrdersPage() {
@@ -117,7 +117,11 @@ export default function OrdersPage() {
               className="flex items-center gap-4 p-4 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl cursor-pointer hover:border-yellow-400 transition-all shadow-sm active:scale-[0.98]"
             >
               <div className="relative flex-shrink-0 w-16 h-16 overflow-hidden rounded-2xl bg-gray-50">
-                <Image src={order.restaurantImage} alt={order.restaurantName} fill className="object-cover" />
+                <img
+  src={order.restaurantImage || "/placeholder.jpg"}
+  alt={order.restaurantName || "image"}
+className="object-cover"  
+/>
               </div>
               <div className="flex-1">
                 <div className="flex items-start justify-between">
@@ -179,7 +183,10 @@ export default function OrdersPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="relative w-16 h-16 overflow-hidden shadow-md rounded-2xl">
-                          <Image src={selectedOrder.restaurantImage} alt="" fill className="object-cover" />
+                          <img
+  src={selectedOrder.restaurantImage || "/placeholder.jpg"}
+  alt={selectedOrder.name || "image"}
+ className="object-cover"/>
                         </div>
                         <div>
                           <h2 className="text-xl font-black">{selectedOrder.restaurantName}</h2>

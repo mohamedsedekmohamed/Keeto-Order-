@@ -3,14 +3,25 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     // يسمح بعرض الصور من أي رابط خارجي (أفضل خيار لو الروابط متغيرة)
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**', // علامة النجمتين تعني السماح لجميع المواقع
-      },
+  remotePatterns: [
       {
         protocol: 'http',
-        hostname: '**',
+        hostname: 'keetobcknd.keeto.org',
+        port: '',
+        pathname: '/uploads/**',
+      },
+      // يفضل إضافة نفس النطاق ببروتوكول https أيضاً للاحتياط
+      {
+        protocol: 'https',
+        hostname: 'keetobcknd.keeto.org',
+        port: '',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'example.com', // أضفته لأن رسالة الخطأ الأخيرة ذكرته
+        port: '',
+        pathname: '/images/**',
       },
     ],
     // إذا كنت تستخدم صور Base64 يفضل تفعيل هذا الخيار في بعض النسخ

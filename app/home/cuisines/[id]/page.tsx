@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../context/LanguageContext";
-import Image from "next/image";
+
 import useGet from "@/app/hooks/useGet";
 import Loading from "@/components/Loading";
 
@@ -69,24 +69,24 @@ export default function RestaurantsPage() {
             >
               {/* Cover */}
               <div className="relative w-full h-40">
-                <Image
-                  src={res.cover}
-                  alt={res.name}
-                  fill
+                
+                <img
+  src={res.cover || "/placeholder.jpg"}
+  alt={res.name || "image"}
                   className="object-cover"
-                />
+/>
               </div>
 
               {/* Info */}
               <div className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="relative w-12 h-12 overflow-hidden rounded-xl">
-                    <Image
-                      src={res.logo}
-                      alt={res.name}
-                      fill
-                      className="object-cover"
-                    />
+                
+                    <img
+  src={res.logo || "/placeholder.jpg"}
+  alt={res.name || "image"}
+                  className="object-cover"
+/>
                   </div>
 
                   <div>

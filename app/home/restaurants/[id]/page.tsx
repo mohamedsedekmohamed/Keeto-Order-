@@ -11,7 +11,7 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "../../../../context/LanguageContext"; 
 import { FaApple } from "react-icons/fa";
 import { FaGooglePlay } from "react-icons/fa";
-import Image from "next/image"; 
+
 import Loading from "@/components/Loading"; 
 // استيراد الـ Hook الخاص بالـ Context
 import { useRestaurant } from "@/context/RestaurantContext"; 
@@ -59,13 +59,12 @@ const { restaurant, isLoading ,isError } = useRestaurant();
         {/* اللوجو الخاص بالمطعم */}
         {restaurant?.logo && (
           <div className="relative mb-4 overflow-hidden border-4 border-white shadow-xl w-28 h-28 rounded-3xl dark:border-zinc-800 bg-gray-50">
-            <Image
-              fill
-              sizes="112px"
-              src={restaurant.logo}
-              alt={restaurant.name}
+         
+            <img
+  src={restaurant.cover || "/placeholder.jpg"}
+  alt={restaurant.name || "image"}
               className="object-cover"
-            />
+/>
           </div>
         )}
 

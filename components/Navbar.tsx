@@ -14,7 +14,7 @@ import {
   Menu,User
 } from "lucide-react";
 import NewKeetaLogo from "@/public/NewKeetaLogo.jpeg";
-import Image from "next/image";
+
 
 import { useToken } from "@/context/TokenContext";
 export default function Navbar() {
@@ -36,11 +36,13 @@ const { token } = useToken();
         <div className="flex items-center gap-12">
           {/* اللوجو بتأثير توهج (Neon Glow) في الدارك مود */}
           <Link href="/">
-          <Image
-  src={NewKeetaLogo}
-  alt="Keeto Logo"
+          
+
+<img
+  src={NewKeetaLogo || "/placeholder.jpg"}
+  alt={NewKeetaLogo || "image"}
   className="w-16 h-auto transition-all duration-500 dark:drop-shadow-[0_0_6px_rgba(253,224,71,0.8)]"
-/> 
+/>
           </Link>
 
           {/* روابط الصفحات */}
