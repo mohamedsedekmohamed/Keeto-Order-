@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 
 import { MenuItem, Variation, VariationOption } from "@/context/RestaurantContext";
 import api from '@/api/api';
+import useGet from '@/app/hooks/useGet';
 export default function RestaurantItms({ 
   menu, 
   restaurantId,
@@ -28,7 +29,8 @@ export default function RestaurantItms({
 const token = localStorage.getItem('token');
   // Hooks لطلبات الـ API
   const { postData: toggleFav } = usePost('/api/user/favlist/toggle');
-
+ const {data:datadav ,refetch}=useGet<any>(`/api/user/favlist`);
+ const favoritesList=datadav?.data?.data?.foods?.map((item:any) => item.id) || [];
   const { dynamicCategories, dynamicItems } = useMemo(() => {
     const cats = [{ id: 'all', name: 'الكل' }];
     const itms: (MenuItem & { categoryId: string })[] = [];
@@ -119,7 +121,7 @@ const token = localStorage.getItem('token');
 
     try {
       await toggleFav({ foodId }, null, isCurrentlyFavorite ? "تمت الإزالة من المفضلة" : "تمت الإضافة للمفضلة");
-      
+      refetch();
     } catch (error) {
        setFavorites((prev) => isCurrentlyFavorite ? [...prev, foodId] : prev.filter((id) => id !== foodId));
     }
@@ -255,7 +257,7 @@ setLoading(false);
               {filteredItems.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {filteredItems.map((item) => {
-                    const isFavorite = favorites.includes(item.id);
+                    const isFavorite = favoritesList.includes(item.id);
                     return (
                       <div 
                         key={item.id} 
