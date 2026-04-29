@@ -12,6 +12,7 @@ import usePut from "@/app/hooks/usePut"; // استدعاء usePut
 import { redirect, useParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import Link from "next/link";
+
 // تعريف واجهات البيانات
 interface UserLocation {
   country: string;
@@ -44,11 +45,14 @@ interface ProfileApiResponse {
 export default function ProfilePage() {
   const { t } = useLanguage();
   const { logout } = useToken();
-
+    const params = useParams();
+  
+    const restaurantId = (params?.id as string);
+    const restaurantName =params.slug as string;
+  
+    const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
   // 1. جلب بيانات المستخدم
   const { data: profileResponse, loading: isFetching, refetch } = useGet<ProfileApiResponse>('/api/user/profile');
-     const params = useParams<{ id: string }>();
-          const basePath = `/home/restaurants/${params.id}`;
   // 2. إعداد دالة التحديث
   const { putData, loading: isUpdating } = usePut('/api/user/profile');
   
@@ -186,7 +190,7 @@ export default function ProfilePage() {
                 <button 
                 onClick={()=>{
 logout();
-                  redirect("/")
+                  redirect(basePath)
                 }}
                 className="flex items-center justify-center w-full gap-2 py-3 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl">
                   <LogOut size={18} />

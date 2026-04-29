@@ -176,6 +176,12 @@
   "updateSuccess": "Profile updated successfully!",
   "quantityUpdated": "Quantity updated successfully!",
   "itemRemoved": "Item removed successfully!",
-  "cartCleared": "Cart cleared successfully!"
+  "cartCleared": "Cart cleared successfully!",
+  "confirm": "Confirm",
+  "addedToCart": "Item added to cart successfully!",
+  "removedFromCart": "Item removed from cart successfully!",
+  "address-deleted-success": "Address deleted successfully!",
+  "loginFirst": "Please login first",
+  "You have food from another restaurant": "You have food from another restaurant"
 }
 

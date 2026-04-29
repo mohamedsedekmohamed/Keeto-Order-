@@ -38,9 +38,10 @@ const handleDeleteClick = (id: string) => {
   setDeleteId(id);
   setShowDeleteModal(true);
 };
-  const restaurantId = (params?.id as string) || restaurant?.id;
-  const basePath = `/home/restaurants/${restaurantId}`;
 
+  const restaurantId = (params?.id as string) || restaurant?.id;
+  const restaurantName = params.slug as string;
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
   // APIs
   const { data: addressesRes, loading: loadingAddresses, error: errorAddresses, refetch } = useGet<any>("/api/user/address");
   const { data: zonesRes, loading: loadingZones, error: errorZones } = useGet<any>("/api/user/address/zone");
@@ -109,7 +110,7 @@ const handleDeleteClick = (id: string) => {
   if (!deleteId) return;
 
   try {
-    await deleteData(`/api/user/address/${deleteId}`);
+    await deleteData(`/api/user/address/${deleteId}`, t("address-deleted-success"));
     refetch();
   } finally {
     setShowDeleteModal(false);

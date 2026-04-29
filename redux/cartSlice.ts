@@ -38,19 +38,36 @@ const cartSlice = createSlice({
     setCartItems: (state, action: PayloadAction<CartItem[]>) => {
       state.items = action.payload;
     },
-
-    // ➕ إضافة عنصر محلياً بعد الـ POST
+// ➕ إضافة عنصر محلياً
     addToCartLocal: (state, action: PayloadAction<CartItem>) => {
-      const existing = state.items.find((item) => item.cartId === action.payload.cartId);
+      const newItem = action.payload;
+      
+      // البحث عن منتج مطابقة (نفس النوع ونفس الإضافات)
+      const existingIndex = state.items.findIndex((item) => {
+        const isSameFood = item.foodId === newItem.foodId;
+        // تحويل المصفوفة لنص للمقارنة العميقة بين الإضافات
+        const isSameVariations = JSON.stringify(item.variations) === JSON.stringify(newItem.variations);
+        return isSameFood && isSameVariations;
+      });
 
-      if (existing) {
-        existing.quantity += action.payload.quantity;
-        existing.totalPrice = Number(existing.unitPrice) * existing.quantity; 
+      if (existingIndex !== -1) {
+        // تحديث الكمية والسعر للعنصر الموجود
+        const existingItem = state.items[existingIndex];
+        existingItem.quantity += Number(newItem.quantity);
+        existingItem.totalPrice = Number(existingItem.unitPrice) * existingItem.quantity;
+        // تحديث الـ cartId لضمان المزامنة مع السيرفر لاحقاً
+        existingItem.cartId = newItem.cartId; 
       } else {
-        state.items.push(action.payload);
+        // إضافة منتج جديد
+        state.items.push({
+          ...newItem,
+          quantity: Number(newItem.quantity),
+          totalPrice: Number(newItem.unitPrice) * Number(newItem.quantity)
+        });
       }
     },
-
+    // ➕ إضافة عنصر محلياً بعد الـ POST
+ 
     // ❌ حذف عنصر (بعد الـ DELETE من الـ API)
     removeFromCartLocal: (state, action: PayloadAction<string>) => {
       state.items = state.items.filter((item) => item.cartId !== action.payload);

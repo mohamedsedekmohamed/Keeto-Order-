@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import toast from "react-hot-toast";
+import { useParams } from "next/navigation";
 
 export default function OrdersPage() {
   const { t } = useLanguage();
@@ -32,9 +33,22 @@ export default function OrdersPage() {
   // 2. جلب القوائم (Active/History) باستخدام الـ Hook الخاص بك
   const { data: activeData, loading: loadingActive } = useGet<any>("/api/user/order/active");
   const { data: historyData, loading: loadingHistory } = useGet<any>("/api/user/order/history");
+const normalize = (str: string) => str?.toLowerCase().trim();
+  const params = useParams();
 
-  const activeOrders = activeData?.data?.data || [];
-  const historyOrders = historyData?.data?.data || [];
+  const restaurantId = (params?.id as string) ;
+  const restaurantName = params.slug as string;
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
+const activeOrders = (activeData?.data?.data || []).filter(
+  (order: any) =>
+    normalize(order.restaurantName) === normalize(restaurantName)
+);
+
+const historyOrders = (historyData?.data?.data || []).filter(
+  (order: any) =>
+    normalize(order.restaurantName) === normalize(restaurantName)
+);
+
   const currentOrders = activeTab === "active" ? activeOrders : historyOrders;
   const isLoadingList = activeTab === "active" ? loadingActive : loadingHistory;
 

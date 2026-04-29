@@ -2,15 +2,23 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Plus, X, Minus, LayoutGrid, Heart } from 'lucide-react';
 import { useAppDispatch } from "@/redux/hooks";
-import { addToCartLocal } from "@/redux/cartSlice"; 
 import usePost from "@/app/hooks/usePost"; 
+import { useLanguage } from "../../context/LanguageContext";
+import toast from "react-hot-toast";
+import { 
+
+  setCartItems
+} from "@/redux/cartSlice";
 import { MenuItem, Variation, VariationOption } from "@/context/RestaurantContext";
+import api from '@/api/api';
 export default function RestaurantItms({ 
   menu, 
-  restaurantId 
+  restaurantId,
+  onCartUpdated 
 }: { 
   menu: Record<string, MenuItem[]> | null, 
-  restaurantId: string 
+  restaurantId: string ,
+  onCartUpdated: () => void
 }) {
   const dispatch = useAppDispatch();
   const [activeCategory, setActiveCategory] = useState('all');
@@ -19,7 +27,8 @@ export default function RestaurantItms({
   const [quantity, setQuantity] = useState(1);
   const [favorites, setFavorites] = useState<string[]>([]); 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
-
+  const { t } = useLanguage();
+const token = localStorage.getItem('token');
   // Hooks لطلبات الـ API
   const { postData: addToCartApi, loading: addingToCart } = usePost("/api/user/cart");
   const { postData: toggleFav } = usePost('/api/user/favlist/toggle');
@@ -61,6 +70,10 @@ export default function RestaurantItms({
   };
 
   const handleOptionSelect = (variation: Variation, option: VariationOption) => {
+    if (!token) {
+      toast.error(t('loginFirst'));
+      return;
+    };
     setSelectedOptions(prev => {
       const currentSelections = prev[variation.id] || [];
       if (variation.selectionType === 'single') {
@@ -83,6 +96,7 @@ export default function RestaurantItms({
   };
 
   const calculateTotalPrice = () => {
+     
     if (!selectedItem) return 0;
     let totalBase = parseFloat(selectedItem.price || "0");
     Object.entries(selectedOptions).forEach(([variationId, optionIds]) => {
@@ -98,6 +112,11 @@ export default function RestaurantItms({
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent, foodId: string) => {
+      if (!token) {
+           toast.error(t('loginFirst'));
+
+      return;
+    };
     e.stopPropagation(); 
     const isCurrentlyFavorite = favorites.includes(foodId);
     setFavorites((prev) => isCurrentlyFavorite ? prev.filter((id) => id !== foodId) : [...prev, foodId]);
@@ -110,36 +129,35 @@ export default function RestaurantItms({
   };
 
   // دالة الإضافة للسلة عبر الـ API
-  const handleAddToCartSubmit = async () => {
-    if (!selectedItem) return;
+ // دالة الإضافة للسلة عبر الـ API
+const handleAddToCartSubmit = async () => {
+  if (!token) {
+    toast.error(t('loginFirst'));
+    return;
+  }
+  if (!selectedItem) return;
 
-    try {
-      // 1. تجهيز الـ variations بالشكل الذي يطلبه الباك إند
-      const formattedVariations = Object.entries(selectedOptions).flatMap(([varId, optIds]) => 
-        optIds.map(optId => ({ variationId: varId, optionId: optId }))
-      );
+  try {
+    const formattedVariations = Object.entries(selectedOptions).flatMap(([varId, optIds]) => 
+      optIds.map(optId => ({ variationId: varId, optionId: optId }))
+    );
 
-      const body = {
-        foodId: selectedItem.id,
-        quantity: quantity,
-        variations: formattedVariations
-      };
+    const body = {
+      foodId: selectedItem.id,
+      quantity: quantity,
+      variations: formattedVariations
+    };
 
-      // 2. إرسال الطلب للسيرفر
-      const response = await addToCartApi(body, null, "تمت الإضافة للسلة بنجاح");
+    await addToCartApi(body, null, t('addedToCart'));
 
-      // 3. تحديث Redux إذا السيرفر أرجع بيانات العنصر المُضاف
-      if (response && response.data) {
-         dispatch(addToCartLocal(response.data));
-      } else {
-         console.warn("API succeeded but didn't return cart item data to update Redux.");
-      }
+    
+onCartUpdated(); 
+    setSelectedItem(null);
 
-      setSelectedItem(null);
-    } catch (error) {
-      // رسالة الخطأ يتم التعامل معها في الـ hook تلقائياً
-    }
-  };
+  } catch (error) {
+    console.error("Cart Error:", error);
+  }
+};
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
@@ -216,7 +234,6 @@ export default function RestaurantItms({
                     return (
                       <div 
                         key={item.id} 
-                        onClick={() => handleItemClick(item)}
                         className="relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm cursor-pointer dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 hover:shadow-md group"
                       >
                         <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl">
@@ -239,7 +256,8 @@ export default function RestaurantItms({
                           <div className="flex items-center justify-between mt-3">
                             <span className="font-bold text-yellow-500">{item.price} E£</span>
                             <div className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl">
-                              <Plus size={18} />
+                              <Plus size={18}                          onClick={() => handleItemClick(item)}
+/>
                             </div>
                           </div>
                         </div>

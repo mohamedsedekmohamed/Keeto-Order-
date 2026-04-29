@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
 
 import {
-  Search,
   Bell,
   ShoppingCart,
   User,
@@ -55,13 +54,13 @@ export default function LogoNav({
          
           {/* Notification */}
           {token && (
+            <>
           <Link
             href={`${basePath}/address`}
             className="relative text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
-          >
+            >
             <FaLocationCrosshairs className="w-5 h-5" />
           </Link>
-          )}
           <Link
             href={`${basePath}/notification`}
             className="relative text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
@@ -77,6 +76,9 @@ export default function LogoNav({
           >
             <ShoppingCart className="w-5 h-5" />
           </Link>
+            </>
+          )}
+          
 
           {/* Profile / Login */}
           {token ? (

@@ -173,7 +173,16 @@
   "updateSuccess": "تم تحديث البيانات بنجاح!",
   "quantityUpdated": "تم تحديث الكمية بنجاح!",
 "cartCleared": "تم مسح السلة بنجاح!",
-  "itemRemoved": "تم حذف الصنف بنجاح!"
+  "itemRemoved": "تم حذف الصنف بنجاح!",
+  "confirm": "تاكيد",
+  "noItems": "لا يوجد صنفات في السلة",
+  "checkout": "الدفع",
+  "addedToCart": "تمت اضافة الصنف الى السلة",
+  "removedFromCart": "تم حذف الصنف من السلة",
+  "selectPaymentMethod": "يرجى اختيار طريقة الدفع",
+  "address-deleted-success": "تم حذف العنوان بنجاح!",
+  "loginFirst": "يرجى تسجيل الدخول اولاً",
+  "You have food from another restaurant": "لديك طعام من مطعم اخر"
 
 
 }

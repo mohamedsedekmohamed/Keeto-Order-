@@ -14,18 +14,20 @@ type DeleteResponse = {
 };
 
 type UseDeleteReturn<T> = {
-  deleteData: (customUrl?: string | null) => Promise<T>;
+  deleteData: (customUrl?: string | null,   customSuccessMessage?: string) => Promise<T>;
   loading: boolean;
   error: string | null;
 };
 
 export default function useDelete<T = DeleteResponse>(
-  defaultUrl: string
+  defaultUrl: string,
+    successMessage: string = "Deleted successfully!"
+
 ): UseDeleteReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const deleteData = async (customUrl: string | null = null): Promise<T> => {
+  const deleteData = async (customUrl: string | null = null,    customSuccessMessage?: string): Promise<T> => {
     try {
       setLoading(true);
       setError(null);
@@ -34,7 +36,7 @@ export default function useDelete<T = DeleteResponse>(
       const response = res.data as DeleteResponse;
 
       if (response?.success) {
-        toast.success("Deleted successfully!");
+        toast.success(customSuccessMessage || successMessage);
       } else if (response?.error?.message) {
         toast.error(response.error.message);
       }
