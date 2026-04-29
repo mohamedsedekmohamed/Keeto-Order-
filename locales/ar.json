@@ -1,4 +1,6 @@
 {
+   "confirm-delete": "تأكيد الحذف",
+  "are-you-sure-delete": "هل أنت متأكد أنك تريد حذف هذا العنوان؟ لا يمكن التراجع عن هذا الإجراء.",
   "location": "موقعك الحالي:",
   "egypt": "مصر",
   "home": "الرئيسية",
@@ -168,7 +170,10 @@
   "receiptImage": "رابط الإيصال",
   "processing": "جاري التنفيذ...",
   "confirmPayment": "تأكيد الدفع",
-  "updateSuccess": "تم تحديث البيانات بنجاح!"
+  "updateSuccess": "تم تحديث البيانات بنجاح!",
+  "quantityUpdated": "تم تحديث الكمية بنجاح!",
+"cartCleared": "تم مسح السلة بنجاح!",
+  "itemRemoved": "تم حذف الصنف بنجاح!"
 
 
 }

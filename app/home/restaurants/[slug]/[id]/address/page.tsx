@@ -32,7 +32,12 @@ const AddressPage = () => {
   const { token, isReady } = useToken();
   const params = useParams();
   const router = useRouter();
-
+const [deleteId, setDeleteId] = useState<string | null>(null);
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const handleDeleteClick = (id: string) => {
+  setDeleteId(id);
+  setShowDeleteModal(true);
+};
   const restaurantId = (params?.id as string) || restaurant?.id;
   const basePath = `/home/restaurants/${restaurantId}`;
 
@@ -100,16 +105,17 @@ const AddressPage = () => {
   };
 
   // دالة عند الضغط على زر الحذف
-  const handleDeleteClick = async (id: string) => {
-    if (!window.confirm(t("confirm-delete"))) return;
+  const confirmDelete = async () => {
+  if (!deleteId) return;
 
-    try {
-      await deleteData(`/api/user/address/${id}`);
-      refetch();
-    } catch (error) {
-      // الأخطاء يتم التعامل معها في الـ Hooks
-    }
-  };
+  try {
+    await deleteData(`/api/user/address/${deleteId}`);
+    refetch();
+  } finally {
+    setShowDeleteModal(false);
+    setDeleteId(null);
+  }
+};
 
   const inputClass = "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white";
   const isLoading = posting || putting;
@@ -250,7 +256,37 @@ const AddressPage = () => {
           </div>
         )}
       </div>
+      {showDeleteModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="w-full max-w-md p-6 bg-white rounded-2xl dark:bg-zinc-900">
       
+      <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
+        {t("confirm-delete")}
+      </h2>
+
+      <p className="mt-2 text-sm text-zinc-500">
+        {t("are-you-sure-delete")}
+      </p>
+
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="flex-1 px-4 py-2 font-semibold bg-zinc-100 rounded-xl dark:bg-zinc-800"
+        >
+          {t("cancel")}
+        </button>
+
+        <button
+          onClick={confirmDelete}
+          className="flex-1 px-4 py-2 font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600"
+        >
+          {t("delete")}
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 };

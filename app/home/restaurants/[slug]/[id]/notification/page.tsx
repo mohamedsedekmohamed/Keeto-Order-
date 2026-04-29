@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useLanguage } from "../../../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import api from "@/api/api";
 import { motion, AnimatePresence } from "framer-motion";

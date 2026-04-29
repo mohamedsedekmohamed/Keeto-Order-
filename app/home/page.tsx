@@ -43,7 +43,13 @@ interface HomeData {
 export default function HomePage() {
   const { t } = useLanguage();
   const isRtl = typeof document !== 'undefined' && document.dir === 'rtl';
-
+const slugify = (name: string) => {
+  return name
+    ?.toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]+/g, "");
+};
   // ربط الـ API بالنوع المخصص
   const { data, loading, error, refetch } = useGet<HomeData>("/api/user/home");
 
@@ -205,8 +211,9 @@ export default function HomePage() {
                {content?.restaurants?.map((restaurant, index) => (
                 <Link 
       key={restaurant.id} 
-      href={`/home/restaurants/${restaurant.id}`}
+      // href={`/home/restaurants/${restaurant.id}`}
       className="block"
+  href={`/home/restaurants/${slugify(restaurant.name)}/${restaurant.id}`}
     >
       
                   <motion.div

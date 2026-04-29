@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLanguage } from "../../../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 // 👈 أضفنا استيراد Image هنا
@@ -21,8 +21,10 @@ import toast from "react-hot-toast";
 export default function Checkout() {
   const { t } = useLanguage();
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-      const basePath = `/home/restaurants/${params.id}`;
+    const params = useParams();
+   const restaurantId = (params?.id as string) ;
+     const restaurantName =params.slug as string;
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
 
   const [orderType, setOrderType] = useState<"delivery" | "takeaway" | "dine_in">("delivery");
   const [selectedAddress, setSelectedAddress] = useState("");
@@ -103,26 +105,44 @@ export default function Checkout() {
             <MapPin size={20} className="text-yellow-500" /> {t("deliveryAddress")}
           </h3>
           <div className="space-y-3">
-            {data?.addresses?.map((addr: any) => (
-              <div 
-                key={addr.id}
-                onClick={() => setSelectedAddress(addr.id)}
-                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  selectedAddress === addr.id ? "border-yellow-400 bg-white dark:bg-zinc-900" : "border-gray-100 dark:border-zinc-800"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl">
-                    <MapPin size={18} />
-                  </div>
-                  <div>
-                    <p className="font-bold">{addr.title}</p>
-                    <p className="text-sm text-gray-500">{addr.street}, {addr.number}</p>
-                  </div>
-                </div>
-                {selectedAddress === addr.id && <CheckCircle2 size={20} className="text-yellow-500" />}
-              </div>
-            ))}
+           {data?.addresses?.length === 0 ? (
+  <div className="p-6 text-center border-2 border-gray-200 border-dashed rounded-2xl dark:border-zinc-800">
+    <p className="mb-4 text-gray-500">{t("no-addresses-found")}</p>
+
+    <button
+      onClick={() => router.push(`${basePath}/address`)} // غيرها حسب صفحتك
+      className="px-5 py-2 font-bold text-black bg-yellow-400 rounded-xl hover:bg-yellow-500"
+    >
+      {t("add-address")}
+    </button>
+  </div>
+) : (
+  data?.addresses?.map((addr: any) => (
+    <div 
+      key={addr.id}
+      onClick={() => setSelectedAddress(addr.id)}
+      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+        selectedAddress === addr.id ? "border-yellow-400 bg-white dark:bg-zinc-900" : "border-gray-100 dark:border-zinc-800"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl">
+          <MapPin size={18} />
+        </div>
+        <div>
+          <p className="font-bold">{addr.title}</p>
+          <p className="text-sm text-gray-500">
+            {addr.street}, {addr.number}
+          </p>
+        </div>
+      </div>
+
+      {selectedAddress === addr.id && (
+        <CheckCircle2 size={20} className="text-yellow-500" />
+      )}
+    </div>
+  ))
+)}
           </div>
         </section>
       )}

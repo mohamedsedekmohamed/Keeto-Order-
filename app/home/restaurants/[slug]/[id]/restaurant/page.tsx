@@ -22,7 +22,9 @@ export default function Restaurant() {
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
   const { menu, isLoading: menuLoading } = useMenu();
    const restaurantId = (params?.id as string) || restaurant?.id;
-    const basePath = `/home/restaurants/${restaurantId}`;
+     const restaurantName =params.slug as string;
+
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
 
   // عرض شاشة تحميل بسيطة أثناء جلب البيانات
   if (restaurantLoading || menuLoading) {

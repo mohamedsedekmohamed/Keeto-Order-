@@ -28,7 +28,13 @@ export default function ItemsPage() {
   const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const categoryId = params.id;
-
+const slugify = (name: string) => {
+  return name
+    ?.toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]+/g, "");
+};
   const { data, loading, error } = useGet<Response>(
     `/api/user/home/categories/${categoryId}/items`
   );
@@ -59,8 +65,8 @@ export default function ItemsPage() {
       {/* Items */}
       <div className="grid max-w-4xl grid-cols-1 gap-6 mx-auto sm:grid-cols-2">
         {items.map((item, i) => (
-                      <Link key={item.restaurantId} 
-                      href={`/home/restaurants/${item.restaurantId}`}>
+                      <Link key={item.foodId} 
+                      href={`/home/restaurants/${slugify(item.restaurantName)}/${item.restaurantId}`}>
 
           <motion.div
             key={item.foodId}
@@ -102,7 +108,7 @@ export default function ItemsPage() {
                 </div>
 
                 <Link
-                  href={`/restaurant/${item.restaurantId}`}
+                      href={`/home/restaurants/${slugify(item.restaurantName)}/${item.restaurantId}`}
                   className="text-sm text-gray-500 hover:text-yellow-500"
                 >
                   {item.restaurantName}

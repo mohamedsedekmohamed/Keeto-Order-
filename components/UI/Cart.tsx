@@ -15,14 +15,17 @@ import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Receipt } from "lucide-rea
 import Link from "next/link";
 import { useLanguage } from "../../context/LanguageContext";
 import Loading from "@/components/Loading";
-
+import toast from "react-hot-toast";
 import { useParams } from "next/navigation";
 export default function Cart() {
   const items = useAppSelector((state) => state.cart.items);
   const dispatch = useAppDispatch();
   const { t } = useLanguage();
-  const params = useParams<{ id: string }>();
-      const basePath = `/home/restaurants/${params.id}`;
+    const params = useParams();
+   const restaurantId = (params?.id as string) ;
+     const restaurantName =params.slug as string;
+
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
   // 👈 1. جلب البيانات عند فتح الصفحة
   const { data: cartData, loading: fetchingCart } = useGet<any>("/api/user/cart");
   
@@ -49,18 +52,20 @@ export default function Cart() {
 
     try {
       await putData({ quantity: newQuantity }, `/api/user/cart/${cartId}`);
+      toast.success(t("quantityUpdated"));
       dispatch(updateQuantityLocal({ cartId, quantity: newQuantity }));
     } catch (error) {
-      console.error(t("failedUpdateQuantity"));
+      toast.error(t("failedUpdateQuantity"));
     }
   };
 
   const handleRemoveItem = async (cartId: string) => {
     try {
       await deleteData(`/api/user/cart/${cartId}`);
+      toast.success(t("itemRemoved"));
       dispatch(removeFromCartLocal(cartId));
     } catch (error) {
-      console.error(t("failedRemoveItem"));
+      toast.error(t("failedRemoveItem"));
     }
   };
 
@@ -70,7 +75,7 @@ export default function Cart() {
       await deleteData("/api/user/cart"); 
       dispatch(clearCartLocal());
     } catch (error) {
-      console.error(t("failedClearCart"));
+      toast.error(t("failedClearCart"));
     }
   };
 
@@ -118,8 +123,8 @@ export default function Cart() {
       
       {/* Items */}
       <div className="space-y-4">
-        {items.map((item) => (
-          <div key={item.cartId} className="flex flex-col justify-between gap-4 p-4 transition-all duration-300 bg-white border shadow-sm sm:flex-row sm:items-center border-gray-100/60 hover:shadow-md dark:bg-zinc-900 dark:border-zinc-800 rounded-3xl">
+        {items.map((item , index) => (
+          <div key={index} className="flex flex-col justify-between gap-4 p-4 transition-all duration-300 bg-white border shadow-sm sm:flex-row sm:items-center border-gray-100/60 hover:shadow-md dark:bg-zinc-900 dark:border-zinc-800 rounded-3xl">
             
             <div className="flex items-center gap-4">
               <div className="relative flex-shrink-0 w-20 h-20 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800"> 

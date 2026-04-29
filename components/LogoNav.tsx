@@ -28,10 +28,9 @@ export default function LogoNav({
   const params = useParams();
 
   const restaurantId = (params?.id as string) || restaurant?.id;
-  
-  // بناء المسار الأساسي الذي طلبته
-  // مثال: /home/restaurants/5c4e0fbb-8cf5-4ceb-b8bd-5f313f5a000e
-  const basePath = `/home/restaurants/${restaurantId}`;
+  const restaurantName =params.slug as string;
+
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
 
   return (
     <header className="w-full font-sans shadow-sm dark:shadow-md dark:shadow-yellow-400/5 dark:border-b dark:border-gray-800">

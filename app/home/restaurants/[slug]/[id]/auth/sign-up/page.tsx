@@ -6,7 +6,7 @@ import {
   Mail, Lock, UserPlus, User, Eye, EyeOff, 
   ArrowRight, Phone, MapPin, Globe, Building2, Map 
 } from "lucide-react";
-import { useLanguage } from "../../../../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../../context/LanguageContext";
 import Link from "next/link";
 import usePost from "@/app/hooks/usePost"; // تأكد من مسار الـ hook
 import { useRouter } from "next/navigation";

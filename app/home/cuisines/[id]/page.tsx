@@ -28,7 +28,13 @@ export default function RestaurantsPage() {
   const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const cuisineId = params.id;
-
+const slugify = (name: string) => {
+  return name
+    ?.toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]+/g, "");
+};
   const { data, loading, error } = useGet<Response>(
     `/api/user/home/cuisines/${cuisineId}/restaurants`
   );
@@ -59,7 +65,7 @@ export default function RestaurantsPage() {
       {/* List */}
       <div className="grid max-w-4xl grid-cols-1 gap-6 mx-auto sm:grid-cols-2">
         {restaurants.map((res, i) => (
-          <Link key={res.id} href={`/home/restaurants/${res.id}`}>
+          <Link key={res.id} href={`/home/restaurants/${slugify(res.name)}/${res.id}`}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

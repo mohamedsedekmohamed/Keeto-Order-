@@ -1,4 +1,7 @@
 {
+   "confirm-delete": "Confirm Delete",
+  "are-you-sure-delete": "Are you sure you want to delete this address? This action cannot be undone.",
+
   "location": "Your Location:",
   "egypt": "Egypt",
   "home": "Home",
@@ -170,6 +173,9 @@
   "receiptImage": "Receipt Image Link",
   "processing": "Processing...",
   "confirmPayment": "Confirm Payment",
-  "updateSuccess": "Profile updated successfully!"
+  "updateSuccess": "Profile updated successfully!",
+  "quantityUpdated": "Quantity updated successfully!",
+  "itemRemoved": "Item removed successfully!",
+  "cartCleared": "Cart cleared successfully!"
 }
 

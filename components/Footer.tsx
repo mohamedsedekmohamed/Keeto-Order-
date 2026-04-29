@@ -2,11 +2,20 @@
 import React from 'react';
 import { FaFacebook, FaInstagram, FaTwitter, FaHeart } from 'react-icons/fa';
 import { useLanguage } from "../context/LanguageContext";
+import { useRestaurant } from "@/context/RestaurantContext";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 const Footer = () => {
     const {  t } = useLanguage();
+  const { restaurant } = useRestaurant();
 
   const currentYear = new Date().getFullYear();
+const params = useParams();
+
+  const restaurantId = (params?.id as string) || restaurant?.id;
+  const restaurantName =params.slug as string;
+  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
 
   return (
     <footer className="transition-colors duration-300 bg-white border-t border-gray-100 dark:bg-zinc-950 dark:border-zinc-900">
@@ -16,9 +25,14 @@ const Footer = () => {
           
           {/* الجانب الأيمن: البراند والوصف */}
           <div className="text-center md:text-right">
+                      <Link href={`${basePath}`}>
+
             <h2 className="mb-2 text-2xl font-black tracking-tight text-yellow-400">
-              KEETO
+              
+              {restaurant?.name }
             </h2>
+                      </Link>
+
             <p className="max-w-xs text-sm text-gray-500 dark:text-zinc-400">
               {t('description')}
             </p>

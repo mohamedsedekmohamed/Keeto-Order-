@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ShieldCheck, ArrowRight } from "lucide-react";
-import { useLanguage } from "../../../../../../context/LanguageContext";
+import { useLanguage } from "../../../../../../../context/LanguageContext";
 import { useRouter } from "next/navigation";
 import usePost from "@/app/hooks/usePost";
 import { useAuth } from "@/context/AuthContext";

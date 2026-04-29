@@ -8,9 +8,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; 
-import { useLanguage } from "../../../../context/LanguageContext"; 
+import { useLanguage } from "../../../../../context/LanguageContext"; 
 import { FaApple } from "react-icons/fa";
 import { FaGooglePlay } from "react-icons/fa";
+import { useParams } from "next/navigation";
 
 import Loading from "@/components/Loading"; 
 // استيراد الـ Hook الخاص بالـ Context
@@ -19,6 +20,12 @@ import { useRestaurant } from "@/context/RestaurantContext";
 export default function Home() {
   const { t } = useLanguage();
   const pathname = usePathname(); 
+    const params = useParams();
+  
+    const restaurantId = (params?.id as string);
+    const restaurantName =params.slug as string;
+  
+    const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
   
  
 const { restaurant, isLoading ,isError } = useRestaurant();
@@ -83,7 +90,7 @@ const { restaurant, isLoading ,isError } = useRestaurant();
       <div className="grid w-full max-w-md grid-cols-2 gap-5 mt-12">
         {cards.map((item, i) => {
           const Icon = item.icon;
-          const finalHref = pathname === "/" ? item.nameToAdd : `${pathname}${item.nameToAdd}`;
+          const finalHref =  `${basePath}/${item.nameToAdd}`;
 
           return (
             <Link key={i} href={finalHref}>
@@ -119,7 +126,7 @@ const { restaurant, isLoading ,isError } = useRestaurant();
         className="w-full max-w-md"
       >
         <Link
-          href={pathname === "/" ? "/order" : `${pathname}/order`}
+          href={`${pathname}/restaurant`}
           className="flex items-center justify-center gap-3 py-4 mt-10 text-lg font-bold text-gray-900 transition-all duration-300 bg-yellow-400 shadow-sm rounded-2xl hover:bg-yellow-500 shadow-yellow-400/10 active:scale-95"
         >
           <motion.div
