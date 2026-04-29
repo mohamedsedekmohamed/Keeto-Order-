@@ -182,7 +182,10 @@
   "selectPaymentMethod": "يرجى اختيار طريقة الدفع",
   "address-deleted-success": "تم حذف العنوان بنجاح!",
   "loginFirst": "يرجى تسجيل الدخول اولاً",
-  "You have food from another restaurant": "لديك طعام من مطعم اخر"
+  "You have food from another restaurant": "لديك طعام من مطعم اخر",
+  "addToCart": "اضافة الى السلة",
+ 
+  "alreadyInCart": "عندك منتجات من مطعم تاني"
 
 
 }

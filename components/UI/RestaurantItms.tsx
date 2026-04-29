@@ -5,10 +5,7 @@ import { useAppDispatch } from "@/redux/hooks";
 import usePost from "@/app/hooks/usePost"; 
 import { useLanguage } from "../../context/LanguageContext";
 import toast from "react-hot-toast";
-import { 
 
-  setCartItems
-} from "@/redux/cartSlice";
 import { MenuItem, Variation, VariationOption } from "@/context/RestaurantContext";
 import api from '@/api/api';
 export default function RestaurantItms({ 
@@ -20,17 +17,16 @@ export default function RestaurantItms({
   restaurantId: string ,
   onCartUpdated: () => void
 }) {
-  const dispatch = useAppDispatch();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [favorites, setFavorites] = useState<string[]>([]); 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
 const token = localStorage.getItem('token');
   // Hooks لطلبات الـ API
-  const { postData: addToCartApi, loading: addingToCart } = usePost("/api/user/cart");
   const { postData: toggleFav } = usePost('/api/user/favlist/toggle');
 
   const { dynamicCategories, dynamicItems } = useMemo(() => {
@@ -123,6 +119,7 @@ const token = localStorage.getItem('token');
 
     try {
       await toggleFav({ foodId }, null, isCurrentlyFavorite ? "تمت الإزالة من المفضلة" : "تمت الإضافة للمفضلة");
+      
     } catch (error) {
        setFavorites((prev) => isCurrentlyFavorite ? [...prev, foodId] : prev.filter((id) => id !== foodId));
     }
@@ -135,27 +132,55 @@ const handleAddToCartSubmit = async () => {
     toast.error(t('loginFirst'));
     return;
   }
+
   if (!selectedItem) return;
 
   try {
-    const formattedVariations = Object.entries(selectedOptions).flatMap(([varId, optIds]) => 
-      optIds.map(optId => ({ variationId: varId, optionId: optId }))
+    const formattedVariations = Object.entries(selectedOptions).flatMap(
+      ([varId, optIds]) =>
+        optIds.map((optId) => ({
+          variationId: varId,
+          optionId: optId,
+        }))
     );
 
     const body = {
       foodId: selectedItem.id,
       quantity: quantity,
-      variations: formattedVariations
+      variations: formattedVariations,
     };
+    // ✅ axios بدل usePost
+    await api.post("/api/user/cart", body);
 
-    await addToCartApi(body, null, t('addedToCart'));
+    // نجاح
+    toast.success(t("addedToCart"));
+setLoading(false);
 
-    
-onCartUpdated(); 
+    // تحديث الكارت من السيرفر
+    onCartUpdated();
+
     setSelectedItem(null);
 
-  } catch (error) {
-    console.error("Cart Error:", error);
+  } catch (error: any) {
+
+    // ✅ التحكم في status code
+    if (error.response) {
+      setLoading(false);
+
+      const status = error.response.status;
+
+      if (status === 409) {
+        toast.error(t("alreadyInCart"));
+      } else if (status === 400) {
+        toast.error("بيانات غير صحيحة");
+      } else if (status === 401) {
+        toast.error(t("loginFirst"));
+      } else {
+        toast.error("حدث خطأ ما، حاول مرة أخرى");
+      }
+    } else {
+      toast.error("تحقق من الاتصال بالإنترنت");
+    }
   }
 };
 
@@ -370,11 +395,11 @@ onCartUpdated();
 
                 {/* زر الإضافة للسلة يستخدم الدالة الجديدة */}
                 <button 
-                  disabled={addingToCart}
+                disabled={loading}
                   className="w-full bg-yellow-400 hover:bg-yellow-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-yellow-400/10 transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                   onClick={handleAddToCartSubmit}
                 >
-                  {addingToCart ? "جاري الإضافة..." : "إضافة للسلة"}
+                  { loading ? t("loading") : t("addToCart")}
                 </button>
               </div>
             </div>

@@ -44,7 +44,7 @@
   "signUp": "Sign Up",
   "haveAccount": "Already have an account?",
   "SignInbtn": "Sign In",
- 
+ "addToCart": "Add to Cart",
 
   "phone": "Phone Number",
   "country": "Country",
@@ -182,6 +182,8 @@
   "removedFromCart": "Item removed from cart successfully!",
   "address-deleted-success": "Address deleted successfully!",
   "loginFirst": "Please login first",
-  "You have food from another restaurant": "You have food from another restaurant"
+  "You have food from another restaurant": "You have food from another restaurant",
+"alreadyInCart": "You already have items from another restaurant",
+"addToCart": "Add to Cart"
 }
 
