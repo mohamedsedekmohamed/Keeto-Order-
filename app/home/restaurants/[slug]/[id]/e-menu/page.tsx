@@ -46,7 +46,7 @@ export default function RestaurantLinkPage() {
 
   const categories = menu ? Object.keys(menu) : [];
 
-
+const isRtl = language === "العربية";
   return (
     // حقن متغيرات الثيم هنا
     <div 
