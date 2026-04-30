@@ -41,8 +41,9 @@ interface HomeData {
 }
 
 export default function HomePage() {
-  const { t } = useLanguage();
-  const isRtl = typeof document !== 'undefined' && document.dir === 'rtl';
+  const { t , language} = useLanguage();
+  
+const isRtl = language === "العربية";
 const slugify = (name: string) => {
   return name
     ?.toLowerCase()
