@@ -41,7 +41,8 @@ interface HomeData {
 }
 
 export default function HomePage() {
-  const { t , language} = useLanguage();
+  const { t , language} 
+  = useLanguage();
   
 const isRtl = language === "العربية";
 const slugify = (name: string) => {
