@@ -174,7 +174,7 @@ const slugify = (name: string) => {
                 <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
                  
                   <img
-  src={category.cover || "/placeholder.jpg"}
+  src={category.image || "/placeholder.jpg"}
   alt={category.name || "image"}
                     className="object-cover w-full h-full transition-transform group-hover:scale-110"
 />
