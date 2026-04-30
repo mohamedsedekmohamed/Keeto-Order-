@@ -45,7 +45,7 @@ export default function RestaurantLinkPage() {
   }
 
   const categories = menu ? Object.keys(menu) : [];
-  const isRtl = language === 'ar';
+
 
   return (
     // حقن متغيرات الثيم هنا
