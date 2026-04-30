@@ -39,9 +39,9 @@ const { token } = useToken();
           
 
 <img
-  src={NewKeetaLogo || "/placeholder.jpg"}
-  alt={NewKeetaLogo || "image"}
-  className="w-16 h-auto transition-all duration-500 dark:drop-shadow-[0_0_6px_rgba(253,224,71,0.8)]"
+  src={NewKeetaLogo?.src || "/placeholder.jpg"}
+  alt="logo"
+  className="w-16 h-auto"
 />
           </Link>
 
