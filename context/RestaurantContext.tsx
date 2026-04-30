@@ -10,9 +10,13 @@ import useGet from "@/app/hooks/useGet";
 export interface Restaurant {
   id: string;
   name: string;
+  nameAr: string;
   logo: string;
   cover: string;
+  email: string;
   address: string;
+  addressAr: string;
+  ownerPhone: string;
   minDeliveryTime: string;
   maxDeliveryTime: string;
 }
