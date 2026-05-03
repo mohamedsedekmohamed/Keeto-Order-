@@ -1,10 +1,11 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo,useEffect } from 'react';
 import { Search, Plus, X, Minus, LayoutGrid, Heart } from 'lucide-react';
 import { useAppDispatch } from "@/redux/hooks";
 import usePost from "@/app/hooks/usePost"; 
 import { useLanguage } from "../../context/LanguageContext";
 import toast from "react-hot-toast";
+import axios from "axios";
 
 import { MenuItem, Variation, VariationOption } from "@/context/RestaurantContext";
 import api from '@/api/api';
@@ -29,8 +30,38 @@ export default function RestaurantItms({
 const token = localStorage.getItem('token');
   // Hooks لطلبات الـ API
   const { postData: toggleFav } = usePost('/api/user/favlist/toggle');
- const {data:datadav ,refetch}=useGet<any>(`/api/user/favlist`);
- const favoritesList=datadav?.data?.data?.foods?.map((item:any) => item.id) || [];
+  const [favoritesList, setFavoritesList] = useState<any[]>([]);
+useEffect(() => {
+  if (!token) return;
+
+  fetchFavorites();
+}, [token]);
+    const fetchFavorites = async () => {
+      try {
+        setLoading(true);
+
+        const res = await axios.get("https://keetobcknd.keeto.org/api/user/favlist", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const foods = res?.data.data?.data?.foods || [];
+        const ids = foods.map((item: any) => item.id);
+
+        setFavoritesList(ids);
+      } catch (error) {
+        console.error("Error fetching favorites:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+//  const {data:datadav ,refetch}=useGet<any>(`/api/user/favlist`);
+//  const favoritesList=datadav?.data?.data?.foods?.map((item:any) => item.id) || [];
+
+
+ 
   const { dynamicCategories, dynamicItems } = useMemo(() => {
     const cats = [{ id: 'all', name: 'الكل' }];
     const itms: (MenuItem & { categoryId: string })[] = [];
@@ -121,7 +152,9 @@ const token = localStorage.getItem('token');
 
     try {
       await toggleFav({ foodId }, null, isCurrentlyFavorite ? "تمت الإزالة من المفضلة" : "تمت الإضافة للمفضلة");
-      refetch();
+      // refetch();
+                fetchFavorites();
+
     } catch (error) {
        setFavorites((prev) => isCurrentlyFavorite ? [...prev, foodId] : prev.filter((id) => id !== foodId));
     }
