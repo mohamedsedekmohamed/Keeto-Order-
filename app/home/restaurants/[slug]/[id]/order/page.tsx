@@ -22,10 +22,10 @@ export default function Cart() {
   const dispatch = useAppDispatch();
   const { t } = useLanguage();
     const params = useParams();
-   const restaurantId = (params?.id as string) ;
+  // const restaurantId = (params?.id as string) ;
      const restaurantName =params.slug as string;
 const [showConfirm, setShowConfirm] = useState(false);
-  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
+  const basePath = `/home/restaurants/${restaurantName}`;
   // 👈 1. جلب البيانات عند فتح الصفحة
   const { data: cartData, loading: fetchingCart } = useGet<any>("/api/user/cart");
   

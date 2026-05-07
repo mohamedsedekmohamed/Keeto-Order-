@@ -25,7 +25,7 @@ export default function Home() {
     const restaurantId = (params?.id as string);
     const restaurantName =params.slug as string;
   
-    const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
+    const basePath = `/home/restaurants/${restaurantName}`;
   
  
 const { restaurant, isLoading ,isError } = useRestaurant();
@@ -126,7 +126,7 @@ const { restaurant, isLoading ,isError } = useRestaurant();
         className="w-full max-w-md"
       >
         <Link
-          href={`${pathname}/restaurant`}
+         href={`/home/restaurants/${restaurantName}/restaurant`}
           className="flex items-center justify-center gap-3 py-4 mt-10 text-lg font-bold text-gray-900 transition-all duration-300 bg-yellow-400 shadow-sm rounded-2xl hover:bg-yellow-500 shadow-yellow-400/10 active:scale-95"
         >
           <motion.div

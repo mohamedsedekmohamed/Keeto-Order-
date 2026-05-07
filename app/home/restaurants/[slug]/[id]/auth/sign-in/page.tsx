@@ -17,8 +17,9 @@ export default function SignIn() {
   const { setToken } = useToken();
 
   // بناء المسار الأساسي بناءً على الـ id الحالي في الرابط
-  const restaurantId = params?.id as string;
-  const basePath = `/home/restaurants/${restaurantId}`;
+ // const restaurantId = params?.id as string;
+  const restaurantName = params?.slug as string
+  const basePath = `/home/restaurants/${restaurantName}`;
 
   // 1. Form State
   const [formData, setFormData] = useState({

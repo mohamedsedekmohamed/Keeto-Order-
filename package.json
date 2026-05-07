@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-"start": "node app.js",
+    "start": "node app.js",
     "lint": "eslint"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
+    "@types/js-cookie": "^3.0.6",
     "aos": "^2.3.4",
     "axios": "^1.15.0",
     "framer-motion": "^12.38.0",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^1.7.0",
     "next": "16.2.2",
     "next-themes": "^0.4.6",

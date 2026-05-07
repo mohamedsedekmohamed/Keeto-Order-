@@ -47,10 +47,10 @@ export default function ProfilePage() {
   const { logout } = useToken();
     const params = useParams();
   
-    const restaurantId = (params?.id as string);
+    //const restaurantId = (params?.id as string);
     const restaurantName =params.slug as string;
   
-    const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
+    const basePath = `/home/restaurants/${restaurantName}`;
   // 1. جلب بيانات المستخدم
   const { data: profileResponse, loading: isFetching, refetch } = useGet<ProfileApiResponse>('/api/user/profile');
   // 2. إعداد دالة التحديث

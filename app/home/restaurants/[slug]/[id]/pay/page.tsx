@@ -22,9 +22,9 @@ export default function Checkout() {
   const { t } = useLanguage();
   const router = useRouter();
     const params = useParams();
-   const restaurantId = (params?.id as string) ;
+   //const restaurantId = (params?.id as string) ;
      const restaurantName =params.slug as string;
-  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
+  const basePath = `/home/restaurants/${restaurantName}`;
 
   const [orderType, setOrderType] = useState<"delivery" | "takeaway" | "dine_in">("delivery");
   const [selectedAddress, setSelectedAddress] = useState("");
@@ -189,11 +189,11 @@ export default function Checkout() {
             >
               <div className="relative w-10 h-10 overflow-hidden">
               
-                <img
+               {/*  <img
   src={method.image || "/placeholder.jpg"}
   alt={method.name || "image"}
   className="object-cover w-full bg-gray-100 h-44"
-/>
+/> */}
               </div>
               <div className="flex-1">
                 <p className="font-bold">{method.name}</p>

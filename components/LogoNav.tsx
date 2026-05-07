@@ -26,10 +26,10 @@ export default function LogoNav({
   const { token } = useToken();
   const params = useParams();
 
-  const restaurantId = (params?.id as string) || restaurant?.id;
+ // const restaurantId = (params?.id as string) || restaurant?.id;
   const restaurantName =params.slug as string;
 
-  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
+  const basePath = `/home/restaurants/${restaurantName}`;
 
   return (
     <header className="w-full font-sans shadow-sm dark:shadow-md dark:shadow-yellow-400/5 dark:border-b dark:border-gray-800">
