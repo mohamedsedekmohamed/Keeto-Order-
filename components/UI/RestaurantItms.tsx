@@ -244,7 +244,7 @@ export default function RestaurantItms({
       await toggleFav(
         { foodId },
         null,
-        isCurrentlyFavorite ? "تمت الإزالة من المفضلة" : "تمت الإضافة للمفضلة",
+        isCurrentlyFavorite ? t("removed From Favorites") : t("added To Favorites"),
       );
       fetchFavorites();
     } catch (error) {
@@ -393,6 +393,7 @@ export default function RestaurantItms({
                               </p>
                             </div>
                             <button
+                            
                               onClick={(e) => handleToggleFavorite(e, item.id)}
                               className="absolute top-3 left-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10"
                             >

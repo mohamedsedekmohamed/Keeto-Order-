@@ -231,7 +231,7 @@ export default function HomePage() {
                   key={restaurant.id}
                   // href={`/home/restaurants/${restaurant.id}`}
                   className="block"
-                  href={`/home/restaurants/${slugify(restaurant.name)}/`}
+                  href={`/home/restaurants/${slugify(restaurant.name)}`}
                 >
                   <motion.div
                     key={restaurant.id}
