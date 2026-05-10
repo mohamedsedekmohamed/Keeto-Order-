@@ -19,7 +19,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Keeto ",
-  description: "Keeto is a cutting-edge food delivery service that connects you with your favorite local restaurants. With a user-friendly interface and lightning-fast delivery, Keeto ensures that your cravings are satisfied in no time. Whether you're in the mood for a quick snack or a full meal, Keeto has you covered with a wide variety of cuisines to choose from. Experience the future of food delivery with Keeto – where delicious meals are just a few clicks away.",
+  description:
+    "Keeto is a cutting-edge food delivery service that connects you with your favorite local restaurants. With a user-friendly interface and lightning-fast delivery, Keeto ensures that your cravings are satisfied in no time. Whether you're in the mood for a quick snack or a full meal, Keeto has you covered with a wide variety of cuisines to choose from. Experience the future of food delivery with Keeto – where delicious meals are just a few clicks away.",
+  icons: {
+    icon: "/logo.webp",
+  },
 };
 
 export default function RootLayout({
@@ -28,10 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-    >
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Providers>
           <LanguageProvider>
@@ -39,9 +40,7 @@ export default function RootLayout({
               <AxiosInterceptor>
                 <div className="flex flex-col min-h-screen">
                   <TopNav />
-                  <main className="flex-1">
-                    {children}
-                  </main>
+                  <main className="flex-1">{children}</main>
                   <Toaster position="top-center" reverseOrder={false} />
                 </div>
               </AxiosInterceptor>

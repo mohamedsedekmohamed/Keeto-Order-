@@ -6,6 +6,8 @@ import usePost from "@/app/hooks/usePost";
 import { useLanguage } from "../../context/LanguageContext";
 import toast from "react-hot-toast";
 import axios from "axios";
+import { useRouter } from "next/navigation";
+
 
 import {
   MenuItem,
@@ -14,6 +16,8 @@ import {
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useGet from "@/app/hooks/useGet";
+import { navigate } from "next/dist/client/components/segment-cache/navigation";
+import { redirect } from "react-router-dom";
 
 export default function RestaurantItms({
   menu,
@@ -35,12 +39,11 @@ export default function RestaurantItms({
   const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
   const token = localStorage.getItem("token");
-
+const router = useRouter();
   // Create refs for sections and the category container for auto-scrolling the menu bar tabs
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const isManualClick = useRef(false);
-
   const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
   const [favoritesList, setFavoritesList] = useState<any[]>([]);
 
@@ -259,6 +262,7 @@ export default function RestaurantItms({
   const handleAddToCartSubmit = async () => {
     if (!token) {
       toast.error(t("loginFirst"));
+        router.push("/auth/sign-in");
       return;
     }
     if (!selectedItem) return;

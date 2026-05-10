@@ -2,9 +2,19 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { 
-  Mail, Lock, UserPlus, User, Eye, EyeOff, 
-  ArrowRight, Phone, MapPin, Globe, Building2, Map 
+import {
+  Mail,
+  Lock,
+  UserPlus,
+  User,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Phone,
+  MapPin,
+  Globe,
+  Building2,
+  Map,
 } from "lucide-react";
 import { useLanguage } from "../../../../../../../context/LanguageContext";
 import Link from "next/link";
@@ -35,7 +45,7 @@ interface ActiveLocationsResponse {
 export default function SignUp() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
-const router = useRouter();
+  const router = useRouter();
   // حالة الفورم (Form State)
   const [formData, setFormData] = useState({
     name: "",
@@ -45,10 +55,10 @@ const router = useRouter();
     // countryId: "",
     // cityId: "",
     // zoneId: "",
-    address: ""
+    address: "",
   });
 
-  const isRtl = typeof document !== 'undefined' && document.dir === 'rtl';
+  const isRtl = typeof document !== "undefined" && document.dir === "rtl";
 
   // 1. جلب بيانات المواقع
   // const { data: locationData, loading: loadingLocations } = useGet<ActiveLocationsResponse>('/api/user/auth/active-locations');
@@ -64,24 +74,25 @@ const router = useRouter();
   // }, [locations.zones, formData.cityId]);
 
   // 3. إرسال البيانات
-  const { postData, loading: isSubmitting } = usePost('/api/user/auth/signup');
+  const { postData, loading: isSubmitting } = usePost("/api/user/auth/signup");
 
   // معالجة التغيير في الحقول
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => {
+    setFormData((prev) => {
       const newData = { ...prev, [name]: value };
-           
 
       // if (name === 'countryId') {
       //   newData.cityId = '';
       //   newData.zoneId = '';
       // }
-      
+
       // if (name === 'cityId') {
       //   newData.zoneId = '';
       // }
-      
+
       return newData;
     });
   };
@@ -90,22 +101,15 @@ const router = useRouter();
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await postData(
-        formData, 
-        null, 
-        t("signupSuccess") 
-      );
-    router.push("/auth/sign-in");
-    
+      await postData(formData, null, t("signupSuccess"));
+      router.push("/auth/sign-in");
     } catch (error) {
-    
       // console.error("Signup failed", error);
     }
   };
 
   return (
     <div className="relative flex items-center justify-center min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      
       {/* إضاءة خلفية جمالية */}
       <div className="absolute top-[-5%] left-[-5%] w-[500px] h-[500px] bg-yellow-400/15 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
@@ -122,7 +126,7 @@ const router = useRouter();
 
         {/* Header */}
         <div className="mb-8 text-center">
-          <motion.div 
+          <motion.div
             initial={{ rotate: -10, scale: 0.5 }}
             animate={{ rotate: 0, scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
@@ -134,21 +138,23 @@ const router = useRouter();
             {t("createAccount")}
           </h2>
           <p className="mt-3 text-base font-medium text-gray-500 dark:text-zinc-400">
-            {t("joinUsSubtitle") }
+            {t("joinUsSubtitle")}
           </p>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Name Input */}
             <div>
               <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
-                {t("name") }
+                {t("name")}
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                  <User size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                  <User
+                    size={20}
+                    className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                  />
                 </div>
                 <input
                   type="text"
@@ -165,11 +171,14 @@ const router = useRouter();
             {/* Phone Input */}
             <div>
               <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
-                {t("phone") }
+                {t("phone")}
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                  <Phone size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                  <Phone
+                    size={20}
+                    className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                  />
                 </div>
                 <input
                   type="tel"
@@ -191,7 +200,10 @@ const router = useRouter();
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <Mail size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                <Mail
+                  size={20}
+                  className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                />
               </div>
               <input
                 type="email"
@@ -212,7 +224,10 @@ const router = useRouter();
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <Lock size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                <Lock
+                  size={20}
+                  className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                />
               </div>
               <input
                 type={showPassword ? "text" : "password"}
@@ -223,7 +238,7 @@ const router = useRouter();
                 placeholder={t("enterPassword")}
                 className="w-full py-4 text-gray-900 transition-all border-2 border-transparent outline-none bg-gray-100/50 rounded-2xl ps-12 pe-12 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/10"
               />
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute inset-y-0 flex items-center px-4 text-gray-400 end-0 hover:text-yellow-500"
@@ -307,7 +322,7 @@ const router = useRouter();
           </div> */}
 
           {/* Address Input */}
-          <div>
+          {/* <div>
             <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
               {t("address") }
             </label>
@@ -326,18 +341,21 @@ const router = useRouter();
               />
             </div>
           </div>
-
+ */}
           {/* Sign Up Button */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            disabled={isSubmitting }
+            disabled={isSubmitting}
             className="relative flex items-center justify-center w-full py-4.5 mt-6 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl hover:bg-yellow-500 shadow-xl shadow-yellow-400/20 group disabled:opacity-70 disabled:cursor-not-allowed"
           >
             <span className="flex items-center gap-2">
-              {isSubmitting ? (t("loading")) : (t("signUp") )}
+              {isSubmitting ? t("loading") : t("signUp")}
               {!isSubmitting && (
-                <ArrowRight size={20} className={`transition-transform ${isRtl ? 'group-hover:-translate-x-1 rotate-180' : 'group-hover:translate-x-1'}`} />
+                <ArrowRight
+                  size={20}
+                  className={`transition-transform ${isRtl ? "group-hover:-translate-x-1 rotate-180" : "group-hover:translate-x-1"}`}
+                />
               )}
             </span>
           </motion.button>
@@ -347,12 +365,14 @@ const router = useRouter();
         <div className="mt-10 text-center">
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {t("haveAccount")}{" "}
-            <Link href="/auth/sign-in" className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
+            <Link
+              href="/auth/sign-in"
+              className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
+            >
               {t("signIn")}
             </Link>
           </p>
         </div>
-        
       </motion.div>
     </div>
   );

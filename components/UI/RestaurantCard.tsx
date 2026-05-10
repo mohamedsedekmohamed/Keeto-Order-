@@ -19,7 +19,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   return (
     <>
       <div className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24 transition-colors duration-300">
-        <div className="p-4 bg-white border border-transparent shadow-lg dark:bg-zinc-900 rounded-2xl dark:shadow-black/20 md:p-6 dark:border-zinc-800">
+        <div className="p-4 bg-white border border-emerald-500 shadow-lg dark:bg-zinc-900 rounded-2xl dark:shadow-black/20 md:p-6 dark:border-emerald-500/40">
           <div className="relative flex">
             {/* اللوجو */}
             <div className="absolute left-0 w-24 h-24 overflow-hidden bg-white border-4 border-white rounded-full shadow-sm -top-12 md:-top-16 md:w-36 md:h-36 dark:border-zinc-800 dark:bg-zinc-900">
@@ -37,14 +37,14 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                   {restaurant?.name || "اسم المطعم"}
                 </h1>
 
-                <p className="text-gray-400 dark:text-zinc-500 text-sm md:text-base mt-1 truncate max-w-[150px] md:max-w-md">
+                {/* <p className="text-gray-400 dark:text-zinc-500 text-sm md:text-base mt-1 truncate max-w-[150px] md:max-w-md">
                   {restaurant?.address || "عنوان المطعم"}
-                </p>
+                </p> */}
 
-                <p className="mt-1 text-sm text-gray-400 md:text-base dark:text-zinc-500">
+                {/*  <p className="mt-1 text-sm text-gray-400 md:text-base dark:text-zinc-500">
                   Start From{" "}
                   <span className="font-bold text-yellow-400">15 E£</span>
-                </p>
+                </p> */}
               </div>
 
               {/* الأزرار */}
