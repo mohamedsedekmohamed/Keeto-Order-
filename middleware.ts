@@ -1,34 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Match /home/restaurants/[slug] OR /home/restaurants/[slug]/anything...
   const match = pathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/)
-
   if (!match) return NextResponse.next()
 
   const slug = match[1]
-  const rest = match[2] || "" // everything after slug, or empty
+  const rest = match[2] || ""
 
   // If UUID already present → already rewritten, let it through
   const uuidPattern = /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
   if (uuidPattern.test(rest)) return NextResponse.next()
 
+  // Try cookie first (fast path)
+  let uuid: string | undefined
   const cookieValue = request.cookies.get("slug-map")?.value
-  if (!cookieValue) return NextResponse.next()
 
-  let slugMap: Record<string, string> = {}
-  try {
-    slugMap = JSON.parse(cookieValue)
-  } catch {
-    return NextResponse.next()
+  if (cookieValue) {
+    try {
+      const slugMap: Record<string, string> = JSON.parse(cookieValue)
+      uuid = slugMap[slug]
+    } catch {}
   }
 
-  const uuid = slugMap[slug]
+  // Cookie miss → fetch from API (direct link / first visit)
+  if (!uuid) {
+    try {
+      const apiRes = await fetch(
+        `https://keetobcknd.keeto.org/api/user/home/search?query=${slug}`
+      )
+      if (apiRes.ok) {
+        const json = await apiRes.json()
+        uuid = json?.data?.data?.[0]?.id
+      }
+    } catch {}
+  }
+
   if (!uuid) return NextResponse.next()
 
-  // Rewrite: /keeto/restaurant → /keeto/UUID/restaurant
   return NextResponse.rewrite(
     new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url)
   )
