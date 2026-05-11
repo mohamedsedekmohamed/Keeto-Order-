@@ -3,162 +3,201 @@
 import { useState } from "react";
 import { Clock, MapPin, Star, Heart, X, ExternalLink } from "lucide-react";
 import ShareButton from "../ShareButton";
+import usePost from "@/app/hooks/usePost";
+import useGet from "@/app/hooks/useGet";
+
+
+
+interface RatingItem {
+  id: string;
+  userId: string;
+  restaurantId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RatingResponse {
+  data: {
+    data: RatingItem;
+  };
+}
+
+/* ---------------- COMPONENT ---------------- */
 
 export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   const [showMap, setShowMap] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [rating, setRating] = useState(0);
 
-  // حاول يجيب coordinates من الـ API
   const lat = restaurant?.latitude || restaurant?.lat;
   const lng = restaurant?.longitude || restaurant?.lng;
 
-  // fallback لو مفيش coordinates
   const mapQuery = encodeURIComponent(
     restaurant?.address || restaurant?.name || "Restaurant Location",
   );
 
+  /* ---------------- API ---------------- */
+
+  const { postData, loading: isSubmitting } = usePost("/api/user/rating");
+
+  const { data ,refetch} = useGet<RatingResponse>(`/api/user/rating/${restaurant?.id}`);
+
+  const ratingItem = data?.data?.data ?? null;
+  const avgRating = ratingItem?.rating ?? 0;
+  const ratingsCount = ratingItem ? 1 : 0;
+  /* ---------------- SUBMIT ---------------- */
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) return;
+
+    try {
+      await postData({
+        restaurantId: restaurant?.id,
+        rating,
+      });
+
+      setShowRating(false);
+      setRating(0);
+      refetch();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ---------------- UI ---------------- */
+
   return (
     <>
-      <div className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24 transition-colors duration-300">
-        <div className="p-4 bg-white border border-emerald-500 shadow-lg dark:bg-zinc-900 rounded-2xl dark:shadow-black/20 md:p-6 dark:border-emerald-500/40">
+      {/* CARD */}
+      <div className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24">
+        <div className="p-4 bg-white border border-emerald-500 shadow-lg dark:bg-zinc-900 rounded-2xl md:p-6">
           <div className="relative flex">
-            {/* اللوجو */}
-            <div className="absolute left-0 w-24 h-24 overflow-hidden bg-white border-4 border-white rounded-full shadow-sm -top-12 md:-top-16 md:w-36 md:h-36 dark:border-zinc-800 dark:bg-zinc-900">
+            {/* LOGO */}
+            <div className="absolute left-0 w-24 h-24 overflow-hidden bg-white border-4 border-white rounded-full -top-12 md:-top-16 md:w-36 md:h-36 dark:bg-zinc-900">
               <img
                 src={restaurant?.logo || "/placeholder.jpg"}
-                alt={restaurant?.name || "image"}
                 className="object-cover w-full h-full"
               />
             </div>
 
-            {/* النصوص */}
-            <div className="ml-28 md:ml-40 flex-1 flex justify-between items-start min-h-[4rem]">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 md:text-3xl dark:text-zinc-100">
-                  {restaurant?.name || "اسم المطعم"}
-                </h1>
+            {/* INFO */}
+            <div className="ml-28 md:ml-40 flex-1 flex justify-between items-start">
+              <h1 className="text-xl font-bold md:text-3xl">
+                {restaurant?.name}
+              </h1>
 
-                {/* <p className="text-gray-400 dark:text-zinc-500 text-sm md:text-base mt-1 truncate max-w-[150px] md:max-w-md">
-                  {restaurant?.address || "عنوان المطعم"}
-                </p> */}
-
-                {/*  <p className="mt-1 text-sm text-gray-400 md:text-base dark:text-zinc-500">
-                  Start From{" "}
-                  <span className="font-bold text-yellow-400">15 E£</span>
-                </p> */}
-              </div>
-
-              {/* الأزرار */}
+              {/* ACTIONS */}
               <div className="flex flex-col items-center gap-3">
-                <button className="text-orange-100 transition hover:text-orange-200 dark:opacity-90">
-                  <Heart className="text-orange-100 h-7 w-7 md:h-8 md:w-8 fill-orange-100" />
+                <button>
+                  <Heart className="w-7 h-7 fill-orange-100" />
                 </button>
 
                 <ShareButton />
+
+                {/* ⭐ Open Rating */}
+                <button
+                  onClick={() => setShowRating(true)}
+                  className="text-yellow-500"
+                >
+                  <Star />
+                </button>
               </div>
             </div>
           </div>
 
-          {/* الجزء السفلي */}
-          <div className="flex items-center justify-around pt-6 mt-8 border-t md:mt-10 dark:border-zinc-800">
+          {/* BOTTOM */}
+          <div className="flex items-center justify-around pt-6 mt-8 border-t">
             <div className="flex flex-col items-center">
-              <Clock className="w-6 h-6 mb-1 text-yellow-400" />
-
-              <span className="text-sm font-medium text-gray-800 dark:text-zinc-200 md:text-base">
-                {restaurant?.minDeliveryTime}-{restaurant?.maxDeliveryTime}{" "}
-                {restaurant?.deliveryTimeUnit || "min"}
+              <Clock className="w-6 h-6 text-yellow-400" />
+              <span>
+                {restaurant?.minDeliveryTime}-{restaurant?.maxDeliveryTime} min
               </span>
             </div>
 
-            {/* LOCATION */}
-            <button
-              onClick={() => setShowMap(true)}
-              className="flex flex-col items-center transition hover:scale-105"
-            >
-              <MapPin className="w-6 h-6 mb-1 text-yellow-400" />
-
-              <span className="text-sm font-medium text-gray-800 dark:text-zinc-200 md:text-base">
-                Location
-              </span>
+            <button onClick={() => setShowMap(true)}>
+              <MapPin className="w-6 h-6 ml-4 text-yellow-400" />
+              <span>Location</span>
             </button>
 
+            {/* ⭐ AVG RATING */}
             <div className="flex flex-col items-center">
-              <div className="flex items-center gap-1 mb-1">
+              <div className="flex items-center gap-1">
                 <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
 
-                <span className="text-sm font-bold text-gray-900 dark:text-zinc-100 md:text-base">
-                  4.5
-                </span>
+                <span className="font-bold">{avgRating.toFixed(1)}</span>
               </div>
 
-              <span className="text-xs font-medium text-yellow-400 md:text-sm">
-                +100 Ratings
+              <span className="text-yellow-400 text-sm">
+                {ratingsCount} Ratings
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MAP POPUP */}
+      {/* ---------------- MAP MODAL ---------------- */}
+
       {showMap && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-3xl overflow-hidden bg-white shadow-2xl dark:bg-zinc-900 rounded-2xl">
-            {/* HEADER */}
-            <div className="flex items-center justify-between p-4 border-b dark:border-zinc-800">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-zinc-100">
-                  {restaurant?.name}
-                </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-3xl bg-white rounded-2xl">
+            <div className="flex justify-between p-4 border-b">
+              <h2>{restaurant?.name}</h2>
 
-                <p className="text-sm text-gray-500 dark:text-zinc-400">
-                  {restaurant?.address}
-                </p>
-              </div>
-
-              <button
-                onClick={() => setShowMap(false)}
-                className="p-2 transition rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800"
-              >
-                <X className="w-5 h-5" />
+              <button onClick={() => setShowMap(false)}>
+                <X />
               </button>
             </div>
 
-            {/* MAP */}
-            <div className="w-full h-[400px]">
-              <iframe
-                title="Restaurant Location"
-                width="100%"
-                height="100%"
-                loading="lazy"
-                allowFullScreen
-                className="border-0"
-                src={
-                  lat && lng
-                    ? `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`
-                    : `https://maps.google.com/maps?q=${mapQuery}&z=15&output=embed`
-                }
-              />
+            <iframe
+              className="w-full h-[400px]"
+              src={
+                lat && lng
+                  ? `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`
+                  : `https://maps.google.com/maps?q=${mapQuery}&z=15&output=embed`
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- RATING MODAL ---------------- */}
+
+      {showRating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5">
+            <div className="flex justify-between mb-4">
+              <h2>Rate Restaurant</h2>
+              <button onClick={() => setShowRating(false)}>
+                <X />
+              </button>
             </div>
 
-            {/* FOOTER */}
-            <div className="flex items-center justify-between p-4 border-t dark:border-zinc-800">
-              <span className="text-sm text-gray-500 dark:text-zinc-400 truncate max-w-[70%]">
-                {restaurant?.address}
-              </span>
-
-              <a
-                href={
-                  lat && lng
-                    ? `https://www.google.com/maps?q=${lat},${lng}`
-                    : `https://www.google.com/maps/search/?api=1&query=${mapQuery}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition bg-yellow-400 rounded-xl hover:bg-yellow-500"
-              >
-                Open Maps
-                <ExternalLink className="w-4 h-4" />
-              </a>
+            {/* STARS */}
+            <div className="flex justify-center gap-2 mb-6">
+              {[1, 2, 3, 4, 5].map((num) => (
+                <button key={num} onClick={() => setRating(num)}>
+                  <Star
+                    className={`w-8 h-8 ${
+                      num <= rating
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-gray-400"
+                    }`}
+                  />
+                </button>
+              ))}
             </div>
+
+            <button
+              onClick={handleSubmitRating}
+              disabled={isSubmitting || rating === 0}
+              className={`w-full py-2 text-white rounded-xl ${
+                isSubmitting || rating === 0 ? "bg-gray-400" : "bg-yellow-400"
+              }`}
+            >
+              Submit
+            </button>
           </div>
         </div>
       )}

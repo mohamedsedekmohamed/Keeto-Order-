@@ -1,8 +1,8 @@
-// app.js — Plesk friendly Next.js starter
-const { createServer } = require('http');
-const next = require('next');
+// app.js — ES Module version
+import { createServer } from 'http';
+import next from 'next';
 
-const port = process.env.PORT || 3000; 
+const port = process.env.PORT || 3000;
 const host = '0.0.0.0';
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
