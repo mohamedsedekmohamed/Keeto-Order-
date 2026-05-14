@@ -5,32 +5,24 @@ import { Clock, MapPin, Star, Heart, X, ExternalLink } from "lucide-react";
 import ShareButton from "../ShareButton";
 import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
-
-
-
-interface RatingItem {
-  id: string;
-  userId: string;
-  restaurantId: string;
-  rating: number;
-  comment: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useRouter } from "next/navigation";
 
 interface RatingResponse {
+  success: boolean;
   data: {
-    data: RatingItem;
+    data: {
+      // ✅ matches real response
+      avgRating: string;
+      totalRatings: number;
+    };
   };
 }
-
-/* ---------------- COMPONENT ---------------- */
 
 export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   const [showMap, setShowMap] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
-
+  const router = useRouter();
   const lat = restaurant?.latitude || restaurant?.lat;
   const lng = restaurant?.longitude || restaurant?.lng;
 
@@ -42,11 +34,11 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
 
-  const { data ,refetch} = useGet<RatingResponse>(`/api/user/rating/${restaurant?.id}`);
+  const { data, refetch } = useGet<RatingResponse>(
+    `api/user/rating/restaurant/${restaurant?.id}`,
+  );
 
-  const ratingItem = data?.data?.data ?? null;
-  const avgRating = ratingItem?.rating ?? 0;
-  const ratingsCount = ratingItem ? 1 : 0;
+  const ratingItem = data?.data?.data; // ✅ gives you { avgRating, totalRatings }
   /* ---------------- SUBMIT ---------------- */
 
   const handleSubmitRating = async () => {
@@ -62,11 +54,10 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       setRating(0);
       refetch();
     } catch (err) {
+      router.push("/auth/sign-in");
       console.error(err);
     }
   };
-
-  /* ---------------- UI ---------------- */
 
   return (
     <>
@@ -126,11 +117,15 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               <div className="flex items-center gap-1">
                 <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
 
-                <span className="font-bold">{avgRating.toFixed(1)}</span>
+                <span className="font-bold">
+                  {ratingItem?.avgRating
+                    ? parseFloat(ratingItem.avgRating).toFixed(1)
+                    : "—"}
+                </span>
               </div>
 
               <span className="text-yellow-400 text-sm">
-                {ratingsCount} Ratings
+                {ratingItem?.totalRatings} Ratings
               </span>
             </div>
           </div>
@@ -168,7 +163,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl p-5">
             <div className="flex justify-between mb-4">
-              <h2>Rate Restaurant</h2>
+              <h2>Kindlly Rate Restaurant</h2>
               <button onClick={() => setShowRating(false)}>
                 <X />
               </button>
