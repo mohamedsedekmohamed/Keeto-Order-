@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://keetobcknd.keeto.org",
+  baseURL: "https://Keetobcknd.keeto.org",
 });
 
 // 🔥 إضافة التوكن تلقائيًا لكل request إن وُجد
