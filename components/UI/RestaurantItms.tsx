@@ -76,7 +76,7 @@ export default function RestaurantItms({
   };
 
   const { dynamicCategories, dynamicItems } = useMemo(() => {
-    const cats = [{ id: "all", name: "الكل" }];
+    const cats = [{ id: "all", name: "All" }];
     const itms: (MenuItem & { categoryId: string })[] = [];
 
     if (menu) {
