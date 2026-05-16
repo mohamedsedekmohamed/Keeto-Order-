@@ -76,7 +76,7 @@ export default function RestaurantItms({
   };
 
   const { dynamicCategories, dynamicItems } = useMemo(() => {
-    const cats = [{ id: "all", name: "All" }];
+    const cats = [{ id: "all", name: t("All") }];
     const itms: (MenuItem & { categoryId: string })[] = [];
 
     if (menu) {
@@ -88,7 +88,7 @@ export default function RestaurantItms({
       });
     }
     return { dynamicCategories: cats, dynamicItems: itms };
-  }, [menu]);
+  }, [menu, t]);
 
   // ScrollSpy logic using IntersectionObserver
   useEffect(() => {
