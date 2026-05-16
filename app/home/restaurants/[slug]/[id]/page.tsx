@@ -15,7 +15,9 @@ import usePost from "@/app/hooks/usePost";
 export default function Home() {
   const { t } = useLanguage();
   const params = useParams();
-const router = useRouter();
+  const isRTL =
+    typeof window !== "undefined" && document.documentElement.dir === "rtl";
+  const router = useRouter();
   const restaurantName = params?.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
 
@@ -53,7 +55,6 @@ const router = useRouter();
       setRating(0);
       setComment("");
     } catch (err) {
-      
       router.push("/auth/sign-in");
       console.error("Rating submission failed:", err);
     }
@@ -113,7 +114,7 @@ const router = useRouter();
           </div>
         )}
         <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white line-clamp-1">
-          {restaurant?.name}
+          {isRTL? restaurant?.nameAr : restaurant?.name}
         </h1>
       </motion.div>
 
@@ -192,7 +193,7 @@ const router = useRouter();
             >
               <div className="flex justify-between mb-4 items-center">
                 <h2 className="font-bold text-lg dark:text-white">
-                  Enjoying your visit?
+                  {t("Enjoying your visit?")}
                 </h2>
                 <button
                   onClick={() => setShowRating(false)}
@@ -203,7 +204,7 @@ const router = useRouter();
               </div>
 
               <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6">
-                Kindly rate your experience.
+                {t("Kindly rate your last order")}
               </p>
 
               {/* STARS */}
@@ -224,7 +225,7 @@ const router = useRouter();
               {/* COMMENT FIELD */}
               <div className="mb-6">
                 <textarea
-                  placeholder="Leave a comment (optional)..."
+                  placeholder={t("Leave a comment")}
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   className="w-full p-4 text-sm bg-gray-50 dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-yellow-400 focus:outline-none dark:text-white resize-none h-24"
@@ -240,7 +241,7 @@ const router = useRouter();
                     : "bg-yellow-400 hover:bg-yellow-500 shadow-lg shadow-yellow-400/20"
                 }`}
               >
-                {isSubmitting ? "Submitting..." : "Submit Rating"}
+                {isSubmitting ? t("Submitting...") : t("Submit Rating")}
               </button>
             </motion.div>
           </div>

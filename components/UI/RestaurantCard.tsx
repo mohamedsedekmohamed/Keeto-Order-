@@ -6,6 +6,7 @@ import ShareButton from "../ShareButton";
 import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface RatingResponse {
   success: boolean;
@@ -23,9 +24,12 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const router = useRouter();
+  const [comment, setComment] = useState("");
   const lat = restaurant?.latitude || restaurant?.lat;
   const lng = restaurant?.longitude || restaurant?.lng;
-
+  const { t } = useLanguage();
+  const isRTL =
+    typeof window !== "undefined" && document.documentElement.dir === "rtl";
   const mapQuery = encodeURIComponent(
     restaurant?.address || restaurant?.name || "Restaurant Location",
   );
@@ -62,11 +66,18 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   return (
     <>
       {/* CARD */}
-      <div className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24">
+      <div
+        dir="ltr"
+        className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24"
+      >
         <div className="p-4 bg-white border border-emerald-500 shadow-lg dark:bg-zinc-900 rounded-2xl md:p-6">
           <div className="relative flex">
             {/* LOGO */}
-            <div className="absolute left-0 w-24 h-24 overflow-hidden bg-white border-4 border-white rounded-full -top-12 md:-top-16 md:w-36 md:h-36 dark:bg-zinc-900">
+            <div
+              className={`absolute ${
+                isRTL ? "right-0" : "left-0"
+              } w-24 h-24 overflow-hidden bg-white border-4 border-white rounded-full -top-12 md:-top-16 md:w-36 md:h-36 dark:bg-zinc-900`}
+            >
               <img
                 src={restaurant?.logo || "/placeholder.jpg"}
                 className="object-cover w-full h-full"
@@ -74,13 +85,18 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
             </div>
 
             {/* INFO */}
-            <div className="ml-28 md:ml-40 flex-1 flex justify-between items-start">
+            <div
+              dir={isRTL ? "rtl" : "ltr"}
+              className={`${
+                isRTL ? "mr-28 md:mr-40" : "ml-28 md:ml-40"
+              } flex-1 flex justify-between items-start`}
+            >
               <h1 className="text-xl font-bold md:text-3xl">
-                {restaurant?.name}
+                {isRTL ? restaurant?.nameAr : restaurant?.name}
               </h1>
 
               {/* ACTIONS */}
-              <div className="flex flex-col items-center gap-3">
+              <div dir="rtl" className="flex flex-col items-center gap-3">
                 <button>
                   <Heart className="w-7 h-7 fill-orange-100" />
                 </button>
@@ -103,13 +119,14 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
             <div className="flex flex-col items-center">
               <Clock className="w-6 h-6 text-yellow-400" />
               <span>
-                {restaurant?.minDeliveryTime}-{restaurant?.maxDeliveryTime} min
+                {restaurant?.minDeliveryTime}-{restaurant?.maxDeliveryTime}{" "}
+                {t("Minutes")}
               </span>
             </div>
 
             <button onClick={() => setShowMap(true)}>
               <MapPin className="w-6 h-6 ml-4 text-yellow-400" />
-              <span>Location</span>
+              <span>{t("Location")}</span>
             </button>
 
             {/* ⭐ AVG RATING */}
@@ -125,7 +142,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               </div>
 
               <span className="text-yellow-400 text-sm">
-                {ratingItem?.totalRatings} Ratings
+                {ratingItem?.totalRatings} {t("Ratings")}
               </span>
             </div>
           </div>
@@ -163,11 +180,16 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl p-5">
             <div className="flex justify-between mb-4">
-              <h2>Kindlly Rate Restaurant</h2>
+              <h2 className="font-bold text-lg dark:text-white">
+                {t("Enjoying your visit?")}
+              </h2>
               <button onClick={() => setShowRating(false)}>
                 <X />
               </button>
             </div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6">
+              {t("Kindlly Rate Restaurant")}
+            </p>
 
             {/* STARS */}
             <div className="flex justify-center gap-2 mb-6">
@@ -183,6 +205,14 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                 </button>
               ))}
             </div>
+            <div className="mb-6">
+              <textarea
+                placeholder={t("Leave a comment")}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full p-4 text-sm bg-gray-50 dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-yellow-400 focus:outline-none dark:text-white resize-none h-24"
+              />
+            </div>
 
             <button
               onClick={handleSubmitRating}
@@ -191,7 +221,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                 isSubmitting || rating === 0 ? "bg-gray-400" : "bg-yellow-400"
               }`}
             >
-              Submit
+              {isSubmitting ? t("Submitting...") : t("Submit Rating")}
             </button>
           </div>
         </div>

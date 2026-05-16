@@ -8,7 +8,6 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
-
 import {
   MenuItem,
   Variation,
@@ -33,13 +32,16 @@ export default function RestaurantItms({
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [favorites, setFavorites] = useState<string[]>([]);
+  // 1. Add a view state
+  // Change initial state
+  const [viewMode, setViewMode] = useState<"all" | "menu">("all"); // ← was "menu"
   const [selectedOptions, setSelectedOptions] = useState<
     Record<string, string[]>
   >({});
   const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
   const token = localStorage.getItem("token");
-const router = useRouter();
+  const router = useRouter();
   // Create refs for sections and the category container for auto-scrolling the menu bar tabs
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
@@ -90,78 +92,80 @@ const router = useRouter();
 
   // ScrollSpy logic using IntersectionObserver
   useEffect(() => {
-    if (searchQuery) return; // Disable scrollspy behavior during active searches
+    if (searchQuery || viewMode === "all") return;
 
-    const observers: IntersectionObserver[] = [];
+    // ✅ Small delay to ensure sections are in DOM after viewMode switches to "menu"
+    const timer = setTimeout(() => {
+      const handleIntersect = (entries: IntersectionObserverEntry[]) => {
+        if (isManualClick.current) return;
 
-    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      if (isManualClick.current) return;
+        const visibleEntry = entries.find((entry) => entry.isIntersecting);
+        if (visibleEntry) {
+          setActiveCategory(visibleEntry.target.id);
 
-      // Find the entry that occupies the top part of the viewport screen
-      const visibleEntry = entries.find((entry) => entry.isIntersecting);
-      if (visibleEntry) {
-        setActiveCategory(visibleEntry.target.id);
-
-        // Auto scroll the category tabs container so active item is visible
-        const activeTab = document.getElementById(
-          `tab-${visibleEntry.target.id}`,
-        );
-        if (activeTab && categoryMenuRef.current) {
-          categoryMenuRef.current.scrollTo({
-            left:
-              activeTab.offsetLeft -
-              categoryMenuRef.current.offsetWidth / 2 +
-              activeTab.offsetWidth / 2,
-            behavior: "smooth",
-          });
+          const activeTab = document.getElementById(
+            `tab-${visibleEntry.target.id}`,
+          );
+          if (activeTab && categoryMenuRef.current) {
+            categoryMenuRef.current.scrollTo({
+              left:
+                activeTab.offsetLeft -
+                categoryMenuRef.current.offsetWidth / 2 +
+                activeTab.offsetWidth / 2,
+              behavior: "smooth",
+            });
+          }
         }
-      }
-    };
+      };
 
-    const observerOptions = {
-      root: null,
-      rootMargin: "-120px 0px -70% 0px", // Adjusted to catch elements crossing near header bounds
-      threshold: 0,
-    };
+      const observerOptions = {
+        root: null,
+        rootMargin: "-120px 0px -70% 0px",
+        threshold: 0,
+      };
 
-    const observer = new IntersectionObserver(handleIntersect, observerOptions);
+      const observer = new IntersectionObserver(
+        handleIntersect,
+        observerOptions,
+      );
 
-    Object.values(sectionRefs.current).forEach((section) => {
-      if (section) observer.observe(section);
-    });
+      Object.values(sectionRefs.current).forEach((section) => {
+        if (section) observer.observe(section);
+      });
 
-    return () => observer.disconnect();
-  }, [menu, searchQuery]);
+      return () => observer.disconnect();
+    }, 100); // ✅ Wait for DOM to render sections
 
+    return () => clearTimeout(timer);
+  }, [menu, searchQuery, viewMode]);
   // Click handling for ScrollSpy navigation
   const scrollToCategory = (catId: string) => {
     setActiveCategory(catId);
+
     if (catId === "all") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setViewMode("all");
+
       return;
     }
 
-    const element = sectionRefs.current[catId];
-    if (element) {
-      isManualClick.current = true;
-      const offset = 140; // Keeps space for fixed category headers
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
+    setViewMode("menu");
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth",
-      });
-
-      // Allow IntersectionObserver to listen to scroll triggers again safely after scrolling finishes
-      setTimeout(() => {
-        isManualClick.current = false;
-      }, 800);
-    }
+    // ✅ Wait for viewMode="menu" to render sections, THEN scroll AND re-check ref
+    setTimeout(() => {
+      const element = sectionRefs.current[catId];
+      if (element) {
+        isManualClick.current = true;
+        const offset = 140;
+        const bodyRect = document.body.getBoundingClientRect().top;
+        const elementRect = element.getBoundingClientRect().top;
+        const offsetPosition = elementRect - bodyRect - offset;
+        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+        setTimeout(() => {
+          isManualClick.current = false;
+        }, 800);
+      }
+    }, 120); // ✅ slightly more than the observer timer (100ms) to ensure observer is attached first
   };
-
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
     setQuantity(1);
@@ -247,7 +251,9 @@ const router = useRouter();
       await toggleFav(
         { foodId },
         null,
-        isCurrentlyFavorite ? t("removed From Favorites") : t("added To Favorites"),
+        isCurrentlyFavorite
+          ? t("removed From Favorites")
+          : t("added To Favorites"),
       );
       fetchFavorites();
     } catch (error) {
@@ -262,7 +268,7 @@ const router = useRouter();
   const handleAddToCartSubmit = async () => {
     if (!token) {
       toast.error(t("loginFirst"));
-        router.push("/auth/sign-in");
+      router.push("/auth/sign-in");
       return;
     }
     if (!selectedItem) return;
@@ -318,7 +324,7 @@ const router = useRouter();
           <input
             type="text"
             className="block w-full py-3 pl-4 pr-10 text-gray-900 transition-all bg-white border border-gray-200 outline-none dark:border-zinc-800 rounded-xl dark:bg-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-yellow-400"
-            placeholder="ابحث في القائمة..."
+            placeholder={t("Search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -345,9 +351,62 @@ const router = useRouter();
           ))}
         </div>
 
-        {/* العرض الديناميكي - الوجبات مقسمة حسب الفئات (ScrollSpy Grid) */}
+        {/* Main Content */}
         <div className="space-y-12">
-          {searchQuery ? (
+          {viewMode === "all" ? (
+            // ✅ Category Cards Grid
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
+                  <LayoutGrid size={24} className="text-yellow-400" />
+                  {t("categories")}
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
+                {dynamicCategories
+                  .filter((c) => c.id !== "all")
+                  .map((cat) => {
+                    const firstItem = dynamicItems.find(
+                      (i) => i.categoryId === cat.id,
+                    );
+                    const itemCount = dynamicItems.filter(
+                      (i) => i.categoryId === cat.id,
+                    ).length;
+
+                    return (
+                      <div
+                        key={cat.id}
+                        onClick={() => scrollToCategory(cat.id)}
+                        className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden cursor-pointer hover:-translate-y-2 duration-300"
+                      >
+                        {/* Top-right decorative corner */}
+                        <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
+
+                        {/* Category Image */}
+                        <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
+                          <img
+                            src={firstItem?.image || "/placeholder.jpg"}
+                            alt={cat.name}
+                            className="object-cover w-full h-full transition-transform group-hover:scale-110"
+                          />
+                        </div>
+
+                        {/* Category Name */}
+                        <h3 className="font-bold text-gray-800 dark:text-white group-hover:text-yellow-500 transition-colors">
+                          {cat.name}
+                        </h3>
+
+                        {/* Item Count */}
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
+                          {itemCount} {t("Item")}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          ) : searchQuery ? (
             // Search Query View
             <>
               <div className="flex items-center justify-between mb-4">
@@ -363,7 +422,7 @@ const router = useRouter();
                         .includes(searchQuery.toLowerCase()),
                     ).length
                   }
-                  ) منتج
+                  ){t("Item")}
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -397,7 +456,6 @@ const router = useRouter();
                               </p>
                             </div>
                             <button
-                            
                               onClick={(e) => handleToggleFavorite(e, item.id)}
                               className="absolute top-3 left-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10"
                             >
@@ -425,7 +483,7 @@ const router = useRouter();
               </div>
             </>
           ) : (
-            // Full Menu Spy Scroll View
+            // Full Menu ScrollSpy View
             dynamicCategories
               .filter((c) => c.id !== "all")
               .map((category) => {
@@ -448,7 +506,7 @@ const router = useRouter();
                         {category.name}
                       </h2>
                       <span className="text-sm text-gray-400 dark:text-zinc-500">
-                        ({categoryItems.length}) منتج
+                        ({categoryItems.length}){t("Item")}
                       </span>
                     </div>
 
@@ -490,7 +548,6 @@ const router = useRouter();
                                   />
                                 </button>
                               </div>
-
                               <div className="flex items-center justify-between mt-3">
                                 <span className="font-bold text-yellow-500">
                                   {item.price} E£
@@ -524,9 +581,7 @@ const router = useRouter();
         {/* Popup */}
         {selectedItem && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-md transition-all duration-500 animate-in fade-in">
-            {/* Modal Frame with overscroll containment */}
             <div className="relative w-full max-w-xl overflow-hidden bg-white dark:bg-zinc-900 border-t sm:border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[90vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-12 duration-500 ease-out overscroll-behavior-contain">
-              {/* Top Floating Bar with Glassmorphism */}
               <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 via-black/10 to-transparent pointer-events-none">
                 <button
                   onClick={() => setSelectedItem(null)}
@@ -536,7 +591,6 @@ const router = useRouter();
                 </button>
               </div>
 
-              {/* Hero Image Unit */}
               <div className="relative w-full h-56 sm:h-72 shrink-0 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                 <img
                   src={selectedItem.image}
@@ -546,44 +600,30 @@ const router = useRouter();
                   className="object-cover w-full h-full transform transition-transform duration-[1000ms] ease-out hover:scale-105 will-change-transform"
                   style={{
                     imageRendering: "-webkit-optimize-contrast",
-                    transform: "translate3d(0,0,0)", // Offloads rendering entirely to the device GPU
+                    transform: "translate3d(0,0,0)",
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-zinc-900 via-zinc-950/10 to-black/20 pointer-events-none" />
               </div>
 
-              {/* Beautiful Scrollable Arena (Scrollbar Hidden Globally via Inline Styles) */}
               <div
                 className="flex-1 px-6 pb-8 overflow-y-auto space-y-6 scroll-smooth overscroll-contain"
                 style={{
-                  /* 1. iOS Momentum Scrolling */
                   WebkitOverflowScrolling: "touch",
-
-                  /* 2. Hidden Scrollbar For Standard Browsers */
-                  scrollbarWidth: "none", // Firefox
-                  msOverflowStyle: "none", // IE and Edge
-
-                  /* 3. Smooth Edge Fade Effect */
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
                   maskImage:
                     "linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%)",
                   WebkitMaskImage:
                     "linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%)",
                 }}
               >
-                {/* Injecting an anonymous styled block to capture WebKit-based engines (Chrome, Safari, Brave, Edge) */}
                 <style
                   dangerouslySetInnerHTML={{
-                    __html: `
-          div::-webkit-scrollbar {
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
-          }
-        `,
+                    __html: `div::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }`,
                   }}
                 />
 
-                {/* Header Block */}
                 <div className="pt-4 animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 fill-mode-both">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
@@ -606,7 +646,6 @@ const router = useRouter();
                   )}
                 </div>
 
-                {/* Variations Section */}
                 {selectedItem.variations &&
                   selectedItem.variations.length > 0 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both">
@@ -644,11 +683,11 @@ const router = useRouter();
                                 <label
                                   key={option.id}
                                   className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
-                          ${
-                            isSelected
-                              ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
-                              : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                          }`}
+                              ${
+                                isSelected
+                                  ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
+                                  : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                              }`}
                                 >
                                   <div className="flex items-center gap-3.5">
                                     <input
@@ -670,7 +709,6 @@ const router = useRouter();
                                       {option.name}
                                     </span>
                                   </div>
-
                                   {parseFloat(option.additionalPrice) > 0 && (
                                     <span
                                       className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800"}`}
@@ -688,7 +726,6 @@ const router = useRouter();
                   )}
               </div>
 
-              {/* Footer Interface Layer */}
               <div className="p-6 bg-white border-t border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] shrink-0 space-y-4 z-10">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex flex-col">
@@ -705,7 +742,6 @@ const router = useRouter();
                     </div>
                   </div>
 
-                  {/* Controller Counter */}
                   <div className="flex items-center gap-3 p-1.5 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/10 rounded-2xl shadow-inner">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -725,7 +761,6 @@ const router = useRouter();
                   </div>
                 </div>
 
-                {/* Primary Button */}
                 <button
                   disabled={loading}
                   onClick={handleAddToCartSubmit}

@@ -84,7 +84,7 @@ export default function FavoritesPage() {
               className="mb-4 text-gray-300 dark:text-zinc-700"
             />
             <p className="text-lg font-bold text-gray-400">
-              لا يوجد عناصر في المفضلة
+              {t("noFavorites")}
             </p>
           </div>
         ) : (

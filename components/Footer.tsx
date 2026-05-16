@@ -24,7 +24,11 @@ const Footer = () => {
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
           {/* الجانب الأيمن: البراند والوصف */}
           <div className="text-center md:text-right">
-            <Link href="https://keeto.org">
+            <Link
+              href="https://keeto.org"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Image
                 src="/logo.webp"
                 alt="KeeTo Logo"
