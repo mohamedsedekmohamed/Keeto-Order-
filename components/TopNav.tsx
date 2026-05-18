@@ -18,6 +18,12 @@ export default function TopNav() {
     changeLanguage(lang);
     setIsLangMenuOpen(false);
   };
+  const userEmail =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("user") || "{}")?.email
+      : "";
+
+  const userName = userEmail.slice(0, 6);
   const hideAuthSection = pathname.startsWith("/home/restaurants/");
   const { token } = useToken();
 
@@ -25,7 +31,7 @@ export default function TopNav() {
     <header className="w-full font-sans transition-all duration-500 shadow-sm dark:shadow-md dark:shadow-yellow-400/5 dark:border-b dark:border-gray-800">
       <div className="flex items-center justify-between px-6 py-2 bg-[#FCFDF2] dark:bg-gray-900 transition-colors duration-500 text-sm">
         {/* قسم الموقع */}
-        <div className="flex items-center gap-1 cursor-pointer group">
+        {/* <div className="flex items-center gap-1 cursor-pointer group">
           <MapPin className="w-4 h-4 text-yellow-400 fill-yellow-400" />
 
           <ReactCountryFlag
@@ -37,6 +43,28 @@ export default function TopNav() {
             }}
           />
         </div>
+        
+ */}
+        {token ? (
+          <Link
+            href="/profile"
+            className="flex items-center gap-2 text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95"
+          >
+            <User className="w-5 h-5" />
+
+            <span className=" sm:block text-sm font-medium">
+              {t("welcome")}{" "}
+              <span className="font-semibold text-yellow-500">{userName}</span>
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href="/auth/sign-in"
+            className="flex gap-1 text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95"
+          >
+            <span className="">{t("signIn")}</span>
+          </Link>
+        )}
 
         {/* قسم اللغة والوضع الليلي */}
         <div className="flex items-center gap-6">
@@ -94,7 +122,7 @@ export default function TopNav() {
             )}
           </div>
 
-          {!hideAuthSection &&
+          {/* {!hideAuthSection &&
             (token ? (
               <Link href="/profile" className="transition hover:scale-110">
                 <User className="w-5 h-5" />
@@ -106,7 +134,7 @@ export default function TopNav() {
               >
                 {t("signIn")}
               </Link>
-            ))}
+            ))} */}
           <button
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")

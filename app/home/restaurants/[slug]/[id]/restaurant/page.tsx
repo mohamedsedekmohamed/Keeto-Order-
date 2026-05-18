@@ -12,7 +12,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
 import api from "@/api/api";
-
+import LogoNav from "@/components/LogoNav";
+import NewKeetaLogo from "@/public/PicWhite.jpeg";
 export default function Restaurant() {
   const params = useParams();
   const { t } = useLanguage();
@@ -80,6 +81,7 @@ export default function Restaurant() {
 
   return (
     <div className="relative w-full min-h-screen pb-24 font-sans bg-white dark:bg-black">
+       <LogoNav logo={NewKeetaLogo} />
       <RestaurantHeader cover={restaurant.cover} />
       <RestaurantCard restaurant={restaurant} />
 

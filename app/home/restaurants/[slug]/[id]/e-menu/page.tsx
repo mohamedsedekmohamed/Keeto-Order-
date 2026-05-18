@@ -243,10 +243,10 @@ export default function RestaurantLinkPage() {
                               dir={isRtl ? 'rtl' : 'ltr'}
                             >
                               <h3 className="text-md font-bold text-gray-900 dark:text-white group-hover:text-[var(--primary-color)] transition-colors">
-                                {item.name}
+                            {isRtl ? item.nameAr : item.name}
                               </h3>
                               <p className="text-[10px] text-gray-400 dark:text-zinc-500 line-clamp-1">
-                                {item.description}
+                                {isRtl ? item.descriptionAr : item.description}
                               </p>
                               <div className="flex items-center justify-between mt-2">
                                 <span className="text-lg font-black text-[var(--primary-color)] italic">

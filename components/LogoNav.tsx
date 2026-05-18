@@ -33,7 +33,7 @@ export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
             <img
               src={restaurant?.logo || "/placeholder.jpg"}
               alt={restaurant?.name || "image"}
-              className="object-cover w-10 h-10 rounded-full"
+              className="object-contain w-10 h-10 rounded-full"
             />
           </Link>
         </div>
@@ -68,13 +68,13 @@ export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
                 href={`${basePath}/Fav`}
                 className="relative text-gray-600 transition hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
               >
-                <Heart className="w-5 h-5" />
+                <img src="/heart.jpeg" className="w-5 h-5 rounded-lg" />
               </Link>
             </>
           )}
 
           {/* Profile / Login */}
-          {token ? (
+          {/* {token ? (
             <Link
               href={`${basePath}/profile`}
               className="text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
@@ -88,7 +88,7 @@ export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
             >
               {t("signIn")}
             </Link>
-          )}
+          )} */}
         </div>
       </div>
     </header>

@@ -67,7 +67,7 @@ const { token } = useToken();
           <Link href="/order" className="text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95">
             <ShoppingCart className="w-5 h-5" />
           </Link>
-          {token ? (
+         {/*  {token ? (
             <Link href="/profile" className="text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95">
               <User className="w-5 h-5" />
             </Link>
@@ -75,7 +75,7 @@ const { token } = useToken();
             <Link href="/auth/sign-in" className="flex gap-1 text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95">
               <span className="">{t("signIn")}</span>
             </Link>
-          )}
+          )} */}
 
           {/* القائمة الجانبية للشاشات الصغيرة */}
         <button

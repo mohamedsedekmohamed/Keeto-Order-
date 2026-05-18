@@ -80,7 +80,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
             >
               <img
                 src={restaurant?.logo || "/placeholder.jpg"}
-                className="object-cover w-full h-full"
+                className="object-contain w-full h-full"
               />
             </div>
 
@@ -89,33 +89,28 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               dir={isRTL ? "rtl" : "ltr"}
               className={`${
                 isRTL ? "mr-28 md:mr-40" : "ml-28 md:ml-40"
-              } flex-1 flex justify-between items-start`}
+              } flex-1 flex flex-col items-start`}
             >
               <h1 className="text-xl font-bold md:text-3xl">
                 {isRTL ? restaurant?.nameAr : restaurant?.name}
               </h1>
 
               {/* ACTIONS */}
-              <div dir="rtl" className="flex flex-col items-center gap-3">
-                <button>
-                  <Heart className="w-7 h-7 fill-orange-100" />
-                </button>
-
+              <div dir="rtl" className="flex items-center gap-3 mt-3">
                 <ShareButton />
 
-                {/* ⭐ Open Rating */}
                 <button
                   onClick={() => setShowRating(true)}
-                  className="text-yellow-500"
+                  className="p-2 text-yellow-500 transition rounded-full hover:bg-yellow-50 dark:hover:bg-zinc-800"
                 >
-                  <Star />
+                  <Star size={20} />
                 </button>
               </div>
             </div>
           </div>
 
           {/* BOTTOM */}
-          <div className="flex items-center justify-around pt-6 mt-8 border-t">
+          <div className="flex items-center justify-around pt-6 mt-12 border-t">
             <div className="flex flex-col items-center">
               <Clock className="w-6 h-6 text-yellow-400" />
               <span>

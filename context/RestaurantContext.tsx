@@ -25,29 +25,39 @@ export interface Restaurant {
 export interface VariationOption {
   id: string;
   name: string;
+  nameAr: string;
   additionalPrice: string;
 }
 
 export interface Variation {
   id: string;
   name: string;
+  nameAr: string;
   isRequired: boolean;
   selectionType: "single" | "multiple" | string;
   min: number | null;
   max: number | null;
   options: VariationOption[];
 }
-
 // تحديث MenuItem ليتطابق مع الـ JSON الجديد
 export interface MenuItem {
   id: string;
   name: string;
+  nameAr: string;
   description: string;
+  descriptionAr: string;
   price: string;
   image: string;
   variations: Variation[];
 }
 
+export interface MenuCategory {
+  id: string;
+  name: string;
+  nameAr: string;
+  nameFr?: string;
+  foods: MenuItem[];
+}
 export type Menu = Record<string, MenuItem[]>;
 
 // ==========================================
@@ -84,7 +94,7 @@ export default function RestaurantAndMenuProvider({
 
   // جلب البيانات مرة واحدة فقط
   const { data, loading, refetch, error } = useGet<any>(
-    `/api/user/home/restaurants/${restaurantId}`
+    `/api/user/home/restaurants/${restaurantId}`,
   );
 
   // استخراج البيانات (المسار لا يزال مطابقاً للـ JSON الجديد)

@@ -3,15 +3,16 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Search, Plus, X, Minus, LayoutGrid, Heart } from "lucide-react";
 import { useAppDispatch } from "@/redux/hooks";
 import usePost from "@/app/hooks/usePost";
-import { useLanguage } from "../../context/LanguageContext";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 
 import {
   MenuItem,
   Variation,
   VariationOption,
+  MenuCategory,
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useGet from "@/app/hooks/useGet";
@@ -23,7 +24,7 @@ export default function RestaurantItms({
   restaurantId,
   onCartUpdated,
 }: {
-  menu: Record<string, MenuItem[]> | null;
+  menu: MenuCategory[] | null;
   restaurantId: string;
   onCartUpdated: () => void;
 }) {
@@ -31,6 +32,7 @@ export default function RestaurantItms({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const { language } = useLanguage();
   const [favorites, setFavorites] = useState<string[]>([]);
   // 1. Add a view state
   // Change initial state
@@ -48,6 +50,7 @@ export default function RestaurantItms({
   const isManualClick = useRef(false);
   const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
   const [favoritesList, setFavoritesList] = useState<any[]>([]);
+  const isRtl = language === "العربية";
 
   useEffect(() => {
     if (!token) return;
@@ -79,39 +82,58 @@ export default function RestaurantItms({
     const cats = [{ id: "all", name: t("All") }];
     const itms: (MenuItem & { categoryId: string })[] = [];
 
-    if (menu) {
-      Object.keys(menu).forEach((categoryName) => {
-        cats.push({ id: categoryName, name: categoryName });
-        menu[categoryName].forEach((item) => {
-          itms.push({ ...item, categoryId: categoryName });
+    if (menu?.length) {
+      menu.forEach((category) => {
+        cats.push({
+          id: category.id,
+          name: isRtl ? category.nameAr : category.name,
+        });
+
+        category.foods.forEach((item) => {
+          itms.push({
+            ...item,
+            categoryId: category.id,
+          });
         });
       });
     }
-    return { dynamicCategories: cats, dynamicItems: itms };
-  }, [menu, t]);
+
+    return {
+      dynamicCategories: cats,
+      dynamicItems: itms,
+    };
+  }, [menu, t, isRtl]);
 
   // ScrollSpy logic using IntersectionObserver
   useEffect(() => {
     if (searchQuery || viewMode === "all") return;
 
-    // ✅ Small delay to ensure sections are in DOM after viewMode switches to "menu"
     const timer = setTimeout(() => {
       const handleIntersect = (entries: IntersectionObserverEntry[]) => {
         if (isManualClick.current) return;
 
         const visibleEntry = entries.find((entry) => entry.isIntersecting);
+
         if (visibleEntry) {
           setActiveCategory(visibleEntry.target.id);
 
           const activeTab = document.getElementById(
             `tab-${visibleEntry.target.id}`,
           );
+
           if (activeTab && categoryMenuRef.current) {
-            categoryMenuRef.current.scrollTo({
-              left:
-                activeTab.offsetLeft -
-                categoryMenuRef.current.offsetWidth / 2 +
-                activeTab.offsetWidth / 2,
+            const container = categoryMenuRef.current;
+
+            const scrollPosition =
+              activeTab.offsetLeft -
+              container.offsetWidth / 2 +
+              activeTab.offsetWidth / 2;
+
+            // Handle RTL correctly
+            const maxScroll = container.scrollWidth - container.clientWidth;
+
+            container.scrollTo({
+              left: isRtl ? maxScroll - scrollPosition : scrollPosition,
               behavior: "smooth",
             });
           }
@@ -134,37 +156,56 @@ export default function RestaurantItms({
       });
 
       return () => observer.disconnect();
-    }, 100); // ✅ Wait for DOM to render sections
+    }, 100);
 
     return () => clearTimeout(timer);
-  }, [menu, searchQuery, viewMode]);
+  }, [menu, searchQuery, viewMode, isRtl]);
+  const scrollCategoryTabIntoView = (catId: string) => {
+    const activeTab = document.getElementById(`tab-${catId}`);
+
+    activeTab?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  };
   // Click handling for ScrollSpy navigation
   const scrollToCategory = (catId: string) => {
     setActiveCategory(catId);
 
     if (catId === "all") {
       setViewMode("all");
-
       return;
     }
 
     setViewMode("menu");
 
-    // ✅ Wait for viewMode="menu" to render sections, THEN scroll AND re-check ref
+    // استنى render عشان الـ pills تتحدث
+    requestAnimationFrame(() => {
+      scrollCategoryTabIntoView(catId);
+    });
+
+    // استنى sections تتعمل render
     setTimeout(() => {
       const element = sectionRefs.current[catId];
+
       if (element) {
         isManualClick.current = true;
+
         const offset = 140;
-        const bodyRect = document.body.getBoundingClientRect().top;
-        const elementRect = element.getBoundingClientRect().top;
-        const offsetPosition = elementRect - bodyRect - offset;
-        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+        const top =
+          element.getBoundingClientRect().top + window.scrollY - offset;
+
+        window.scrollTo({
+          top,
+          behavior: "smooth",
+        });
+
         setTimeout(() => {
           isManualClick.current = false;
         }, 800);
       }
-    }, 120); // ✅ slightly more than the observer timer (100ms) to ensure observer is attached first
+    }, 150);
   };
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -333,6 +374,7 @@ export default function RestaurantItms({
         {/* Sticky ScrollSpy Categories Menu */}
         <div
           ref={categoryMenuRef}
+          dir={isRtl ? "rtl" : "ltr"}
           className="sticky top-0 z-40 flex gap-2 pb-4 pt-2 mb-6 overflow-x-auto no-scrollbar scroll-smooth bg-gray-50/80 dark:bg-zinc-950/80 backdrop-blur-md"
         >
           {dynamicCategories.map((cat) => (
@@ -340,7 +382,7 @@ export default function RestaurantItms({
               id={`tab-${cat.id}`}
               key={cat.id}
               onClick={() => scrollToCategory(cat.id)}
-              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 ${
+              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
                 activeCategory === cat.id
                   ? "bg-yellow-400 text-white shadow-md transform scale-105"
                   : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
@@ -449,10 +491,10 @@ export default function RestaurantItms({
                           <div className="flex items-start justify-between">
                             <div>
                               <h3 className="ml-6 font-bold text-gray-900 dark:text-zinc-100">
-                                {item.name}
+                                {isRtl ? item.nameAr : item.name}
                               </h3>
                               <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
-                                {item.description || item.name}
+                                {isRtl ? item.descriptionAr : item.description}
                               </p>
                             </div>
                             <button
@@ -530,10 +572,12 @@ export default function RestaurantItms({
                               <div className="flex items-start justify-between">
                                 <div>
                                   <h3 className="ml-6 font-bold text-gray-900 dark:text-zinc-100">
-                                    {item.name}
+                                    {isRtl ? item.nameAr : item.name}
                                   </h3>
                                   <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
-                                    {item.description || item.name}
+                                    {isRtl
+                                      ? item.descriptionAr
+                                      : item.description}
                                   </p>
                                 </div>
                                 <button
@@ -627,7 +671,7 @@ export default function RestaurantItms({
                 <div className="pt-4 animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 fill-mode-both">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
-                      {selectedItem.name}
+                      {isRtl ? selectedItem.nameAr : selectedItem.name}
                     </h2>
                     <div className="text-left shrink-0 bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-2xl border border-zinc-100 dark:border-zinc-800/40">
                       <span className="text-2xl font-black text-yellow-500">
@@ -641,7 +685,9 @@ export default function RestaurantItms({
 
                   {selectedItem.description && (
                     <p className="mt-4 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 font-medium bg-zinc-50/40 dark:bg-zinc-800/10 p-3.5 rounded-2xl border border-zinc-100/50 dark:border-zinc-800/20">
-                      {selectedItem.description}
+                      {isRtl
+                        ? selectedItem.descriptionAr
+                        : selectedItem.description}
                     </p>
                   )}
                 </div>
@@ -657,7 +703,7 @@ export default function RestaurantItms({
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                               <h4 className="font-bold text-base text-zinc-800 dark:text-zinc-200">
-                                {variation.name}
+                                {isRtl ? variation.nameAr : variation.name}
                               </h4>
                               {variation.isRequired && (
                                 <span className="px-2 py-0.5 text-[10px] font-black text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-100/40 dark:border-red-900/30">
@@ -706,7 +752,7 @@ export default function RestaurantItms({
                                     <span
                                       className={`text-sm transition-all duration-200 ${isSelected ? "font-black text-zinc-950 dark:text-zinc-50" : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"}`}
                                     >
-                                      {option.name}
+                                      {isRtl ? option.nameAr : option.name}
                                     </span>
                                   </div>
                                   {parseFloat(option.additionalPrice) > 0 && (

@@ -20,6 +20,8 @@ export default function Home() {
   const router = useRouter();
   const restaurantName = params?.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const { restaurant, isLoading, isError } = useRestaurant();
 
@@ -32,25 +34,33 @@ export default function Home() {
 
   // Trigger modal on first load of the session
   useEffect(() => {
-    const hasSeenRating = sessionStorage.getItem(`rated_${restaurant?.id}`);
-    if (!hasSeenRating && restaurant?.id) {
-      const timer = setTimeout(() => {
-        setShowRating(true);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [restaurant?.id]);
+    if (!token || !restaurant?.id) return;
+
+    const sessionKey = `rating_modal_seen_${restaurant.id}`;
+    const hasSeen = sessionStorage.getItem(sessionKey);
+
+    if (hasSeen) return;
+
+    const timer = setTimeout(() => {
+      setShowRating(true);
+
+      // ✅ mark as seen immediately
+      sessionStorage.setItem(sessionKey, "true");
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [restaurant?.id, token]);
 
   const handleSubmitRating = async () => {
     if (rating === 0) return;
+
     try {
       await postData({
         restaurantId: restaurant?.id,
         rating,
         comment,
       });
-      // Prevent modal from showing again in this session
-      sessionStorage.setItem(`rated_${restaurant?.id}`, "true");
+
       setShowRating(false);
       setRating(0);
       setComment("");
@@ -92,7 +102,7 @@ export default function Home() {
           <img
             src={restaurant.cover}
             alt="cover"
-            className="object-cover w-full h-full"
+            className="object-contain w-full h-full"
           />
           <div className="absolute inset-0 bg-black/30" />
         </div>
@@ -105,16 +115,16 @@ export default function Home() {
         className="flex flex-col items-center text-center px-6"
       >
         {restaurant?.logo && (
-          <div className="relative -mt-12 mb-4 overflow-hidden border-4 border-white shadow-xl w-24 h-24 rounded-3xl dark:border-zinc-800 bg-gray-50 z-10">
+          <div className="relative -mt-20 mb-4 overflow-hidden border-4 border-white shadow-xl w-24 h-24 rounded-3xl dark:border-zinc-800 bg-gray-50 z-10">
             <img
               src={restaurant.logo}
               alt={restaurant.name}
-              className="object-cover w-full h-full"
+              className="object-contain w-full h-full"
             />
           </div>
         )}
         <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white line-clamp-1">
-          {isRTL? restaurant?.nameAr : restaurant?.name}
+          {isRTL ? restaurant?.nameAr : restaurant?.name}
         </h1>
       </motion.div>
 
