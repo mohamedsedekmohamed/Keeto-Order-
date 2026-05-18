@@ -294,7 +294,7 @@ export default function RestaurantLinkPage() {
                 <ContactItem
                   icon={<Globe size={20} />}
                   title={isRtl ? "الموقع" : "Website"}
-                  value={restaurant?.email?.split("@")[0]}
+                  value={restaurant?.email ? restaurant.email.split("@")[0] : "visit"}
                   href="#"
                   isRtl={isRtl}
                 />

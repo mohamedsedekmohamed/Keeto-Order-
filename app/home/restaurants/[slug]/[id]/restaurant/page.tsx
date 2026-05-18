@@ -83,6 +83,7 @@ export default function Restaurant() {
     <div className="relative w-full min-h-screen pb-24 font-sans bg-white dark:bg-black">
       <LogoNav logo={NewKeetaLogo} />
       <RestaurantHeader cover={restaurant.cover} />
+      <RestaurantCard restaurant={restaurant} />
       <RestaurantItms
         menu={menu ?? []}
         restaurantId={restaurant?.id ?? ""}
