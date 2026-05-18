@@ -58,7 +58,7 @@ export interface MenuCategory {
   nameFr?: string;
   foods: MenuItem[];
 }
-export type Menu = Record<string, MenuItem[]>;
+export type Menu = MenuCategory[];
 
 // ==========================================
 // 2. إنشاء الـ Contexts منفصلين
