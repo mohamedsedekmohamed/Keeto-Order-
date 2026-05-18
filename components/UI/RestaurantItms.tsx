@@ -34,17 +34,21 @@ export default function RestaurantItms({
   const [quantity, setQuantity] = useState(1);
   const { language } = useLanguage();
   const [favorites, setFavorites] = useState<string[]>([]);
-  // 1. Add a view state
-  // Change initial state
-  const [viewMode, setViewMode] = useState<"all" | "menu">("all"); // ← was "menu"
+  const [viewMode, setViewMode] = useState<"all" | "menu">("all");
   const [selectedOptions, setSelectedOptions] = useState<
     Record<string, string[]>
   >({});
   const [loading, setLoading] = useState(false);
   const { t } = useLanguage();
-  const token = localStorage.getItem("token");
+
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("token"));
+    }
+  }, []);
+
   const router = useRouter();
-  // Create refs for sections and the category container for auto-scrolling the menu bar tabs
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const isManualClick = useRef(false);
@@ -68,9 +72,13 @@ export default function RestaurantItms({
           },
         },
       );
-      const foods = res?.data.data?.data?.foods || [];
-      const ids = foods.map((item: any) => item.id);
-      setFavoritesList(ids);
+      const foods = res?.data?.data?.data?.foods;
+      if (Array.isArray(foods)) {
+        const ids = foods.map((item: any) => item?.id).filter(Boolean);
+        setFavoritesList(ids);
+      } else {
+        setFavoritesList([]);
+      }
     } catch (error) {
       console.error("Error fetching favorites:", error);
     } finally {
@@ -82,19 +90,23 @@ export default function RestaurantItms({
     const cats = [{ id: "all", name: t("All") }];
     const itms: (MenuItem & { categoryId: string })[] = [];
 
-    if (menu?.length) {
+    if (Array.isArray(menu)) {
       menu.forEach((category) => {
+        if (!category) return;
         cats.push({
           id: category.id,
           name: isRtl ? category.nameAr : category.name,
         });
 
-        category.foods.forEach((item) => {
-          itms.push({
-            ...item,
-            categoryId: category.id,
+        if (Array.isArray(category.foods)) {
+          category.foods.forEach((item) => {
+            if (!item) return;
+            itms.push({
+              ...item,
+              categoryId: category.id,
+            });
           });
-        });
+        }
       });
     }
 
@@ -104,9 +116,8 @@ export default function RestaurantItms({
     };
   }, [menu, t, isRtl]);
 
-  // ScrollSpy logic using IntersectionObserver
   useEffect(() => {
-    if (searchQuery || viewMode === "all") return;
+    if (searchQuery || viewMode === "all" || !Array.isArray(menu)) return;
 
     const timer = setTimeout(() => {
       const handleIntersect = (entries: IntersectionObserverEntry[]) => {
@@ -129,7 +140,6 @@ export default function RestaurantItms({
               container.offsetWidth / 2 +
               activeTab.offsetWidth / 2;
 
-            // Handle RTL correctly
             const maxScroll = container.scrollWidth - container.clientWidth;
 
             container.scrollTo({
@@ -160,16 +170,16 @@ export default function RestaurantItms({
 
     return () => clearTimeout(timer);
   }, [menu, searchQuery, viewMode, isRtl]);
+
   const scrollCategoryTabIntoView = (catId: string) => {
     const activeTab = document.getElementById(`tab-${catId}`);
-
     activeTab?.scrollIntoView({
       behavior: "smooth",
       inline: "center",
       block: "nearest",
     });
   };
-  // Click handling for ScrollSpy navigation
+
   const scrollToCategory = (catId: string) => {
     setActiveCategory(catId);
 
@@ -180,12 +190,10 @@ export default function RestaurantItms({
 
     setViewMode("menu");
 
-    // استنى render عشان الـ pills تتحدث
     requestAnimationFrame(() => {
       scrollCategoryTabIntoView(catId);
     });
 
-    // استنى sections تتعمل render
     setTimeout(() => {
       const element = sectionRefs.current[catId];
 
@@ -207,22 +215,26 @@ export default function RestaurantItms({
       }
     }, 150);
   };
+
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
     setQuantity(1);
 
     const initialOptions: Record<string, string[]> = {};
-    item.variations?.forEach((variation) => {
-      if (
-        variation.selectionType === "single" &&
-        variation.isRequired &&
-        variation.options.length > 0
-      ) {
-        initialOptions[variation.id] = [variation.options[0].id];
-      } else {
-        initialOptions[variation.id] = [];
-      }
-    });
+    if (Array.isArray(item?.variations)) {
+      item.variations.forEach((variation) => {
+        if (
+          variation.selectionType === "single" &&
+          variation.isRequired &&
+          Array.isArray(variation.options) &&
+          variation.options.length > 0
+        ) {
+          initialOptions[variation.id] = [variation.options[0].id];
+        } else {
+          initialOptions[variation.id] = [];
+        }
+      });
+    }
     setSelectedOptions(initialOptions);
   };
 
@@ -265,7 +277,7 @@ export default function RestaurantItms({
       const variation = selectedItem.variations?.find(
         (v) => v.id === variationId,
       );
-      if (variation) {
+      if (variation && Array.isArray(variation.options)) {
         optionIds.forEach((optId) => {
           const option = variation.options.find((o) => o.id === optId);
           if (option) totalBase += parseFloat(option.additionalPrice || "0");
@@ -357,7 +369,6 @@ export default function RestaurantItms({
   return (
     <div className="min-h-screen transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
       <div className="px-4 py-6 mx-3 text-right" dir="rtl">
-        {/* شريط البحث */}
         <div className="relative mb-6">
           <div className="absolute inset-y-0 flex items-center pointer-events-none right-3">
             <Search className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
@@ -371,7 +382,6 @@ export default function RestaurantItms({
           />
         </div>
 
-        {/* Sticky ScrollSpy Categories Menu */}
         <div
           ref={categoryMenuRef}
           dir={isRtl ? "rtl" : "ltr"}
@@ -393,10 +403,8 @@ export default function RestaurantItms({
           ))}
         </div>
 
-        {/* Main Content */}
         <div className="space-y-12">
           {viewMode === "all" ? (
-            // ✅ Category Cards Grid
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
@@ -422,10 +430,8 @@ export default function RestaurantItms({
                         onClick={() => scrollToCategory(cat.id)}
                         className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden cursor-pointer hover:-translate-y-2 duration-300"
                       >
-                        {/* Top-right decorative corner */}
                         <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
 
-                        {/* Category Image */}
                         <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
                           <img
                             src={firstItem?.image || "/placeholder.jpg"}
@@ -434,12 +440,10 @@ export default function RestaurantItms({
                           />
                         </div>
 
-                        {/* Category Name */}
                         <h3 className="font-bold text-gray-800 dark:text-white group-hover:text-yellow-500 transition-colors">
                           {cat.name}
                         </h3>
 
-                        {/* Item Count */}
                         <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
                           {itemCount} {t("Item")}
                         </span>
@@ -449,7 +453,6 @@ export default function RestaurantItms({
               </div>
             </div>
           ) : searchQuery ? (
-            // Search Query View
             <>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
@@ -525,7 +528,6 @@ export default function RestaurantItms({
               </div>
             </>
           ) : (
-            // Full Menu ScrollSpy View
             dynamicCategories
               .filter((c) => c.id !== "all")
               .map((category) => {
@@ -610,7 +612,6 @@ export default function RestaurantItms({
               })
           )}
 
-          {/* No Search Results Fallback */}
           {searchQuery &&
             dynamicItems.filter((item) =>
               item.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -622,7 +623,6 @@ export default function RestaurantItms({
             )}
         </div>
 
-        {/* Popup */}
         {selectedItem && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-md transition-all duration-500 animate-in fade-in">
             <div className="relative w-full max-w-xl overflow-hidden bg-white dark:bg-zinc-900 border-t sm:border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[90vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-12 duration-500 ease-out overscroll-behavior-contain">
@@ -692,7 +692,7 @@ export default function RestaurantItms({
                   )}
                 </div>
 
-                {selectedItem.variations &&
+                {Array.isArray(selectedItem.variations) &&
                   selectedItem.variations.length > 0 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both">
                       {selectedItem.variations.map((variation) => (
@@ -721,50 +721,51 @@ export default function RestaurantItms({
                           </div>
 
                           <div className="grid grid-cols-1 gap-2.5">
-                            {variation.options.map((option) => {
-                              const isSelected = (
-                                selectedOptions[variation.id] || []
-                              ).includes(option.id);
-                              return (
-                                <label
-                                  key={option.id}
-                                  className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
+                            {Array.isArray(variation.options) &&
+                              variation.options.map((option) => {
+                                const isSelected = (
+                                  selectedOptions[variation.id] || []
+                                ).includes(option.id);
+                                return (
+                                  <label
+                                    key={option.id}
+                                    className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
                               ${
                                 isSelected
                                   ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
                                   : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
                               }`}
-                                >
-                                  <div className="flex items-center gap-3.5">
-                                    <input
-                                      type={
-                                        variation.selectionType === "single"
-                                          ? "radio"
-                                          : "checkbox"
-                                      }
-                                      name={variation.name}
-                                      checked={isSelected}
-                                      onChange={() =>
-                                        handleOptionSelect(variation, option)
-                                      }
-                                      className="w-5 h-5 accent-yellow-400 rounded-full border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
-                                    />
-                                    <span
-                                      className={`text-sm transition-all duration-200 ${isSelected ? "font-black text-zinc-950 dark:text-zinc-50" : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"}`}
-                                    >
-                                      {isRtl ? option.nameAr : option.name}
-                                    </span>
-                                  </div>
-                                  {parseFloat(option.additionalPrice) > 0 && (
-                                    <span
-                                      className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800"}`}
-                                    >
-                                      + {option.additionalPrice} E£
-                                    </span>
-                                  )}
-                                </label>
-                              );
-                            })}
+                                  >
+                                    <div className="flex items-center gap-3.5">
+                                      <input
+                                        type={
+                                          variation.selectionType === "single"
+                                            ? "radio"
+                                            : "checkbox"
+                                        }
+                                        name={variation.name}
+                                        checked={isSelected}
+                                        onChange={() =>
+                                          handleOptionSelect(variation, option)
+                                        }
+                                        className="w-5 h-5 accent-yellow-400 rounded-full border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
+                                      />
+                                      <span
+                                        className={`text-sm transition-all duration-200 ${isSelected ? "font-black text-zinc-950 dark:text-zinc-50" : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"}`}
+                                      >
+                                        {isRtl ? option.nameAr : option.name}
+                                      </span>
+                                    </div>
+                                    {parseFloat(option.additionalPrice) > 0 && (
+                                      <span
+                                        className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800"}`}
+                                      >
+                                        + {option.additionalPrice} E£
+                                      </span>
+                                    )}
+                                  </label>
+                                );
+                              })}
                           </div>
                         </div>
                       ))}
