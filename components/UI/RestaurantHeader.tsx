@@ -15,7 +15,7 @@ export default function RestaurantHeader({ cover }: { cover?: string }) {
         src={cover || placeholderBg}
         alt="Restaurant Cover"
         fill
-        className="object-contain w-full h-full"
+        className="object-cover w-full h-full"
         priority
         unoptimized
       />

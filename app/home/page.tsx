@@ -245,7 +245,7 @@ export default function HomePage() {
                       <img
                         src={restaurant.cover || "/placeholder.jpg"}
                         alt={restaurant.name || "image"}
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="object-cover w-full h-full  transition-transform duration-500 group-hover:scale-105"
                       />
                       {/* Gradient Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
@@ -259,7 +259,7 @@ export default function HomePage() {
                           <img
                             src={restaurant.logo || "/placeholder.jpg"}
                             alt={restaurant.name || "image"}
-                            className="object-cover"
+                            className="object-contain w-full h-full"
                           />
                         </div>
                       </div>

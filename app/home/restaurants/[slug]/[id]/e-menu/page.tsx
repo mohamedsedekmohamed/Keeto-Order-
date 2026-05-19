@@ -11,6 +11,7 @@ import {
   Info,
   ChevronLeft,
   Share2,
+  X,
 } from "lucide-react";
 import { FaInstagramSquare } from "react-icons/fa";
 
@@ -40,10 +41,14 @@ interface ContactItemProps {
 export default function RestaurantLinkPage() {
   const { language } = useLanguage();
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
-  const { menu, isLoading: menuLoading } = useMenu() as { menu: MenuCategory[] | null, isLoading: boolean };
+  const { menu, isLoading: menuLoading } = useMenu() as {
+    menu: MenuCategory[] | null;
+    isLoading: boolean;
+  };
 
   const [view, setView] = useState<"links" | "menu">("menu");
   const [activeCategory, setActiveCategory] = useState<string>("");
+  const [selectedItem, setSelectedItem] = useState<FoodItem | null>(null); // State for the detail card modal
 
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
@@ -55,7 +60,10 @@ export default function RestaurantLinkPage() {
     accent: "#27272a",
   };
 
-  const categories = useMemo(() => (menu ? menu.map(c => c.name) : []), [menu]);
+  const categories = useMemo(
+    () => (menu ? menu.map((c) => c.name) : []),
+    [menu],
+  );
 
   useEffect(() => {
     if (categories.length > 0 && !activeCategory) {
@@ -74,10 +82,15 @@ export default function RestaurantLinkPage() {
         if (visibleEntry) {
           setActiveCategory(visibleEntry.target.id);
 
-          const activeTab = document.getElementById(`pill-${visibleEntry.target.id}`);
+          const activeTab = document.getElementById(
+            `pill-${visibleEntry.target.id}`,
+          );
           if (activeTab && categoryBarRef.current) {
             categoryBarRef.current.scrollTo({
-              left: activeTab.offsetLeft - categoryBarRef.current.offsetWidth / 2 + activeTab.offsetWidth / 2,
+              left:
+                activeTab.offsetLeft -
+                categoryBarRef.current.offsetWidth / 2 +
+                activeTab.offsetWidth / 2,
               behavior: "smooth",
             });
           }
@@ -141,7 +154,9 @@ export default function RestaurantLinkPage() {
           alt="cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-white dark:to-[#09090b]" />
-        <div className={`absolute top-6 px-6 w-full flex justify-between items-center ${isRtl ? "flex-row-reverse" : ""}`}>
+        <div
+          className={`absolute top-6 px-6 w-full flex justify-between items-center ${isRtl ? "flex-row-reverse" : ""}`}
+        >
           <button className="bg-black/40 backdrop-blur-xl p-2.5 rounded-full border border-white/10 text-white">
             <Share2 size={20} />
           </button>
@@ -210,7 +225,9 @@ export default function RestaurantLinkPage() {
 
               <div className="space-y-12">
                 {categories.map((cat) => {
-                  const items = menu?.find((category) => category.name === cat)?.foods || [];
+                  const items =
+                    menu?.find((category) => category.name === cat)?.foods ||
+                    [];
                   if (items.length === 0) return null;
 
                   return (
@@ -235,12 +252,13 @@ export default function RestaurantLinkPage() {
                         {items.map((item) => (
                           <div
                             key={item.id}
-                            className={`bg-gray-50 dark:bg-zinc-900/40 border border-gray-200 dark:border-zinc-800/50 p-3 rounded-[1.8rem] flex items-center gap-4 group hover:shadow-md transition-all ${isRtl ? "flex-row-reverse" : ""}`}
+                            onClick={() => setSelectedItem(item)} // Open card modal on container click
+                            className={`bg-gray-50 dark:bg-zinc-900/40 border border-gray-200 dark:border-zinc-800/50 p-3 rounded-[1.8rem] flex items-center gap-4 group hover:shadow-md cursor-pointer transition-all ${isRtl ? "flex-row-reverse" : ""}`}
                           >
                             <div className="w-20 h-20 rounded-[1.2rem] overflow-hidden shrink-0">
                               <img
                                 src={item.image}
-                                className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                                className="object-contain w-full h-full group-hover:scale-110 transition-transform duration-500"
                                 alt={item.name}
                               />
                             </div>
@@ -294,7 +312,9 @@ export default function RestaurantLinkPage() {
                 <ContactItem
                   icon={<Globe size={20} />}
                   title={isRtl ? "الموقع" : "Website"}
-                  value={restaurant?.email ? restaurant.email.split("@")[0] : "visit"}
+                  value={
+                    restaurant?.email ? restaurant.email.split("@")[0] : "visit"
+                  }
                   href="#"
                   isRtl={isRtl}
                 />
@@ -310,6 +330,64 @@ export default function RestaurantLinkPage() {
           <span className="text-[var(--primary-color)]">Keeto Ecosystem</span>
         </p>
       </footer>
+
+      {/* Item Details Card Modal */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 duration-300 animate-in fade-in"
+          onClick={() => setSelectedItem(null)}
+        >
+          <div
+            className={`w-full sm:max-w-md bg-white dark:bg-[#0c0c0e] border border-gray-100 dark:border-zinc-800/80 rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl transform transition-transform duration-300 animate-in slide-in-from-bottom sm:zoom-in-95 ${isRtl ? "text-right" : "text-left"}`}
+            dir={isRtl ? "rtl" : "ltr"}
+            onClick={(e) => e.stopPropagation()} // Stop click through to overlay close
+          >
+            {/* Header/Image container */}
+            <div className="relative h-64 w-full bg-zinc-50 dark:bg-zinc-950/50 flex items-center justify-center p-6 border-b border-gray-100 dark:border-zinc-900">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className={`absolute top-4 z-10 bg-black/40 dark:bg-zinc-900/80 backdrop-blur-md text-white p-2.5 rounded-full hover:scale-105 active:scale-95 transition-all ${isRtl ? "left-4" : "right-4"}`}
+              >
+                <X size={18} />
+              </button>
+              <img
+                src={selectedItem.image}
+                alt={isRtl ? selectedItem.nameAr : selectedItem.name}
+                className="max-h-full max-w-full object-contain drop-shadow-xl"
+              />
+            </div>
+
+            {/* Content Details */}
+            <div className="p-6 space-y-4">
+              <div>
+                <h2 className="text-xl font-black text-gray-900 dark:text-white">
+                  {isRtl ? selectedItem.nameAr : selectedItem.name}
+                </h2>
+                <span className="inline-block mt-2 text-xl font-black text-[var(--primary-color)] italic">
+                  {selectedItem.price}{" "}
+                  <span className="text-xs not-italic font-bold text-gray-400 dark:text-zinc-500">
+                    EGP
+                  </span>
+                </span>
+              </div>
+
+              <div className="border-t border-gray-100 dark:border-zinc-900 pt-3">
+                <p className="text-xs font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">
+                  {isRtl ? "الوصف" : "Description"}
+                </p>
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400 whitespace-pre-line">
+                  {(isRtl
+                    ? selectedItem.descriptionAr
+                    : selectedItem.description) ||
+                    (isRtl
+                      ? "لا يوجد وصف متاح لهذا المنتج."
+                      : "No description available for this item.")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

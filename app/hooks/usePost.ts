@@ -9,14 +9,14 @@ type UsePostReturn<T> = {
   postData: (
     body?: any,
     customUrl?: string | null,
-    toastMessage?: string | null
+    toastMessage?: string | null,
   ) => Promise<T>;
   loading: boolean;
   error: string | null;
 };
 
 export default function usePost<T = any>(
-  defaultUrl: string = ""
+  defaultUrl: string = "",
 ): UsePostReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export default function usePost<T = any>(
   const postData = async (
     body: any = {},
     customUrl: string | null = null,
-    toastMessage: string | null = null
+    toastMessage: string | null = null,
   ): Promise<T> => {
     try {
       setLoading(true);
@@ -40,8 +40,9 @@ export default function usePost<T = any>(
       const axiosError = err as AxiosError<any>;
       const errorObj = axiosError.response?.data?.error;
 
-      let errorMessage = "Unexpected error occurred"; 
+      let errorMessage = "Unexpected error occurred";
 
+      // 1. Extract the raw error message using structured logic
       if (errorObj?.details && Array.isArray(errorObj.details)) {
         errorMessage = errorObj.details.map((e: any) => e.message).join("\n");
       } else if (errorObj?.message) {
@@ -52,6 +53,12 @@ export default function usePost<T = any>(
         errorMessage = axiosError.message;
       }
 
+      // 2. Intercept "no token" error and convert it to a user-friendly message
+      if (errorMessage.toLowerCase().includes("no token provided")) {
+        errorMessage = "Login please";
+      }
+
+      // 3. Update state, show UI feedback, and pass the error upward
       setError(errorMessage);
       toast.error(errorMessage);
 

@@ -102,7 +102,7 @@ export default function Home() {
           <img
             src={restaurant.cover}
             alt="cover"
-            className="object-contain w-full h-full"
+            className="object-cover w-full h-full"
           />
           <div className="absolute inset-0 bg-black/30" />
         </div>

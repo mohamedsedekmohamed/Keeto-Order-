@@ -20,10 +20,10 @@ export default function TopNav() {
   };
   const userEmail =
     typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("user") || "{}")?.email
+      ? JSON.parse(localStorage.getItem("user") || "{}")?.email || ""
       : "";
 
-  const userName = userEmail.slice(0, 6);
+  const userName = userEmail.slice(0, 6) || "";
   const hideAuthSection = pathname.startsWith("/home/restaurants/");
   const { token } = useToken();
 
@@ -53,7 +53,7 @@ export default function TopNav() {
             <User className="w-5 h-5" />
 
             <span className=" sm:block text-sm font-medium">
-              {t("welcome")}{" "}
+              {t("welcome")}
               <span className="font-semibold text-yellow-500">{userName}</span>
             </span>
           </Link>

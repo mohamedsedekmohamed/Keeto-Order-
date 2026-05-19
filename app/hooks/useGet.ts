@@ -16,9 +16,9 @@ type UseGetReturn<T> = {
 export default function useGet<T = any>(url: string): UseGetReturn<T> {
   const [data, setData] = useState<T | null>(null);
   // نجعل التحميل true في البداية حتى ينتهي من فحص التوكن
-  const [loading, setLoading] = useState<boolean>(true); 
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const hasFetched = useRef(false);
   const { isReady } = useToken(); // نستورد isReady للتأكد من حالة التطبيق
 
@@ -34,11 +34,18 @@ export default function useGet<T = any>(url: string): UseGetReturn<T> {
     } catch (err) {
       const axiosError = err as AxiosError<any>;
 
-      const errorMsg =
+      // 1. Extract the raw error message using your existing fallback chain
+      let errorMsg =
         axiosError.response?.data?.error?.message ||
         axiosError.response?.data?.message ||
         axiosError.message ||
         "Request failed";
+
+      // 2. Normalize and check for the "no token" error condition
+      // Using .toLowerCase() and .includes() makes the check safer against subtle backend API changes
+      if (errorMsg.toLowerCase().includes("no token provided")) {
+        errorMsg = "Login please";
+      }
 
       setError(errorMsg);
       toast.error(errorMsg);
@@ -49,7 +56,7 @@ export default function useGet<T = any>(url: string): UseGetReturn<T> {
 
   useEffect(() => {
     // 👈 لا تقم بأي طلب حتى يتأكد الـ Context من وجود أو عدم وجود توكن
-    if (!isReady) return; 
+    if (!isReady) return;
 
     if (hasFetched.current) return;
     hasFetched.current = true;

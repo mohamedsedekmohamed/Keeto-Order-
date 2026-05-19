@@ -55,7 +55,7 @@ export default function SignUp() {
     // countryId: "",
     // cityId: "",
     // zoneId: "",
-    address: "",
+   // address: "",
   });
 
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
@@ -75,6 +75,7 @@ export default function SignUp() {
 
   // 3. إرسال البيانات
   const { postData, loading: isSubmitting } = usePost("/api/user/auth/signup");
+
 
   // معالجة التغيير في الحقول
   const handleChange = (

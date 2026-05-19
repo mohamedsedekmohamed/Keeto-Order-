@@ -641,7 +641,7 @@ export default function RestaurantItms({
                   alt={selectedItem.name}
                   loading="eager"
                   decoding="async"
-                  className="object-cover w-full h-full transform transition-transform duration-[1000ms] ease-out hover:scale-105 will-change-transform"
+                  className="object-contain w-full h-full transform transition-transform duration-[1000ms] ease-out hover:scale-105 will-change-transform"
                   style={{
                     imageRendering: "-webkit-optimize-contrast",
                     transform: "translate3d(0,0,0)",
