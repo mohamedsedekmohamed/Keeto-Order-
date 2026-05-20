@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 
 import toast from "react-hot-toast";
-import { useParams } from "next/navigation";
+import { useParams , useRouter} from "next/navigation";
 
 export default function OrdersPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-
+const router = useRouter();
   // 1. حالات تفاصيل الطلب (Axios & useEffect)
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -83,10 +83,16 @@ const historyOrders = (historyData?.data?.data || []).filter(
     <div className="max-w-2xl min-h-screen p-4 pb-24 mx-auto" dir={t("dir")}>
       
       {/* Header */}
-      <header className="mt-4 mb-8">
+      <header className="mt-2 mb-8">
         <h1 className="text-3xl font-black text-gray-900 dark:text-white">{t("myOrders")}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">{t("trackOrdersDesc")}</p>
       </header>
+       <button
+          onClick={() => router.back()}
+          className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-28 top-4 left-4 active:scale-95"
+        >
+          <ChevronLeft className="w-6 h-6 text-white" />
+        </button>
 
       {/* Tabs */}
       <div className="flex p-1 mb-6 bg-gray-100 dark:bg-zinc-900 rounded-2xl">

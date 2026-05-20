@@ -2,14 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { 
-  User, Mail, Camera, Save, LogOut, Shield, Settings, 
-  Phone, MapPin, Wallet, BadgeCheck, Loader2
+import {
+  User,
+  Mail,
+  Camera,
+  Save,
+  LogOut,
+  Shield,
+  Settings,
+  Phone,
+  MapPin,
+  Wallet,
+  BadgeCheck,
+  Loader2,
+  ChevronLeft,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePut from "@/app/hooks/usePut"; // استدعاء usePut
 import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 
 // تعريف واجهات البيانات
@@ -46,11 +58,15 @@ export default function ProfilePage() {
   const { logout } = useToken();
 
   // 1. جلب بيانات المستخدم
-  const { data: profileResponse, loading: isFetching, refetch } = useGet<ProfileApiResponse>('/api/user/profile');
-  
+  const {
+    data: profileResponse,
+    loading: isFetching,
+    refetch,
+  } = useGet<ProfileApiResponse>("/api/user/profile");
+
   // 2. إعداد دالة التحديث
-  const { putData, loading: isUpdating } = usePut('/api/user/profile');
-  
+  const { putData, loading: isUpdating } = usePut("/api/user/profile");
+  const router = useRouter();
   // استخراج البيانات للوصول السهل
   const userData = profileResponse?.data?.data?.user;
   const walletBalance = profileResponse?.data?.data?.walletBalance || "0.00";
@@ -60,7 +76,7 @@ export default function ProfilePage() {
     name: "",
     email: "",
     phone: "",
-    address: ""
+    address: "",
   });
 
   // تحديث الفورم بمجرد وصول البيانات من الـ API
@@ -70,7 +86,7 @@ export default function ProfilePage() {
         name: userData.name || "",
         email: userData.email || "",
         phone: userData.phone || "",
-        address: userData.location?.address || ""
+        address: userData.location?.address || "",
       });
     }
   }, [userData]);
@@ -78,7 +94,7 @@ export default function ProfilePage() {
   // معالجة التغيير في الحقول
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // معالجة حفظ التغييرات
@@ -89,18 +105,16 @@ export default function ProfilePage() {
       await putData(
         {
           name: formData.name,
-          phone: formData.phone
+          phone: formData.phone,
         },
         null,
-        t("updateSuccess") || "تم تحديث البيانات بنجاح!" // رسالة النجاح
+        t("updateSuccess") || "تم تحديث البيانات بنجاح!", // رسالة النجاح
       );
-      
+
       // إعادة جلب البيانات لتحديث واجهة المستخدم (الاسم والصورة الخ)
       if (refetch) refetch();
-      
     } catch (error) {
       // الـ Hook سيعالج عرض رسالة الخطأ
-      
     }
   };
 
@@ -115,15 +129,18 @@ export default function ProfilePage() {
 
   return (
     <div className="relative min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      
       {/* Ambient Background Orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-400/10 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-yellow-500/5 blur-[130px] rounded-full pointer-events-none" />
-
+      <button
+        onClick={() => router.back()}
+        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 left-4 active:scale-95"
+      >
+        <ChevronLeft className="w-6 h-6 text-white" />
+      </button>
       <div className="relative z-10 max-w-5xl mx-auto">
-        
         {/* Header Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-8"
@@ -133,7 +150,7 @@ export default function ProfilePage() {
               {t("profile")}
             </h1>
             <p className="mt-2 font-medium text-gray-500 dark:text-zinc-400">
-              {t("manageProfile") }
+              {t("manageProfile")}
             </p>
           </div>
           <button className="p-3 text-gray-500 transition-all bg-white border border-gray-200 dark:bg-zinc-900 dark:border-zinc-800 rounded-2xl hover:border-yellow-400 dark:text-zinc-400">
@@ -142,7 +159,6 @@ export default function ProfilePage() {
         </motion.div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          
           {/* Left Column: Avatar Card */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
@@ -150,14 +166,13 @@ export default function ProfilePage() {
             className="space-y-6 lg:col-span-1"
           >
             <div className="p-8 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl text-center">
-              
-          
-
               {/* User Info & Verification */}
               <div className="flex items-center justify-center gap-2 mt-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{userData.name}</h3>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {userData.name}
+                </h3>
                 {userData.isVerified && (
-                  <BadgeCheck size={20} className="text-blue-500"  />
+                  <BadgeCheck size={20} className="text-blue-500" />
                 )}
               </div>
               <p className="mt-1 text-sm font-medium text-gray-500 dark:text-zinc-400">
@@ -171,16 +186,19 @@ export default function ProfilePage() {
                   {walletBalance} {t("currency")}
                 </div>
               </div>
-              
+
               <div className="pt-8 mt-8 space-y-3 border-t border-gray-100 dark:border-zinc-800">
-                <button 
-                onClick={()=>{
-logout();
-                  redirect("/")
-                }}
-                className="flex items-center justify-center w-full gap-2 py-3 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl">
+                <button
+                  onClick={() => {
+                    logout();
+                    const lastPath = localStorage.getItem("lastRestaurantPath");
+
+                    router.push(lastPath || "/");
+                  }}
+                  className="flex items-center justify-center w-full gap-2 py-3 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl"
+                >
                   <LogOut size={18} />
-                  {t("logout") }
+                  {t("logout")}
                 </button>
               </div>
             </div>
@@ -194,7 +212,6 @@ logout();
           >
             <div className="p-8 sm:p-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl">
               <form className="space-y-6" onSubmit={handleSubmit}>
-                
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Name Input */}
                   <div className="space-y-2">
@@ -203,7 +220,10 @@ logout();
                     </label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                        <User size={18} className="text-gray-400 group-focus-within:text-yellow-500" />
+                        <User
+                          size={18}
+                          className="text-gray-400 group-focus-within:text-yellow-500"
+                        />
                       </div>
                       <input
                         type="text"
@@ -219,7 +239,7 @@ logout();
                   {/* Email Input (Disabled) */}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                      {t("email") }
+                      {t("email")}
                     </label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
@@ -237,11 +257,14 @@ logout();
                   {/* Phone Input */}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                      {t("phone") }
+                      {t("phone")}
                     </label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                        <Phone size={18} className="text-gray-400 group-focus-within:text-yellow-500" />
+                        <Phone
+                          size={18}
+                          className="text-gray-400 group-focus-within:text-yellow-500"
+                        />
                       </div>
                       <input
                         type="tel"
@@ -280,7 +303,10 @@ logout();
                     <Shield size={18} className="text-yellow-500" />
                     {t("security")}
                   </h4>
-                  <button type="button" className="text-sm font-bold text-yellow-600 dark:text-yellow-400 hover:underline">
+                  <button
+                    type="button"
+                    className="text-sm font-bold text-yellow-600 dark:text-yellow-400 hover:underline"
+                  >
                     {t("changePassword")}
                   </button>
                 </div>
@@ -298,7 +324,7 @@ logout();
                   ) : (
                     <Save size={20} />
                   )}
-                  {isUpdating ? (t("saving")) : (t("saveChanges") )}
+                  {isUpdating ? t("saving") : t("saveChanges")}
                 </motion.button>
               </form>
             </div>

@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Lock, LogIn, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  LogIn,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
@@ -13,8 +21,8 @@ export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-const { setToken } = useToken();
-
+  const { setToken } = useToken();
+  const isRtl = typeof document !== "undefined" && document.dir === "rtl";
   // 1. Form State
   const [formData, setFormData] = useState({
     email: "",
@@ -32,18 +40,20 @@ const { setToken } = useToken();
   // 4. Handle Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     try {
       const response = await postData(formData, null, t("loginSuccess"));
+
       setToken(response.data.data.token);
 
-      router.push("/"); 
-    } catch  {
-    }
+      const redirectPath = localStorage.getItem("lastRestaurantPath");
+
+      router.push(redirectPath || "/");
+    } catch {}
   };
 
   return (
     <div className="relative flex items-center justify-center min-h-screen px-4 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      
       {/* Background Orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-yellow-400/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
@@ -57,7 +67,15 @@ const { setToken } = useToken();
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1.5 bg-yellow-400 rounded-b-full shadow-[0_2px_10px_rgba(250,204,21,0.4)]"></div>
 
         <div className="mb-10 text-center">
-          <motion.div 
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="absolute flex items-center gap-2 text-sm font-bold text-gray-600 transition-all left-6 top-6 dark:text-zinc-300 hover:text-yellow-500"
+          >
+            <ArrowRight size={18} className={`${isRtl ? "" : "rotate-180"}`} />
+            {t("back") || "Back"}
+          </button>
+          <motion.div
             initial={{ scale: 0.5 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
@@ -81,7 +99,10 @@ const { setToken } = useToken();
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <Mail size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                <Mail
+                  size={20}
+                  className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                />
               </div>
               <input
                 name="email"
@@ -101,13 +122,19 @@ const { setToken } = useToken();
               <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300">
                 {t("password")}
               </label>
-              <button type="button" className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80">
+              <button
+                type="button"
+                className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80"
+              >
                 {t("forgotPassword")}
               </button>
             </div>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <Lock size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                <Lock
+                  size={20}
+                  className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                />
               </div>
               <input
                 name="password"
@@ -118,7 +145,7 @@ const { setToken } = useToken();
                 placeholder={t("enterPassword")}
                 className="w-full py-4.5 text-gray-900 transition-all bg-gray-100/50 border-2 border-transparent outline-none rounded-2xl ps-12 pe-12 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/10"
               />
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute inset-y-0 flex items-center px-4 text-gray-400 end-0 hover:text-yellow-500"
@@ -133,7 +160,7 @@ const { setToken } = useToken();
             disabled={loading}
             whileHover={!loading ? { scale: 1.02 } : {}}
             whileTap={!loading ? { scale: 0.98 } : {}}
-            className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-yellow-500'}`}
+            className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-yellow-500"}`}
           >
             <span className="flex items-center gap-2">
               {loading ? (
@@ -141,7 +168,10 @@ const { setToken } = useToken();
               ) : (
                 <>
                   {t("SignInbtn")}
-                  <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
+                  <ArrowRight
+                    size={20}
+                    className="transition-transform group-hover:translate-x-1"
+                  />
                 </>
               )}
             </span>
@@ -151,7 +181,10 @@ const { setToken } = useToken();
         <div className="mt-10 text-center">
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {t("noAccount")}{" "}
-            <Link href="/auth/sign-up" className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
+            <Link
+              href="/auth/sign-up"
+              className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
+            >
               {t("createAccount")}
             </Link>
           </p>
@@ -159,7 +192,10 @@ const { setToken } = useToken();
         <div className="mt-10 text-center">
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {t("ForgotPassword")}{" "}
-            <Link href="/auth/forgot-password" className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
+            <Link
+              href="/auth/forgot-password"
+              className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
+            >
               {t("resetPassword")}
             </Link>
           </p>

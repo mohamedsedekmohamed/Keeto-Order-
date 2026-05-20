@@ -31,7 +31,11 @@ export default function Home() {
   const [comment, setComment] = useState("");
 
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
-
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lastRestaurantPath", window.location.pathname);
+    }
+  }, []);
   // Trigger modal on first load of the session
   useEffect(() => {
     if (!token || !restaurant?.id) return;

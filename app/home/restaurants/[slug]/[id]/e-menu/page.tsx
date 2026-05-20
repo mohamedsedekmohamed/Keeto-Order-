@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRestaurant, useMenu } from "@/context/RestaurantContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useRouter } from "next/navigation";
 import {
   Phone,
   MapPin,
@@ -13,6 +14,7 @@ import {
   Share2,
   X,
 } from "lucide-react";
+import ShareButton from "@/components/ShareButton";
 import { FaInstagramSquare } from "react-icons/fa";
 
 interface FoodItem {
@@ -49,7 +51,7 @@ export default function RestaurantLinkPage() {
   const [view, setView] = useState<"links" | "menu">("menu");
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<FoodItem | null>(null); // State for the detail card modal
-
+  const router = useRouter();
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
   const isManualClick = useRef(false);
@@ -157,9 +159,14 @@ export default function RestaurantLinkPage() {
         <div
           className={`absolute top-6 px-6 w-full flex justify-between items-center ${isRtl ? "flex-row-reverse" : ""}`}
         >
-          <button className="bg-black/40 backdrop-blur-xl p-2.5 rounded-full border border-white/10 text-white">
-            <Share2 size={20} />
+          <button
+            onClick={() => router.back()}
+            className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-6 top-4 left-4 active:scale-95"
+          >
+            <ChevronLeft className="w-6 h-6 text-white" />
           </button>
+          <ShareButton />
+
           {view === "links" && (
             <button
               onClick={() => setView("menu")}

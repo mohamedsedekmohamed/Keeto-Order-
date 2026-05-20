@@ -4,64 +4,78 @@ import { useState } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
-// 👈 أضفنا استيراد Image هنا
 import {
-  MapPin,
-  CreditCard,
-  ArrowLeft,
-  Truck,
-  Store,
-  CheckCircle2,
-  Navigation,
-  Loader2,
+  MapPin, CreditCard, ArrowLeft, Truck, Store, CheckCircle2,
+  Navigation, Loader2, ChevronLeft, Plus, X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+
+type Zone = { id: string; name: string };
 
 export default function Checkout() {
   const { t } = useLanguage();
   const router = useRouter();
   const params = useParams();
-  //const restaurantId = (params?.id as string) ;
   const restaurantName = params.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
 
-  const [orderType, setOrderType] = useState<
-    "delivery" | "takeaway" | "dine_in"
-  >("delivery");
+  const [orderType, setOrderType] = useState<"delivery" | "takeaway" | "dine_in">("delivery");
   const [selectedAddress, setSelectedAddress] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedPayment, setSelectedPayment] = useState("");
 
-  const { data: checkoutData, loading: isLoading } = useGet<any>(
+  // ✅ Add Address Popup State
+  const [showAddressPopup, setShowAddressPopup] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    title: "", zoneId: "", type: "home", street: "", number: "", floor: "",
+  });
+
+  const { data: checkoutData, loading: isLoading, refetch } = useGet<any>(
     `/api/user/order/select?restaurantId=${params.id}`,
   );
+  const { data: zonesRes, loading: loadingZones } = useGet<any>("/api/user/address/zone");
   const { postData, loading: isSubmitting } = usePost();
+  const { postData: postAddress, loading: postingAddress } = usePost("/api/user/address");
 
   const data = checkoutData?.data?.data;
+  const zones: Zone[] = zonesRes?.data?.data || [];
+
+  const inputClass = "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white";
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setAddressForm({ ...addressForm, [e.target.name]: e.target.value });
+  };
+
+  const handleAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await postAddress(addressForm, null, t("address-added-success"));
+      setShowAddressPopup(false);
+      setAddressForm({ title: "", zoneId: "", type: "home", street: "", number: "", floor: "" });
+      refetch(); // refresh checkout data to show new address
+    } catch {}
+  };
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
-    if (orderType === "delivery" && !selectedAddress)
-      return toast.error(t("selectAddressError"));
-    if (orderType !== "delivery" && !selectedBranch)
-      return toast.error(t("selectBranchError"));
+    if (orderType === "delivery" && !selectedAddress) return toast.error(t("selectAddressError"));
+    if (orderType !== "delivery" && !selectedBranch) return toast.error(t("selectBranchError"));
 
     const payload = {
       orderSource: "food_aggregator",
-      orderType: orderType,
+      orderType,
       paymentMethod: selectedPayment,
       idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       addressId: orderType === "delivery" ? selectedAddress : null,
-      branchId:
-        orderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
+      branchId: orderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
     };
 
     try {
       await postData(payload, "/api/user/order/checkout");
       toast.success(t("orderSuccess"));
       router.push(`${basePath}`);
-    } catch (error) {
+    } catch {
       toast.error(t("orderFailed"));
     }
   };
@@ -75,15 +89,17 @@ export default function Checkout() {
     );
 
   return (
-    <div
-      className="max-w-2xl p-4 pb-32 mx-auto duration-500 animate-in fade-in"
-      dir={t("dir")}
-    >
-      <h2 className="mb-8 text-3xl font-black text-gray-900 dark:text-white">
-        {t("completeOrder")}
-      </h2>
+    <div className="max-w-2xl p-4 pb-32 mx-auto duration-500 animate-in fade-in" dir={t("dir")}>
+      <h2 className="mb-8 text-3xl font-black text-gray-900 dark:text-white">{t("completeOrder")}</h2>
 
-      {/* 1. نوع الطلب */}
+      <button
+        onClick={() => router.back()}
+        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-20 top-4 left-4 active:scale-95"
+      >
+        <ChevronLeft className="w-6 h-6 text-white" />
+      </button>
+
+      {/* 1. Order Type */}
       <section className="mb-8">
         <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
           <Navigation size={20} className="text-yellow-500" /> {t("orderType")}
@@ -110,24 +126,26 @@ export default function Checkout() {
         </div>
       </section>
 
-      {/* 2. العنوان (توصيل) */}
+      {/* 2. Delivery Address */}
       {orderType === "delivery" && (
         <section className="mb-8 animate-in slide-in-from-top-2">
-          <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
-            <MapPin size={20} className="text-yellow-500" />{" "}
-            {t("deliveryAddress")}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              <MapPin size={20} className="text-yellow-500" /> {t("deliveryAddress")}
+            </h3>
+            {/* ✅ Add Address Button */}
+            <button
+              onClick={() => setShowAddressPopup(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors"
+            >
+              <Plus size={16} />
+              {t("add-address")}
+            </button>
+          </div>
           <div className="space-y-3">
             {data?.addresses?.length === 0 ? (
               <div className="p-6 text-center border-2 border-gray-200 border-dashed rounded-2xl dark:border-zinc-800">
                 <p className="mb-4 text-gray-500">{t("no-addresses-found")}</p>
-
-                <button
-                  onClick={() => router.push(`${basePath}/address`)} // غيرها حسب صفحتك
-                  className="px-5 py-2 font-bold text-black bg-yellow-400 rounded-xl hover:bg-yellow-500"
-                >
-                  {t("add-address")}
-                </button>
               </div>
             ) : (
               data?.addresses?.map((addr: any) => (
@@ -146,15 +164,10 @@ export default function Checkout() {
                     </div>
                     <div>
                       <p className="font-bold">{addr.title}</p>
-                      <p className="text-sm text-gray-500">
-                        {addr.street}, {addr.number}
-                      </p>
+                      <p className="text-sm text-gray-500">{addr.street}, {addr.number}</p>
                     </div>
                   </div>
-
-                  {selectedAddress === addr.id && (
-                    <CheckCircle2 size={20} className="text-yellow-500" />
-                  )}
+                  {selectedAddress === addr.id && <CheckCircle2 size={20} className="text-yellow-500" />}
                 </div>
               ))
             )}
@@ -162,7 +175,7 @@ export default function Checkout() {
         </section>
       )}
 
-      {/* 3. الفرع (استلام / مطعم) */}
+      {/* 3. Branch */}
       {orderType !== "delivery" && (
         <section className="mb-8 animate-in slide-in-from-top-2">
           <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
@@ -183,20 +196,17 @@ export default function Checkout() {
                   <p className="font-bold">{branch.name}</p>
                   <p className="text-sm text-gray-500">{branch.address}</p>
                 </div>
-                {selectedBranch === branch.id && (
-                  <CheckCircle2 size={20} className="text-yellow-500" />
-                )}
+                {selectedBranch === branch.id && <CheckCircle2 size={20} className="text-yellow-500" />}
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* 4. طريقة الدفع */}
+      {/* 4. Payment */}
       <section className="mb-8">
         <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
-          <CreditCard size={20} className="text-yellow-500" />{" "}
-          {t("paymentMethod")}
+          <CreditCard size={20} className="text-yellow-500" /> {t("paymentMethod")}
         </h3>
         <div className="grid grid-cols-1 gap-3">
           {data?.paymentMethods?.map((method: any) => (
@@ -209,55 +219,132 @@ export default function Checkout() {
                   : "border-gray-100 dark:border-zinc-800"
               }`}
             >
-              <div className="relative w-10 h-10 overflow-hidden">
-                {/*  <img
-  src={method.image || "/placeholder.jpg"}
-  alt={method.name || "image"}
-  className="object-cover w-full bg-gray-100 h-44"
-/> */}
-              </div>
               <div className="flex-1">
                 <p className="font-bold">{method.name}</p>
                 <p className="text-xs text-gray-500">{method.description}</p>
               </div>
-              {selectedPayment === method.id && (
-                <CheckCircle2 size={20} className="text-yellow-500" />
-              )}
+              {selectedPayment === method.id && <CheckCircle2 size={20} className="text-yellow-500" />}
             </div>
           ))}
         </div>
       </section>
 
+      {/* Confirm Button */}
       <button
         disabled={isSubmitting}
         onClick={handleConfirmOrder}
         className="relative flex items-center justify-center w-full max-w-2xl gap-3 px-6 py-4 overflow-hidden font-bold text-gray-900 transition-all duration-300 shadow-lg group bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl shadow-yellow-400/30 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-xl hover:shadow-yellow-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
       >
-        {/* glow effect */}
         <span className="absolute inset-0 transition duration-500 opacity-0 group-hover:opacity-100 bg-white/10 blur-xl" />
-
         {isSubmitting ? (
           <div className="flex items-center gap-2">
             <Loader2 className="animate-spin" size={20} />
-            <span className="text-sm">
-              {t("processing") || "Processing..."}
-            </span>
+            <span className="text-sm">{t("processing") || "Processing..."}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-base">{t("confirmAndPay")}</span>
-
-            <ArrowLeft
-              size={20}
-              className={`
-          transition-transform duration-300
-          group-hover:-translate-x-1
-          ${t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""}
-        `}
-            />
+            <ArrowLeft size={20} className={`transition-transform duration-300 group-hover:-translate-x-1 ${t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""}`} />
           </div>
         )}
       </button>
+
+      {/* ✅ Add Address Popup */}
+      {showAddressPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold dark:text-white">{t("add-address")}</h2>
+              <button
+                onClick={() => setShowAddressPopup(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddressSubmit} className="space-y-4">
+              <input
+                name="title"
+                placeholder={t("title")}
+                value={addressForm.title}
+                onChange={handleAddressChange}
+                className={inputClass}
+                required
+              />
+
+              <select
+                name="zoneId"
+                value={addressForm.zoneId}
+                onChange={handleAddressChange}
+                className={inputClass}
+                required
+              >
+                <option value="" disabled>{loadingZones ? t("loading") : t("select-zone")}</option>
+                {zones.map((z) => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
+
+              <select
+                name="type"
+                value={addressForm.type}
+                onChange={handleAddressChange}
+                className={inputClass}
+              >
+                <option value="home">{t("home")}</option>
+                <option value="work">{t("work")}</option>
+                <option value="other">{t("other")}</option>
+              </select>
+
+              <input
+                name="street"
+                placeholder={t("street")}
+                value={addressForm.street}
+                onChange={handleAddressChange}
+                className={inputClass}
+                required
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  name="number"
+                  placeholder={t("number")}
+                  value={addressForm.number}
+                  onChange={handleAddressChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="floor"
+                  placeholder={t("floor")}
+                  value={addressForm.floor}
+                  onChange={handleAddressChange}
+                  className={inputClass}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddressPopup(false)}
+                  className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={postingAddress}
+                  className="flex-1 py-3 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors"
+                >
+                  {postingAddress ? t("saving") : t("add-address-btn")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

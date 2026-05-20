@@ -100,7 +100,7 @@ function SignUpForm() {
         {/* Back Button */}
         <button
           type="button"
-          onClick={() => router.push("/")}
+          onClick={() => router.back()}
           className="absolute flex items-center gap-2 text-sm font-bold text-gray-600 transition-all left-6 top-6 dark:text-zinc-300 hover:text-yellow-500"
         >
           <ArrowRight size={18} className={`${isRtl ? "" : "rotate-180"}`} />
@@ -234,7 +234,7 @@ function SignUpForm() {
           </div>
 
           {/* Address Field */}
-          <div>
+         {/*  <div>
             <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
               {t("address")}
             </label>
@@ -257,7 +257,7 @@ function SignUpForm() {
               />
             </div>
           </div>
-
+ */}
           {/* Core Sign Up Submission Trigger */}
           <motion.button
             whileHover={{ scale: 1.02 }}

@@ -18,13 +18,13 @@ export default function TopNav() {
     changeLanguage(lang);
     setIsLangMenuOpen(false);
   };
-  const userEmail =
+/*   const userEmail =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("user") || "{}")?.email || ""
       : "";
 
   const userName = userEmail.slice(0, 6) || "";
-  const hideAuthSection = pathname.startsWith("/home/restaurants/");
+  const hideAuthSection = pathname.startsWith("/home/restaurants/"); */
   const { token } = useToken();
 
   return (
@@ -54,7 +54,7 @@ export default function TopNav() {
 
             <span className=" sm:block text-sm font-medium">
               {t("welcome")}
-              <span className="font-semibold text-yellow-500">{userName}</span>
+          {/*     <span className="font-semibold text-yellow-500">{userName}</span> */}
             </span>
           </Link>
         ) : (

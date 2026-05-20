@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Heart } from "lucide-react";
+import { Heart , ChevronLeft} from "lucide-react";
 import Loading from "@/components/Loading";
 import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import usePost from "@/app/hooks/usePost";
+import { useRouter } from "next/navigation";
 
 interface FavoriteFood {
   id: string;
@@ -19,7 +20,7 @@ interface FavoriteFood {
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
   const [loading, setLoading] = useState(true);
-
+const router = useRouter();
   const { t } = useLanguage();
   const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
 
@@ -76,6 +77,12 @@ export default function FavoritesPage() {
             {t("favorites")}
           </h1>
         </div>
+        <button
+          onClick={() => router.back()}
+          className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-24 top-4 left-4 active:scale-95"
+        >
+          <ChevronLeft className="w-6 h-6 text-white" />
+        </button>
 
         {favorites.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
