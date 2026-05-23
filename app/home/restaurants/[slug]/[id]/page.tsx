@@ -19,6 +19,7 @@ export default function Home() {
     typeof window !== "undefined" && document.documentElement.dir === "rtl";
   const router = useRouter();
   const restaurantName = params?.slug as string;
+  const restaurantId = params?.id as string ;
   const basePath = `/home/restaurants/${restaurantName}`;
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
