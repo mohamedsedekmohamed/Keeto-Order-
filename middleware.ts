@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function toSlug(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/[''`]/g, "")         // remove apostrophes: Masa'id → masaid
-    .replace(/&/g, "and")          // & → and
-    .replace(/[^a-z0-9\s]/g, " ")  // special chars → space
-    .trim()
-    .replace(/\s+/g, "-");         // spaces → single dash
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
+  console.log("MIDDLEWARE RUNNING:", pathname);
+  // Match:
+  // /home/restaurants/:slug
+  // /home/restaurants/:slug/restaurant
+  // /home/restaurants/:slug/e-menu
   const match = pathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/);
-  if (!match) return NextResponse.next();
+
+  if (!match) {
+    return NextResponse.next();
+  }
 
   const slug = match[1];
   const rest = match[2] || "";
 
-  // If UUID already present → already rewritten, let it through
+  // لو الـ UUID already موجود متعملش rewrite تاني
   const uuidPattern =
     /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
-  if (uuidPattern.test(rest)) return NextResponse.next();
+
+  if (uuidPattern.test(rest)) {
+    return NextResponse.next();
+  }
 
   let uuid: string | undefined;
 
   // ---------------- Cookie Fast Path ----------------
   const cookieValue = request.cookies.get("slug-map")?.value;
+
   if (cookieValue) {
     try {
       const slugMap: Record<string, string> = JSON.parse(cookieValue);
+
       uuid = slugMap[slug];
     } catch (err) {
       console.error("Cookie parse error:", err);
@@ -40,37 +42,39 @@ export async function middleware(request: NextRequest) {
   // ---------------- API Fallback ----------------
   if (!uuid) {
     try {
-      // Fetch ALL restaurants with empty query
+      // convert:
+      // mataam-wast-albalad
+      // => mataam wast albalad
+    const searchQuery = slug.replace(/-+/g, " ").trim();
+
       const apiRes = await fetch(
-        `https://keetobcknd.keeto.org/api/user/home/search?query=`,
-        { cache: "no-store" }
+        `https://keetobcknd.keeto.org/api/user/home/search?query=${encodeURIComponent(
+          searchQuery,
+        )}`,
+        {
+          cache: "no-store",
+        },
       );
 
       if (apiRes.ok) {
         const json = await apiRes.json();
-        const restaurants: { id: string; name: string }[] =
-          json?.data?.data || [];
 
-        // Find best match by comparing normalized slugs
-        const matched = restaurants.find(
-          (r) => toSlug(r.name) === toSlug(slug)
-        );
-
-        if (matched) {
-          uuid = matched.id;
-        }
+        uuid = json?.data?.data?.[0]?.id;
       }
     } catch (err) {
       console.error("Restaurant search error:", err);
     }
   }
 
+  // لو ملقيناش المطعم سيبه يعدي
+  // الصفحة نفسها تتعامل مع الحالة
   if (!uuid) {
-    return NextResponse.redirect(new URL("/home", request.url));
+    return NextResponse.next();
   }
 
+  // rewrite داخلي بدون تغيير URL للمستخدم
   return NextResponse.rewrite(
-    new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url)
+    new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url),
   );
 }
 
