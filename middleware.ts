@@ -1,12 +1,86 @@
+// import { NextRequest, NextResponse } from "next/server";
+
+// export async function middleware(request: NextRequest) {
+//   const { pathname } = request.nextUrl;
+//   console.log("MIDDLEWARE RUNNING:", pathname);
+//   // Match:
+//   // /home/restaurants/:slug
+//   // /home/restaurants/:slug/restaurant
+//   // /home/restaurants/:slug/e-menu
+//   const match = pathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/);
+
+//   if (!match) {
+//     return NextResponse.next();
+//   }
+
+//   const slug = match[1];
+//   const rest = match[2] || "";
+
+//   // لو الـ UUID already موجود متعملش rewrite تاني
+//   const uuidPattern =
+//     /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+
+//   if (uuidPattern.test(rest)) {
+//     return NextResponse.next();
+//   }
+
+//   let uuid: string | undefined;
+
+//   // ---------------- Cookie Fast Path ----------------
+//   const cookieValue = request.cookies.get("slug-map")?.value;
+
+//   if (cookieValue) {
+//     try {
+//       const slugMap: Record<string, string> = JSON.parse(cookieValue);
+
+//       uuid = slugMap[slug];
+//     } catch (err) {
+//       console.error("Cookie parse error:", err);
+//     }
+//   }
+
+//   // ---------------- API Fallback ----------------
+//   if (!uuid) {
+//     try {
+//       // const searchQuery = slug.replace(/-+/g, " ").trim();
+//       const apiRes = await fetch(
+//         `https://keetobcknd.keeto.org/api/user/home/search?query=${slug}`,
+//         { cache: "no-store" },
+//       );
+
+//       if (apiRes.ok) {
+//         const json = await apiRes.json();
+//         uuid = json?.data?.data?.[0]?.id;
+//       }
+//     } catch (err) {
+//       console.error("Restaurant search error:", err);
+//     }
+//   }
+//   // لو ملقيناش المطعم سيبه يعدي
+//   // الصفحة نفسها تتعامل مع الحالة
+//   if (!uuid) {
+//     return NextResponse.next();
+//   }
+
+//   // rewrite داخلي بدون تغيير URL للمستخدم
+//   return NextResponse.rewrite(
+//     new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url),
+//   );
+// }
+
+// export const config = {
+//   matcher: ["/home/restaurants/:path*"],
+// };
+
+
+
 import { NextRequest, NextResponse } from "next/server";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   console.log("MIDDLEWARE RUNNING:", pathname);
-  // Match:
-  // /home/restaurants/:slug
-  // /home/restaurants/:slug/restaurant
-  // /home/restaurants/:slug/e-menu
+
+  // Match: /home/restaurants/:slug
   const match = pathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/);
 
   if (!match) {
@@ -17,8 +91,7 @@ export async function middleware(request: NextRequest) {
   const rest = match[2] || "";
 
   // لو الـ UUID already موجود متعملش rewrite تاني
-  const uuidPattern =
-    /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+  const uuidPattern = /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
   if (uuidPattern.test(rest)) {
     return NextResponse.next();
@@ -31,21 +104,27 @@ export async function middleware(request: NextRequest) {
 
   if (cookieValue) {
     try {
-      const slugMap: Record<string, string> = JSON.parse(cookieValue);
-
-      uuid = slugMap[slug];
+      const slugMap: Record<string, { id: string; originalName: string }> = JSON.parse(cookieValue);
+      if (slugMap[slug]) {
+        uuid = slugMap[slug].id;
+      }
     } catch (err) {
       console.error("Cookie parse error:", err);
     }
   }
 
-  // ---------------- API Fallback ----------------
+  // ---------------- API Fallback (رابط مباشر بدون كوكيز) ----------------
   if (!uuid) {
     try {
-      // const searchQuery = slug.replace(/-+/g, " ").trim();
+      // تحويل الشرطات لمسافات
+      let searchQuery = decodeURIComponent(slug).replace(/-/g, " ").trim();
+      
+      // تحويل الحروف الأولى لكابيتال لتطابق المظهر الأصلي بالـ Backend مثل "Mata'am Wast Albalad"
+      searchQuery = searchQuery.replace(/\b\w/g, (char) => char.toUpperCase());
+
       const apiRes = await fetch(
-        `https://keetobcknd.keeto.org/api/user/home/search?query=${slug}`,
-        { cache: "no-store" },
+        `https://keetobcknd.keeto.org/api/user/home/search?query=${encodeURIComponent(searchQuery)}`,
+        { cache: "no-store" }
       );
 
       if (apiRes.ok) {
@@ -56,19 +135,18 @@ export async function middleware(request: NextRequest) {
       console.error("Restaurant search error:", err);
     }
   }
-  // لو ملقيناش المطعم سيبه يعدي
-  // الصفحة نفسها تتعامل مع الحالة
+
+  // لو ملقيناش المطعم سيبه يعدي والصفحة تتعامل مع الحالة
   if (!uuid) {
     return NextResponse.next();
   }
 
   // rewrite داخلي بدون تغيير URL للمستخدم
   return NextResponse.rewrite(
-    new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url),
+    new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url)
   );
 }
 
 export const config = {
   matcher: ["/home/restaurants/:path*"],
 };
-
