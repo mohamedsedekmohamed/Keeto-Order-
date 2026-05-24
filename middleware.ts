@@ -1,13 +1,88 @@
+// import { NextRequest, NextResponse } from "next/server";
+
+// export async function middleware(request: NextRequest) {
+//   const { pathname } = request.nextUrl;
+//   console.log("MIDDLEWARE RUNNING:", pathname);
+//   // Match:
+//   // /home/restaurants/:slug
+//   // /home/restaurants/:slug/restaurant
+//   // /home/restaurants/:slug/e-menu
+//   const match = pathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/);
+
+//   if (!match) {
+//     return NextResponse.next();
+//   }
+
+//   const slug = match[1];
+//   const rest = match[2] || "";
+
+//   // لو الـ UUID already موجود متعملش rewrite تاني
+//   const uuidPattern =
+//     /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+
+//   if (uuidPattern.test(rest)) {
+//     return NextResponse.next();
+//   }
+
+//   let uuid: string | undefined;
+
+//   // ---------------- Cookie Fast Path ----------------
+//   const cookieValue = request.cookies.get("slug-map")?.value;
+
+//   if (cookieValue) {
+//     try {
+//       const slugMap: Record<string, string> = JSON.parse(cookieValue);
+
+//       uuid = slugMap[slug];
+//     } catch (err) {
+//       console.error("Cookie parse error:", err);
+//     }
+//   }
+
+//   // ---------------- API Fallback ----------------
+//   if (!uuid) {
+//     try {
+//       // const searchQuery = slug.replace(/-+/g, " ").trim();
+//       const apiRes = await fetch(
+//         `https://keetobcknd.keeto.org/api/user/home/search?query=${slug}`,
+//         { cache: "no-store" },
+//       );
+
+//       if (apiRes.ok) {
+//         const json = await apiRes.json();
+//         uuid = json?.data?.data?.[0]?.id;
+//       }
+//     } catch (err) {
+//       console.error("Restaurant search error:", err);
+//     }
+//   }
+//   // لو ملقيناش المطعم سيبه يعدي
+//   // الصفحة نفسها تتعامل مع الحالة
+//   if (!uuid) {
+//     return NextResponse.next();
+//   }
+
+//   // rewrite داخلي بدون تغيير URL للمستخدم
+//   return NextResponse.rewrite(
+//     new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url),
+//   );
+// }
+
+// export const config = {
+//   matcher: ["/home/restaurants/:path*"],
+// };
+
+
+
 import { NextRequest, NextResponse } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  console.log("MIDDLEWARE RUNNING:", pathname);
-  // Match:
-  // /home/restaurants/:slug
-  // /home/restaurants/:slug/restaurant
-  // /home/restaurants/:slug/e-menu
-  const match = pathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/);
+  // 1. فك تشفير الرابط للتعامل مع الحروف العربية بشكل صحيح
+  const decodedPathname = decodeURIComponent(request.nextUrl.pathname);
+  console.log("MIDDLEWARE RUNNING (Decoded):", decodedPathname);
+
+  // Match على الرابط بعد فك التشفير
+  const match = decodedPathname.match(/^\/home\/restaurants\/([^/]+)(\/.*)?$/);
 
   if (!match) {
     return NextResponse.next();
@@ -32,7 +107,6 @@ export async function middleware(request: NextRequest) {
   if (cookieValue) {
     try {
       const slugMap: Record<string, string> = JSON.parse(cookieValue);
-
       uuid = slugMap[slug];
     } catch (err) {
       console.error("Cookie parse error:", err);
@@ -42,9 +116,9 @@ export async function middleware(request: NextRequest) {
   // ---------------- API Fallback ----------------
   if (!uuid) {
     try {
-      // const searchQuery = slug.replace(/-+/g, " ").trim();
+      // نرسل الـ slug بعد التأكد من صياغته (أو عمل encodeURIComponent هنا إذا كان الـ API يتطلب ذلك)
       const apiRes = await fetch(
-        `https://keetobcknd.keeto.org/api/user/home/search?query=${slug}`,
+        `https://keetobcknd.keeto.org/api/user/home/search?query=${encodeURIComponent(slug)}`,
         { cache: "no-store" },
       );
 
@@ -56,16 +130,18 @@ export async function middleware(request: NextRequest) {
       console.error("Restaurant search error:", err);
     }
   }
-  // لو ملقيناش المطعم سيبه يعدي
-  // الصفحة نفسها تتعامل مع الحالة
+
+  // لو ملقيناش المطعم سيبه يعدي والصفحة نفسها تتعامل مع الـ 404 بشكل نظيف
   if (!uuid) {
     return NextResponse.next();
   }
 
-  // rewrite داخلي بدون تغيير URL للمستخدم
-  return NextResponse.rewrite(
-    new URL(`/home/restaurants/${slug}/${uuid}${rest}`, request.url),
-  );
+  // 2. عند عمل rewrite، يفضل استخدام الحروف الأصلية أو المشفرة حسب بنية المجلدات لديك
+  // الـ URL الداخلي لـ Next.js يفضل أن يتم إنشاؤه عبر مسار مشفر لضمان توافق السيرفرات (Vercel / VPS)
+  const encodedSlug = encodeURIComponent(slug);
+  const rewriteUrl = new URL(`/home/restaurants/${encodedSlug}/${uuid}${rest}`, request.url);
+
+  return NextResponse.rewrite(rewriteUrl);
 }
 
 export const config = {
