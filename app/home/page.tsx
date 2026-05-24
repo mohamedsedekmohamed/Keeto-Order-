@@ -53,13 +53,13 @@ export default function HomePage() {
   const { t, language } = useLanguage();
 
   const isRtl = language === "العربية";
-  const slugify = (name: string) => {
-    return name
-      ?.toLowerCase()
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/[^\w\-]+/g, "");
-  };
+  // const slugify = (name: string) => {
+  //   return name
+  //     ?.toLowerCase()
+  //     .trim()
+  //     .replace(/\s+/g, "-")
+  //     .replace(/[^\w\-]+/g, "");
+  // };
   // ربط الـ API بالنوع المخصص
   const { data, loading, error, refetch } = useGet<HomeData>("/api/user/home");
 
@@ -68,7 +68,7 @@ export default function HomePage() {
     if (content?.restaurants) {
       const slugMap = content.restaurants.reduce(
         (acc, r) => {
-          acc[slugify(r.name)] = r.id;
+          acc[r.name] = r.id;
           return acc;
         },
         {} as Record<string, string>,
@@ -231,7 +231,7 @@ export default function HomePage() {
                   key={restaurant.id}
                   // href={`/home/restaurants/${restaurant.id}`}
                   className="block"
-                  href={`/home/restaurants/${slugify(restaurant.name)}`}
+                  href={`/home/restaurants/${restaurant.name}`}
                 >
                   <motion.div
                     key={restaurant.id}

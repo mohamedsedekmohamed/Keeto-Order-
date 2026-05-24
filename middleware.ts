@@ -42,30 +42,20 @@ export async function middleware(request: NextRequest) {
   // ---------------- API Fallback ----------------
   if (!uuid) {
     try {
-      // convert:
-      // mataam-wast-albalad
-      // => mataam wast albalad
-    const searchQuery = slug.replace(/-+/g, " ").trim();
-
+      // const searchQuery = slug.replace(/-+/g, " ").trim();
       const apiRes = await fetch(
-        `https://keetobcknd.keeto.org/api/user/home/search?query=${encodeURIComponent(
-          searchQuery,
-        )}`,
-        {
-          cache: "no-store",
-        },
+        `https://keetobcknd.keeto.org/api/user/home/search?query=${slug}`,
+        { cache: "no-store" },
       );
 
       if (apiRes.ok) {
         const json = await apiRes.json();
-
         uuid = json?.data?.data?.[0]?.id;
       }
     } catch (err) {
       console.error("Restaurant search error:", err);
     }
   }
-
   // لو ملقيناش المطعم سيبه يعدي
   // الصفحة نفسها تتعامل مع الحالة
   if (!uuid) {
