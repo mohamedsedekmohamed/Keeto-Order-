@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 interface FavoriteFood {
   id: string;
   name: string;
+  nameAr: string;
   image: string;
   description: string;
   price: string;
@@ -21,9 +22,10 @@ export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
   const [loading, setLoading] = useState(true);
 const router = useRouter();
+ const { language } = useLanguage();
   const { t } = useLanguage();
   const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
-
+  const isRtl = language === "العربية";
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -110,7 +112,7 @@ const router = useRouter();
                 </div>
 
                 <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
-                  {item.name}
+                  {isRtl ? item.nameAr : item.name}
                 </h2>
 
                 <p className="mb-4 text-sm text-gray-500 dark:text-zinc-400 line-clamp-2">

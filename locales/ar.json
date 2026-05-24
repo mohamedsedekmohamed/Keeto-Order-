@@ -200,6 +200,6 @@
   "loginFirst": "يرجى تسجيل الدخول اولاً",
   "You have food from another restaurant": "لديك طعام من مطعم اخر",
   "addToCart": "اضافة الى السلة",
-
+  "cartExpired": "تم مسح السلة بعد ساعة",
   "alreadyInCart": "عندك منتجات من مطعم تاني"
 }

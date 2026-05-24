@@ -39,7 +39,6 @@ export default function Cart() {
   // 👈 1. جلب البيانات عند فتح الصفحة
   const { data: cartData, loading: fetchingCart } =
     useGet<any>("/api/user/cart");
-
   useEffect(() => {
     if (cartData?.data?.data) {
       dispatch(setCartItems(cartData.data.data));
@@ -49,7 +48,47 @@ export default function Cart() {
   // 👈 2. تهيئة الـ Hooks للتعديل والحذف
   const { putData } = usePut();
   const { deleteData } = useDelete("/users", "تم الحذف بنجاح");
+  const { language } = useLanguage();
+  const isRtl = language === "العربية";
   // حساب الإجمالي
+  useEffect(() => {
+    const CART_EXPIRY_KEY = "cart-expiry";
+
+    // لو الكارت فيها منتجات ومفيش expiry متسجل
+    if (items.length > 0 && !localStorage.getItem(CART_EXPIRY_KEY)) {
+      const expiryTime = Date.now() + 60 * 60 * 1000;
+      localStorage.setItem(CART_EXPIRY_KEY, expiryTime.toString());
+    }
+
+    const checkCartExpiry = async () => {
+      const expiry = localStorage.getItem(CART_EXPIRY_KEY);
+
+      if (!expiry) return;
+
+      const isExpired = Date.now() >= Number(expiry);
+
+      if (isExpired) {
+        try {
+          await deleteData("/api/user/cart", t("cartCleared"));
+
+          dispatch(clearCartLocal());
+
+          localStorage.removeItem(CART_EXPIRY_KEY);
+
+          toast.success(t("cartExpired") || "تم مسح السلة بعد ساعة");
+        } catch (error) {
+          console.error("Failed to clear expired cart");
+        }
+      }
+    };
+
+    checkCartExpiry();
+
+    // check كل دقيقة
+    const interval = setInterval(checkCartExpiry, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [items, dispatch, t]);
   const totalPrice = Array.isArray(items)
     ? items.reduce((total, item) => total + Number(item.totalPrice), 0)
     : 0;
@@ -71,7 +110,6 @@ export default function Cart() {
       toast.error(t("failedUpdateQuantity"));
     }
   };
-
   const handleRemoveItem = async (cartId: string) => {
     try {
       await deleteData(`/api/user/cart/${cartId}`, t("itemRemoved"));
@@ -85,12 +123,13 @@ export default function Cart() {
     try {
       await deleteData("/api/user/cart", t("cartCleared"));
       dispatch(clearCartLocal());
+      localStorage.removeItem("cart-expiry");
     } catch (error) {
       toast.error(t("failedClearCart"));
     }
   };
 
-  if (fetchingCart) {
+  if (fetchingCart && items.length === 0) {
     return <Loading />;
   }
 

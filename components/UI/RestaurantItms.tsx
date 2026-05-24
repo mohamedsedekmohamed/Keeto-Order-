@@ -545,12 +545,17 @@ export default function RestaurantItms({
                     }}
                     className="scroll-mt-36"
                   >
-                    <div className="flex items-center justify-between mb-4 border-b pb-2 dark:border-zinc-800">
+                    <div
+                      className={`flex items-center justify-between mb-4 border-b pb-2 dark:border-zinc-800 ${
+                        isRtl ? "flex-row" : "flex-row-reverse"
+                      }`}
+                    >
                       <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
                         {category.name}
                       </h2>
+
                       <span className="text-sm text-gray-400 dark:text-zinc-500">
-                        ({categoryItems.length}){t("Item")}
+                        ({categoryItems.length}) {t("Item")}
                       </span>
                     </div>
 
