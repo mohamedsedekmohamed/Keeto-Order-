@@ -1,13 +1,11 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Search, Plus, X, Minus, LayoutGrid, Heart } from "lucide-react";
-import { useAppDispatch } from "@/redux/hooks";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
-
 import {
   MenuItem,
   Variation,
@@ -15,9 +13,24 @@ import {
   MenuCategory,
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
-import useGet from "@/app/hooks/useGet";
-import { navigate } from "next/dist/client/components/segment-cache/navigation";
-import { redirect } from "react-router-dom";
+
+interface DerivedSubCategory {
+  id: string; // subcategory id OR "__no_sub__"
+  name: string;
+  nameAr: string;
+  foods: MenuItem[];
+}
+
+interface DerivedCategory {
+  id: string;
+  name: string;
+  nameAr: string;
+  subCategories: DerivedSubCategory[];
+  totalFoods: number;
+  coverImage: string;
+}
+
+type ViewMode = "all" | "menu";
 
 export default function RestaurantItms({
   menu,
@@ -28,37 +41,23 @@ export default function RestaurantItms({
   restaurantId: string;
   onCartUpdated: () => void;
 }) {
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const { language } = useLanguage();
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"all" | "menu">("all");
-  const [selectedOptions, setSelectedOptions] = useState<
-    Record<string, string[]>
-  >({});
-  const [loading, setLoading] = useState(false);
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isRtl = language === "العربية";
+  const router = useRouter();
+  const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
 
+  // ── Auth ──────────────────────────────────────────────────────────
   const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setToken(localStorage.getItem("token"));
-    }
+    if (typeof window !== "undefined") setToken(localStorage.getItem("token"));
   }, []);
 
-  const router = useRouter();
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
-  const isManualClick = useRef(false);
-  const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
-  const [favoritesList, setFavoritesList] = useState<any[]>([]);
-  const isRtl = language === "العربية";
+  // ── Favorites ─────────────────────────────────────────────────────
+  const [favoritesList, setFavoritesList] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
-    fetchFavorites();
+    if (token) fetchFavorites();
   }, [token]);
 
   const fetchFavorites = async () => {
@@ -67,175 +66,253 @@ export default function RestaurantItms({
       const res = await axios.get(
         "https://keetobcknd.keeto.org/api/user/favlist",
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         },
       );
       const foods = res?.data?.data?.data?.foods;
-      if (Array.isArray(foods)) {
-        const ids = foods.map((item: any) => item?.id).filter(Boolean);
-        setFavoritesList(ids);
-      } else {
-        setFavoritesList([]);
-      }
-    } catch (error) {
-      console.error("Error fetching favorites:", error);
+      setFavoritesList(
+        Array.isArray(foods)
+          ? foods.map((f: any) => f?.id).filter(Boolean)
+          : [],
+      );
+    } catch (e) {
+      console.error("Error fetching favorites:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  const { dynamicCategories, dynamicItems } = useMemo(() => {
-    const cats = [{ id: "all", name: t("All") }];
-    const itms: (MenuItem & { categoryId: string })[] = [];
+  // ── Navigation state ──────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [activeCategoryTab, setActiveCategoryTab] = useState("all");
+  const [activeSubCategoryTab, setActiveSubCategoryTab] = useState<
+    string | null
+  >(null);
 
-    if (Array.isArray(menu)) {
-      menu.forEach((category) => {
-        if (!category) return;
-        cats.push({
-          id: category.id,
-          name: isRtl ? category.nameAr : category.name,
-        });
+  // ── Scroll-spy state ──────────────────────────────────────────────
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
+  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
+  const subCategoryMenuRef = useRef<HTMLDivElement | null>(null);
+  const isManualClick = useRef(false);
 
-        if (Array.isArray(category.foods)) {
-          category.foods.forEach((item) => {
-            if (!item) return;
-            itms.push({
-              ...item,
-              categoryId: category.id,
-            });
+  // ── Search ────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // ── Item modal ────────────────────────────────────────────────────
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string[]>
+  >({});
+
+  // ─────────────────────────────────────────────────────────────────
+  // DERIVED DATA — group flat foods into DerivedCategory[]
+  // ─────────────────────────────────────────────────────────────────
+  const derivedMenu = useMemo<DerivedCategory[]>(() => {
+    if (!Array.isArray(menu)) return [];
+    return menu.map((cat) => {
+      const subMap = new Map<string, DerivedSubCategory>();
+      (cat.foods || []).forEach((food: any) => {
+        const sub = food.subcategory;
+        const key = sub ? sub.id : "__no_sub__";
+        if (!subMap.has(key)) {
+          subMap.set(key, {
+            id: key,
+            name: sub ? sub.name : cat.name,
+            nameAr: sub ? sub.nameAr : cat.nameAr,
+            foods: [],
           });
         }
+        subMap.get(key)!.foods.push(food as MenuItem);
       });
-    }
+      const subCategories = Array.from(subMap.values());
+      return {
+        id: cat.id,
+        name: cat.name,
+        nameAr: cat.nameAr,
+        subCategories,
+        totalFoods: subCategories.reduce((n, s) => n + s.foods.length, 0),
+        coverImage: subCategories[0]?.foods[0]?.image || "/placeholder.jpg",
+      };
+    });
+  }, [menu]);
 
-    return {
-      dynamicCategories: cats,
-      dynamicItems: itms,
-    };
-  }, [menu, t, isRtl]);
+  // Main Categories Tabs Top Bar
+  const dynamicCategories = useMemo(() => {
+    const cats = [{ id: "all", name: t("All") }];
+    derivedMenu.forEach((cat) => {
+      cats.push({ id: cat.id, name: isRtl ? cat.nameAr : cat.name });
+    });
+    return cats;
+  }, [derivedMenu, t, isRtl]);
 
+  // Active Subcategories sub-bar tabs
+  const activeSubCategories = useMemo(() => {
+    if (activeCategoryTab === "all") return [];
+    const currentCat = derivedMenu.find((c) => c.id === activeCategoryTab);
+    if (!currentCat) return [];
+
+    return currentCat.subCategories.filter((sub) => sub.id !== "__no_sub__");
+  }, [derivedMenu, activeCategoryTab]);
+
+  // Flat dynamic items mapper
+  const dynamicItems = useMemo(() => {
+    const itms: (MenuItem & { categoryId: string; subCategoryId: string })[] =
+      [];
+    derivedMenu.forEach((cat) => {
+      cat.subCategories.forEach((sub) => {
+        sub.foods.forEach((food) =>
+          itms.push({ ...food, categoryId: cat.id, subCategoryId: sub.id }),
+        );
+      });
+    });
+    return itms;
+  }, [derivedMenu]);
+
+  // Search filter loop
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return dynamicItems.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) || f.nameAr.toLowerCase().includes(q),
+    );
+  }, [dynamicItems, searchQuery]);
+
+  // Helper to generate a collision-free section anchor key
+  const getSectionKey = (catId: string, subId: string) => `${catId}||${subId}`;
+
+  // ── Dual Layer Scroll-spy System ──────────────────────────────────
   useEffect(() => {
-    if (searchQuery || viewMode === "all" || !Array.isArray(menu)) return;
+    if (searchQuery || viewMode !== "menu" || !Array.isArray(menu)) return;
 
-    const timer = setTimeout(() => {
-      const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-        if (isManualClick.current) return;
+    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
+      if (isManualClick.current) return;
 
-        const visibleEntry = entries.find((entry) => entry.isIntersecting);
+      const visible = entries.find((e) => e.isIntersecting);
+      if (visible) {
+        const targetKey = visible.target.id;
+        const parentCatId = visible.target.getAttribute("data-category");
+        const subId = visible.target.getAttribute("data-subcategory");
 
-        if (visibleEntry) {
-          setActiveCategory(visibleEntry.target.id);
+        if (parentCatId && subId) {
+          setActiveCategoryTab(parentCatId);
+          setActiveSubCategoryTab(subId === "__no_sub__" ? null : subId);
 
-          const activeTab = document.getElementById(
-            `tab-${visibleEntry.target.id}`,
-          );
-
-          if (activeTab && categoryMenuRef.current) {
+          const mainTab = document.getElementById(`tab-${parentCatId}`);
+          if (mainTab && categoryMenuRef.current) {
             const container = categoryMenuRef.current;
-
-            const scrollPosition =
-              activeTab.offsetLeft -
+            const scrollPos =
+              mainTab.offsetLeft -
               container.offsetWidth / 2 +
-              activeTab.offsetWidth / 2;
-
-            const maxScroll = container.scrollWidth - container.clientWidth;
-
+              mainTab.offsetWidth / 2;
             container.scrollTo({
-              left: isRtl ? maxScroll - scrollPosition : scrollPosition,
+              left: isRtl
+                ? container.scrollWidth - container.clientWidth - scrollPos
+                : scrollPos,
               behavior: "smooth",
             });
           }
+
+          if (subId !== "__no_sub__") {
+            const subTab = document.getElementById(`subtab-${subId}`);
+            if (subTab && subCategoryMenuRef.current) {
+              const container = subCategoryMenuRef.current;
+              const scrollPos =
+                subTab.offsetLeft -
+                container.offsetWidth / 2 +
+                subTab.offsetWidth / 2;
+              container.scrollTo({
+                left: isRtl
+                  ? container.scrollWidth - container.clientWidth - scrollPos
+                  : scrollPos,
+                behavior: "smooth",
+              });
+            }
+          }
         }
-      };
+      }
+    };
 
-      const observerOptions = {
-        root: null,
-        rootMargin: "-120px 0px -70% 0px",
-        threshold: 0,
-      };
+    const observer = new IntersectionObserver(handleIntersect, {
+      root: null,
+      rootMargin: "-120px 0px -65% 0px",
+      threshold: 0,
+    });
 
-      const observer = new IntersectionObserver(
-        handleIntersect,
-        observerOptions,
-      );
-
-      Object.values(sectionRefs.current).forEach((section) => {
-        if (section) observer.observe(section);
-      });
-
-      return () => observer.disconnect();
-    }, 100);
-
-    return () => clearTimeout(timer);
+    Object.values(sectionRefs.current).forEach((s) => s && observer.observe(s));
+    return () => observer.disconnect();
   }, [menu, searchQuery, viewMode, isRtl]);
 
-  const scrollCategoryTabIntoView = (catId: string) => {
-    const activeTab = document.getElementById(`tab-${catId}`);
-    activeTab?.scrollIntoView({
-      behavior: "smooth",
-      inline: "center",
-      block: "nearest",
-    });
-  };
-
+  // ── Navigation actions ────────────────────────────────────────────
   const scrollToCategory = (catId: string) => {
-    setActiveCategory(catId);
-
     if (catId === "all") {
+      // Switches the layout style without forcing a screen-jump scroll
       setViewMode("all");
+      setActiveCategoryTab("all");
+      setActiveSubCategoryTab(null);
       return;
     }
 
     setViewMode("menu");
+    setActiveCategoryTab(catId);
 
-    requestAnimationFrame(() => {
-      scrollCategoryTabIntoView(catId);
-    });
+    const targetedCat = derivedMenu.find((c) => c.id === catId);
+    if (targetedCat && targetedCat.subCategories.length > 0) {
+      const firstSub = targetedCat.subCategories[0];
+      setActiveSubCategoryTab(
+        firstSub.id === "__no_sub__" ? null : firstSub.id,
+      );
 
-    setTimeout(() => {
-      const element = sectionRefs.current[catId];
-
-      if (element) {
-        isManualClick.current = true;
-
-        const offset = 140;
-        const top =
-          element.getBoundingClientRect().top + window.scrollY - offset;
-
-        window.scrollTo({
-          top,
-          behavior: "smooth",
-        });
-
-        setTimeout(() => {
-          isManualClick.current = false;
-        }, 800);
-      }
-    }, 150);
+      const combinedKey = getSectionKey(catId, firstSub.id);
+      performSmoothScroll(combinedKey);
+    }
   };
 
+  const scrollToSubCategory = (subId: string) => {
+    setActiveSubCategoryTab(subId);
+    const combinedKey = getSectionKey(activeCategoryTab, subId);
+    performSmoothScroll(combinedKey);
+  };
+
+  const performSmoothScroll = (sectionKey: string) => {
+    isManualClick.current = true;
+    setTimeout(() => {
+      const el = sectionRefs.current[sectionKey];
+      if (el) {
+        const headerHeight = stickyHeaderRef.current?.offsetHeight || 130;
+        const top =
+          el.getBoundingClientRect().top + window.scrollY - headerHeight - 16;
+
+        window.scrollTo({ top, behavior: "smooth" });
+        setTimeout(() => {
+          isManualClick.current = false;
+        }, 600);
+      }
+    }, 50);
+  };
+
+  const openCategoryCard = (cat: DerivedCategory) => {
+    setViewMode("menu");
+    setActiveCategoryTab(cat.id);
+    const firstSubId = cat.subCategories[0]?.id || "__no_sub__";
+    setActiveSubCategoryTab(firstSubId === "__no_sub__" ? null : firstSubId);
+    performSmoothScroll(getSectionKey(cat.id, firstSubId));
+  };
+
+  // ── Item modal helpers ────────────────────────────────────────────
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
     setQuantity(1);
-
-    const initialOptions: Record<string, string[]> = {};
-    if (Array.isArray(item?.variations)) {
-      item.variations.forEach((variation) => {
-        if (
-          variation.selectionType === "single" &&
-          variation.isRequired &&
-          Array.isArray(variation.options) &&
-          variation.options.length > 0
-        ) {
-          initialOptions[variation.id] = [variation.options[0].id];
-        } else {
-          initialOptions[variation.id] = [];
-        }
-      });
-    }
-    setSelectedOptions(initialOptions);
+    const init: Record<string, string[]> = {};
+    (item.variations || []).forEach((v) => {
+      init[v.id] =
+        v.selectionType === "single" && v.isRequired && v.options.length > 0
+          ? [v.options[0].id]
+          : [];
+    });
+    setSelectedOptions(init);
   };
 
   const handleOptionSelect = (
@@ -247,44 +324,31 @@ export default function RestaurantItms({
       return;
     }
     setSelectedOptions((prev) => {
-      const currentSelections = prev[variation.id] || [];
-      if (variation.selectionType === "single") {
+      const cur = prev[variation.id] || [];
+      if (variation.selectionType === "single")
         return { ...prev, [variation.id]: [option.id] };
-      } else {
-        const isCurrentlySelected = currentSelections.includes(option.id);
-        let newSelections = [];
-        if (isCurrentlySelected) {
-          newSelections = currentSelections.filter((id) => id !== option.id);
-        } else {
-          if (
-            variation.max === null ||
-            currentSelections.length < variation.max
-          ) {
-            newSelections = [...currentSelections, option.id];
-          } else {
-            newSelections = currentSelections;
-          }
-        }
-        return { ...prev, [variation.id]: newSelections };
-      }
+      if (cur.includes(option.id))
+        return {
+          ...prev,
+          [variation.id]: cur.filter((id) => id !== option.id),
+        };
+      if (variation.max !== null && cur.length >= variation.max) return prev;
+      return { ...prev, [variation.id]: [...cur, option.id] };
     });
   };
 
   const calculateTotalPrice = () => {
     if (!selectedItem) return 0;
-    let totalBase = parseFloat(selectedItem.price || "0");
-    Object.entries(selectedOptions).forEach(([variationId, optionIds]) => {
-      const variation = selectedItem.variations?.find(
-        (v) => v.id === variationId,
-      );
-      if (variation && Array.isArray(variation.options)) {
-        optionIds.forEach((optId) => {
-          const option = variation.options.find((o) => o.id === optId);
-          if (option) totalBase += parseFloat(option.additionalPrice || "0");
+    let total = parseFloat(selectedItem.price || "0");
+    Object.entries(selectedOptions).forEach(([vId, optIds]) => {
+      const v = selectedItem.variations?.find((x) => x.id === vId);
+      if (v)
+        optIds.forEach((oId) => {
+          const o = v.options.find((x) => x.id === oId);
+          if (o) total += parseFloat(o.additionalPrice || "0");
         });
-      }
     });
-    return totalBase * quantity;
+    return total * quantity;
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent, foodId: string) => {
@@ -293,27 +357,20 @@ export default function RestaurantItms({
       return;
     }
     e.stopPropagation();
-    const isCurrentlyFavorite = favorites.includes(foodId);
-    setFavorites((prev) =>
-      isCurrentlyFavorite
-        ? prev.filter((id) => id !== foodId)
-        : [...prev, foodId],
+    const wasFav = favoritesList.includes(foodId);
+    setFavoritesList((p) =>
+      wasFav ? p.filter((id) => id !== foodId) : [...p, foodId],
     );
-
     try {
       await toggleFav(
         { foodId },
         null,
-        isCurrentlyFavorite
-          ? t("removed From Favorites")
-          : t("added To Favorites"),
+        wasFav ? t("removed From Favorites") : t("added To Favorites"),
       );
       fetchFavorites();
-    } catch (error) {
-      setFavorites((prev) =>
-        isCurrentlyFavorite
-          ? [...prev, foodId]
-          : prev.filter((id) => id !== foodId),
+    } catch {
+      setFavoritesList((p) =>
+        wasFav ? [...p, foodId] : p.filter((id) => id !== foodId),
       );
     }
   };
@@ -325,50 +382,119 @@ export default function RestaurantItms({
       return;
     }
     if (!selectedItem) return;
-
     try {
-      const formattedVariations = Object.entries(selectedOptions).flatMap(
-        ([varId, optIds]) =>
-          optIds.map((optId) => ({
-            variationId: varId,
-            optionId: optId,
-          })),
+      const variations = Object.entries(selectedOptions).flatMap(
+        ([vId, optIds]) =>
+          optIds.map((oId) => ({ variationId: vId, optionId: oId })),
       );
-
-      const body = {
+      await api.post("/api/user/cart", {
         foodId: selectedItem.id,
-        quantity: quantity,
-        variations: formattedVariations,
-      };
-      await api.post("/api/user/cart", body);
-
+        quantity,
+        variations,
+      });
       toast.success(t("addedToCart"));
       setLoading(false);
       onCartUpdated();
       setSelectedItem(null);
     } catch (error: any) {
-      if (error.response) {
-        setLoading(false);
-        const status = error.response.status;
-
-        if (status === 409) {
-          toast.error(t("alreadyInCart"));
-        } else if (status === 400) {
-          toast.error("بيانات غير صحيحة");
-        } else if (status === 401) {
-          toast.error(t("loginFirst"));
-        } else {
-          toast.error("حدث خطأ ما، حاول مرة أخرى");
-        }
-      } else {
-        toast.error("تحقق من الاتصال بالإنترنت");
-      }
+      setLoading(false);
+      const status = error?.response?.status;
+      if (status === 409) toast.error(t("alreadyInCart"));
+      else if (status === 400) toast.error("بيانات غير صحيحة");
+      else if (status === 401) toast.error(t("loginFirst"));
+      else if (error?.response) toast.error("حدث خطأ ما، حاول مرة أخرى");
+      else toast.error("تحقق من الاتصال بالإنترنت");
     }
   };
+
+  // ── Shared UI templates ───────────────────────────────────────────
+  const FoodCard = ({ item }: { item: MenuItem }) => {
+    const isFav = favoritesList.includes(item.id);
+    return (
+      <div
+        onClick={() => handleItemClick(item)}
+        className="relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm cursor-pointer dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 hover:shadow-md group"
+      >
+        <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="object-cover w-full h-full transition-transform group-hover:scale-110"
+          />
+        </div>
+        <div className="flex flex-col justify-between flex-1 h-full mr-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="ml-6 font-bold text-gray-900 dark:text-zinc-100 line-clamp-1">
+                {isRtl ? item.nameAr : item.name}
+              </h3>
+              <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
+                {isRtl ? item.descriptionAr : item.description}
+              </p>
+            </div>
+            <button
+              onClick={(e) => handleToggleFavorite(e, item.id)}
+              className="absolute top-3 left-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10"
+            >
+              <Heart
+                size={18}
+                className={`transition-colors ${isFav ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-zinc-500"}`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-3">
+            <span className="font-bold text-yellow-500">{item.price} E£</span>
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                handleItemClick(item);
+              }}
+              className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl"
+            >
+              <Plus size={18} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const CategoryCard = ({
+    image,
+    name,
+    count,
+    onClick,
+  }: {
+    image: string;
+    name: string;
+    count: number;
+    onClick: () => void;
+  }) => (
+    <div
+      onClick={onClick}
+      className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden cursor-pointer hover:-translate-y-2 duration-300"
+    >
+      <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
+      <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
+        <img
+          src={image}
+          alt={name}
+          className="object-cover w-full h-full transition-transform group-hover:scale-110"
+        />
+      </div>
+      <h3 className="font-bold text-gray-800 dark:text-white group-hover:text-yellow-500 transition-colors line-clamp-2">
+        {name}
+      </h3>
+      <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
+        {count} {t("Item")}
+      </span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
       <div className="px-4 py-6 mx-3 text-right" dir="rtl">
+        {/* ── Search Bar ── */}
         <div className="relative mb-6">
           <div className="absolute inset-y-0 flex items-center pointer-events-none right-3">
             <Search className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
@@ -382,252 +508,153 @@ export default function RestaurantItms({
           />
         </div>
 
+        {/* ── Fixed Sticky Navigation Header wrapper ── */}
         <div
-          ref={categoryMenuRef}
-          dir={isRtl ? "rtl" : "ltr"}
-          className="sticky top-0 z-40 flex gap-2 pb-4 pt-2 mb-6 overflow-x-auto no-scrollbar scroll-smooth bg-gray-50/80 dark:bg-zinc-950/80 backdrop-blur-md"
+          ref={stickyHeaderRef}
+          className="sticky top-0 z-40 bg-gray-50/80 dark:bg-zinc-950/80 backdrop-blur-md pb-2 pt-2"
         >
-          {dynamicCategories.map((cat) => (
-            <button
-              id={`tab-${cat.id}`}
-              key={cat.id}
-              onClick={() => scrollToCategory(cat.id)}
-              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
-                activeCategory === cat.id
-                  ? "bg-yellow-400 text-white shadow-md transform scale-105"
-                  : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
-              }`}
+          {/* Layer 1: Main Category Tab Bar */}
+          <div
+            ref={categoryMenuRef}
+            dir={isRtl ? "rtl" : "ltr"}
+            className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth mb-2"
+          >
+            {dynamicCategories.map((cat) => (
+              <button
+                id={`tab-${cat.id}`}
+                key={cat.id}
+                onClick={() => scrollToCategory(cat.id)}
+                className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
+                  activeCategoryTab === cat.id
+                    ? "bg-yellow-400 text-white shadow-md transform scale-105"
+                    : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Layer 2: Optional Sub-Category Pills Bar */}
+          {viewMode === "menu" && activeSubCategories.length > 0 && (
+            <div
+              ref={subCategoryMenuRef}
+              dir={isRtl ? "rtl" : "ltr"}
+              className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth pt-1 animate-in fade-in duration-300"
             >
-              {cat.name}
-            </button>
-          ))}
+              {activeSubCategories.map((sub) => (
+                <button
+                  id={`subtab-${sub.id}`}
+                  key={sub.id}
+                  onClick={() => scrollToSubCategory(sub.id)}
+                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 shrink-0 ${
+                    activeSubCategoryTab === sub.id
+                      ? "bg-amber-100 text-amber-700 dark:bg-yellow-400/20 dark:text-yellow-400 ring-1 ring-yellow-400"
+                      : "bg-white dark:bg-zinc-900 text-gray-400 dark:text-zinc-500 border border-gray-100 dark:border-zinc-800"
+                  }`}
+                >
+                  {isRtl ? sub.nameAr : sub.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="space-y-12">
-          {viewMode === "all" ? (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-                  <LayoutGrid size={24} className="text-yellow-400" />
-                  {t("categories")}
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
-                {dynamicCategories
-                  .filter((c) => c.id !== "all")
-                  .map((cat) => {
-                    const firstItem = dynamicItems.find(
-                      (i) => i.categoryId === cat.id,
-                    );
-                    const itemCount = dynamicItems.filter(
-                      (i) => i.categoryId === cat.id,
-                    ).length;
-
-                    return (
-                      <div
-                        key={cat.id}
-                        onClick={() => scrollToCategory(cat.id)}
-                        className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden cursor-pointer hover:-translate-y-2 duration-300"
-                      >
-                        <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
-
-                        <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
-                          <img
-                            src={firstItem?.image || "/placeholder.jpg"}
-                            alt={cat.name}
-                            className="object-cover w-full h-full transition-transform group-hover:scale-110"
-                          />
-                        </div>
-
-                        <h3 className="font-bold text-gray-800 dark:text-white group-hover:text-yellow-500 transition-colors">
-                          {cat.name}
-                        </h3>
-
-                        <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
-                          {itemCount} {t("Item")}
-                        </span>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          ) : searchQuery ? (
+        <div className="space-y-12 mt-4">
+          {searchQuery.trim() ? (
             <>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
                   نتائج البحث
                 </h2>
                 <span className="text-sm text-gray-400 dark:text-zinc-500">
-                  (
-                  {
-                    dynamicItems.filter((item) =>
-                      item.name
-                        .toLowerCase()
-                        .includes(searchQuery.toLowerCase()),
-                    ).length
-                  }
-                  ){t("Item")}
+                  ({searchResults.length}) {t("Item")}
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {dynamicItems
-                  .filter((item) =>
-                    item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-                  )
-                  .map((item) => {
-                    const isFavorite = favoritesList.includes(item.id);
-                    return (
-                      <div
-                        onClick={() => handleItemClick(item)}
-                        key={item.id}
-                        className="relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm cursor-pointer dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 hover:shadow-md group"
-                      >
-                        <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="object-cover w-full h-full transition-transform group-hover:scale-110"
-                          />
-                        </div>
-                        <div className="flex flex-col justify-between flex-1 h-full mr-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="ml-6 font-bold text-gray-900 dark:text-zinc-100">
-                                {isRtl ? item.nameAr : item.name}
-                              </h3>
-                              <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
-                                {isRtl ? item.descriptionAr : item.description}
-                              </p>
-                            </div>
-                            <button
-                              onClick={(e) => handleToggleFavorite(e, item.id)}
-                              className="absolute top-3 left-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10"
-                            >
-                              <Heart
-                                size={18}
-                                className={`transition-colors ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-zinc-500"}`}
-                              />
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="font-bold text-yellow-500">
-                              {item.price} E£
-                            </span>
-                            <div
-                              className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl"
-                              onClick={handleAddToCartSubmit}
-                            >
-                              <Plus size={18} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+              {searchResults.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {searchResults.map((item) => (
+                    <FoodCard key={item.id} item={item} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-zinc-600">
+                  <Search size={48} className="mb-2 opacity-20" />
+                  <p>{t("noSearchResults")}</p>
+                </div>
+              )}
             </>
           ) : (
-            dynamicCategories
-              .filter((c) => c.id !== "all")
-              .map((category) => {
-                const categoryItems = dynamicItems.filter(
-                  (item) => item.categoryId === category.id,
-                );
-                if (categoryItems.length === 0) return null;
-
-                return (
-                  <div
-                    key={category.id}
-                    id={category.id}
-                    ref={(el) => {
-                      sectionRefs.current[category.id] = el;
-                    }}
-                    className="scroll-mt-36"
-                  >
-                    <div
-                      className={`flex items-center justify-between mb-4 border-b pb-2 dark:border-zinc-800 ${
-                        isRtl ? "flex-row" : "flex-row-reverse"
-                      }`}
-                    >
-                      <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
-                        {category.name}
-                      </h2>
-
-                      <span className="text-sm text-gray-400 dark:text-zinc-500">
-                        ({categoryItems.length}) {t("Item")}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                      {categoryItems.map((item) => {
-                        const isFavorite = favoritesList.includes(item.id);
-                        return (
-                          <div
-                            onClick={() => handleItemClick(item)}
-                            key={item.id}
-                            className="relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm cursor-pointer dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 hover:shadow-md group"
-                          >
-                            <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl">
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="object-cover w-full h-full transition-transform group-hover:scale-110"
-                              />
-                            </div>
-                            <div className="flex flex-col justify-between flex-1 h-full mr-4">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h3 className="ml-6 font-bold text-gray-900 dark:text-zinc-100">
-                                    {isRtl ? item.nameAr : item.name}
-                                  </h3>
-                                  <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
-                                    {isRtl
-                                      ? item.descriptionAr
-                                      : item.description}
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={(e) =>
-                                    handleToggleFavorite(e, item.id)
-                                  }
-                                  className="absolute top-3 left-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10"
-                                >
-                                  <Heart
-                                    size={18}
-                                    className={`transition-colors ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-zinc-500"}`}
-                                  />
-                                </button>
-                              </div>
-                              <div className="flex items-center justify-between mt-3">
-                                <span className="font-bold text-yellow-500">
-                                  {item.price} E£
-                                </span>
-                                <div className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl">
-                                  <Plus size={18} />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+            <>
+              {/* VIEW: "all" — Classic Main Categories Grid layout display */}
+              {viewMode === "all" && (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
+                      <LayoutGrid size={24} className="text-yellow-400" />
+                      {t("categories")}
+                    </h2>
                   </div>
-                );
-              })
-          )}
+                  <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
+                    {derivedMenu.map((cat) => (
+                      <CategoryCard
+                        key={cat.id}
+                        image={cat.coverImage}
+                        name={isRtl ? cat.nameAr : cat.name}
+                        count={cat.totalFoods}
+                        onClick={() => openCategoryCard(cat)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {searchQuery &&
-            dynamicItems.filter((item) =>
-              item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-            ).length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-zinc-600">
-                <Search size={48} className="mb-2 opacity-20" />
-                <p>{t("noSearchResults")}</p>
-              </div>
-            )}
+              {/* VIEW: "menu" — The multi-section layout where subcategories function as structural sections */}
+              {viewMode === "menu" && (
+                <>
+                  {derivedMenu.map((category) => {
+                    return category.subCategories.map((sub) => {
+                      if (sub.foods.length === 0) return null;
+
+                      const uniqueKey = getSectionKey(category.id, sub.id);
+
+                      return (
+                        <div
+                          key={uniqueKey}
+                          id={uniqueKey}
+                          data-category={category.id}
+                          data-subcategory={sub.id}
+                          ref={(el) => {
+                            sectionRefs.current[uniqueKey] = el;
+                          }}
+                          className="scroll-mt-40"
+                        >
+                          <div className="flex flex-col mb-4 border-b pb-2 dark:border-zinc-800">
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
+                              {isRtl ? category.nameAr : category.name}
+                            </h2>
+                            {sub.id !== "__no_sub__" && (
+                              <span className="text-xs font-medium text-yellow-500 mt-0.5">
+                                {isRtl ? sub.nameAr : sub.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            {sub.foods.map((item) => (
+                              <FoodCard key={item.id} item={item} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })}
+                </>
+              )}
+            </>
+          )}
         </div>
 
+        {/* ── FOOD ITEM MODAL ── */}
         {selectedItem && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-md transition-all duration-500 animate-in fade-in">
             <div className="relative w-full max-w-xl overflow-hidden bg-white dark:bg-zinc-900 border-t sm:border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[90vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-12 duration-500 ease-out overscroll-behavior-contain">
@@ -687,7 +714,6 @@ export default function RestaurantItms({
                       </span>
                     </div>
                   </div>
-
                   {selectedItem.description && (
                     <p className="mt-4 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 font-medium bg-zinc-50/40 dark:bg-zinc-800/10 p-3.5 rounded-2xl border border-zinc-100/50 dark:border-zinc-800/20">
                       {isRtl
@@ -724,7 +750,6 @@ export default function RestaurantItms({
                                   : "اختياري"}
                             </span>
                           </div>
-
                           <div className="grid grid-cols-1 gap-2.5">
                             {Array.isArray(variation.options) &&
                               variation.options.map((option) => {
@@ -735,11 +760,11 @@ export default function RestaurantItms({
                                   <label
                                     key={option.id}
                                     className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
-                              ${
-                                isSelected
-                                  ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
-                                  : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                              }`}
+                                  ${
+                                    isSelected
+                                      ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
+                                      : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                                  }`}
                                   >
                                     <div className="flex items-center gap-3.5">
                                       <input
@@ -793,7 +818,6 @@ export default function RestaurantItms({
                       </span>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3 p-1.5 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/10 rounded-2xl shadow-inner">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -812,7 +836,6 @@ export default function RestaurantItms({
                     </button>
                   </div>
                 </div>
-
                 <button
                   disabled={loading}
                   onClick={handleAddToCartSubmit}

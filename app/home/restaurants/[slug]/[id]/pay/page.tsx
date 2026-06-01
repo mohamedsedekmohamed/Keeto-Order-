@@ -37,7 +37,7 @@ export default function Checkout() {
   const { data: zonesRes, loading: loadingZones } = useGet<any>("/api/user/address/zone");
   const { postData, loading: isSubmitting } = usePost();
   const { postData: postAddress, loading: postingAddress } = usePost("/api/user/address");
-
+const paymentMethods = [t("Cashondelivery"), t("Creditcard"), t("Mywallet")]; // example methods
   const data = checkoutData?.data?.data;
   const zones: Zone[] = zonesRes?.data?.data || [];
 
@@ -209,21 +209,21 @@ export default function Checkout() {
           <CreditCard size={20} className="text-yellow-500" /> {t("paymentMethod")}
         </h3>
         <div className="grid grid-cols-1 gap-3">
-          {data?.paymentMethods?.map((method: any) => (
+          {paymentMethods.map((method: string) => (
             <div
-              key={method.id}
-              onClick={() => setSelectedPayment(method.id)}
+              key={method}
+              onClick={() => setSelectedPayment(method)}
               className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
-                selectedPayment === method.id
+                selectedPayment === method
                   ? "border-yellow-400 bg-white dark:bg-zinc-900"
                   : "border-gray-100 dark:border-zinc-800"
               }`}
             >
               <div className="flex-1">
-                <p className="font-bold">{method.name}</p>
-                <p className="text-xs text-gray-500">{method.description}</p>
+                <p className="font-bold">{method}</p>
+               
               </div>
-              {selectedPayment === method.id && <CheckCircle2 size={20} className="text-yellow-500" />}
+              {selectedPayment === method && <CheckCircle2 size={20} className="text-yellow-500" />}
             </div>
           ))}
         </div>

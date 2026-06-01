@@ -11,21 +11,30 @@ export interface Restaurant {
   id: string;
   name: string;
   nameAr: string;
+  nameFr?: string;
   logo: string;
   cover: string;
-  email: string;
+  email?: string;
   address: string;
   addressAr: string;
+  addressFr?: string;
   ownerPhone: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
   minDeliveryTime: string;
   maxDeliveryTime: string;
+  deliveryTimeUnit?: string;
+  status?: string;
+  isFavorite?: boolean;
+  lat?: string | null;
+  lng?: string | null;
 }
 
-// إضافة Types للـ Variations والـ Options الخاصة بها
 export interface VariationOption {
   id: string;
   name: string;
   nameAr: string;
+  nameFr?: string;
   additionalPrice: string;
 }
 
@@ -33,31 +42,64 @@ export interface Variation {
   id: string;
   name: string;
   nameAr: string;
+  nameFr?: string;
   isRequired: boolean;
   selectionType: "single" | "multiple" | string;
   min: number | null;
   max: number | null;
   options: VariationOption[];
 }
-// تحديث MenuItem ليتطابق مع الـ JSON الجديد
+
+// ── The subcategory reference embedded inside each food item ──
+// Matches: food.subcategory = { id, name, nameAr, nameFr } | null
+export interface FoodSubCategoryRef {
+  id: string;
+  name: string;
+  nameAr: string;
+  nameFr?: string;
+}
+
+// ── The category reference embedded inside each food item ──
+// Matches: food.category = { id, name, nameAr, nameFr }
+export interface FoodCategoryRef {
+  id: string;
+  name: string;
+  nameAr: string;
+  nameFr?: string;
+}
+
+// ── A single food item as returned by the API ──
+// The API returns foods flat inside category.foods[],
+// each food carries its own category + subcategory refs.
 export interface MenuItem {
   id: string;
   name: string;
   nameAr: string;
+  nameFr?: string;
   description: string;
   descriptionAr: string;
+  descriptionFr?: string;
   price: string;
   image: string;
+  isFavorite?: boolean;
   variations: Variation[];
+  // Embedded refs from the API response
+  category?: FoodCategoryRef | null;
+  subcategory?: FoodSubCategoryRef | null;  // null when food has no sub-category
+  addon?: any | null;
 }
 
+// ── API shape: category holds a flat foods[] array ──
+// SubCategories do NOT come from the API directly;
+// they are derived at runtime by grouping foods on food.subcategory.
 export interface MenuCategory {
   id: string;
   name: string;
   nameAr: string;
   nameFr?: string;
-  foods: MenuItem[];
+  foods: MenuItem[];          // flat list — group by food.subcategory client-side
 }
+
 export type Menu = MenuCategory[];
 
 // ==========================================
@@ -92,14 +134,12 @@ export default function RestaurantAndMenuProvider({
   const params = useParams();
   const restaurantId = params?.id as string;
 
-  // جلب البيانات مرة واحدة فقط
-  const { data, loading, refetch, error } = useGet<any>(
+  const { data, loading, error } = useGet<any>(
     `/api/user/home/restaurants/${restaurantId}`,
   );
 
-  // استخراج البيانات (المسار لا يزال مطابقاً للـ JSON الجديد)
-  const restaurant = data?.data?.data?.restaurant || null;
-  const menu = data?.data?.data?.menu || null;
+  const restaurant: Restaurant | null = data?.data?.data?.restaurant || null;
+  const menu: Menu | null = data?.data?.data?.menu || null;
 
   return (
     <RestaurantContext.Provider
