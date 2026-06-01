@@ -57,6 +57,7 @@ export interface FoodSubCategoryRef {
   name: string;
   nameAr: string;
   nameFr?: string;
+  order_level: number;
 }
 
 // ── The category reference embedded inside each food item ──

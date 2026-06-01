@@ -18,6 +18,7 @@ interface DerivedSubCategory {
   id: string; // subcategory id OR "__no_sub__"
   name: string;
   nameAr: string;
+  orderLevel: number; // Added to handle sorting
   foods: MenuItem[];
 }
 
@@ -121,12 +122,21 @@ export default function RestaurantItms({
             id: key,
             name: sub ? sub.name : cat.name,
             nameAr: sub ? sub.nameAr : cat.nameAr,
+            orderLevel:
+              sub && typeof sub.order_level === "number"
+                ? sub.order_level
+                : 999,
             foods: [],
           });
         }
         subMap.get(key)!.foods.push(food as MenuItem);
       });
-      const subCategories = Array.from(subMap.values());
+
+      // Convert map to array and sort dynamically by orderLevel ascendingly
+      const subCategories = Array.from(subMap.values()).sort(
+        (a, b) => a.orderLevel - b.orderLevel,
+      );
+
       return {
         id: cat.id,
         name: cat.name,
@@ -192,7 +202,6 @@ export default function RestaurantItms({
 
       const visible = entries.find((e) => e.isIntersecting);
       if (visible) {
-        const targetKey = visible.target.id;
         const parentCatId = visible.target.getAttribute("data-category");
         const subId = visible.target.getAttribute("data-subcategory");
 
@@ -248,7 +257,6 @@ export default function RestaurantItms({
   // ── Navigation actions ────────────────────────────────────────────
   const scrollToCategory = (catId: string) => {
     if (catId === "all") {
-      // Switches the layout style without forcing a screen-jump scroll
       setViewMode("all");
       setActiveCategoryTab("all");
       setActiveSubCategoryTab(null);
@@ -522,7 +530,7 @@ export default function RestaurantItms({
             {dynamicCategories.map((cat) => (
               <button
                 id={`tab-${cat.id}`}
-                key={cat.id}
+                key={`tab-btn-${cat.id}`}
                 onClick={() => scrollToCategory(cat.id)}
                 className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
                   activeCategoryTab === cat.id
@@ -545,7 +553,7 @@ export default function RestaurantItms({
               {activeSubCategories.map((sub) => (
                 <button
                   id={`subtab-${sub.id}`}
-                  key={sub.id}
+                  key={`subtab-btn-${sub.id}`}
                   onClick={() => scrollToSubCategory(sub.id)}
                   className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 shrink-0 ${
                     activeSubCategoryTab === sub.id
@@ -574,7 +582,7 @@ export default function RestaurantItms({
               {searchResults.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {searchResults.map((item) => (
-                    <FoodCard key={item.id} item={item} />
+                    <FoodCard key={`search-item-${item.id}`} item={item} />
                   ))}
                 </div>
               ) : (
@@ -586,7 +594,7 @@ export default function RestaurantItms({
             </>
           ) : (
             <>
-              {/* VIEW: "all" — Classic Main Categories Grid layout display */}
+              {/* VIEW: "all" ── */}
               {viewMode === "all" && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -598,7 +606,7 @@ export default function RestaurantItms({
                   <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
                     {derivedMenu.map((cat) => (
                       <CategoryCard
-                        key={cat.id}
+                        key={`cat-card-${cat.id}`}
                         image={cat.coverImage}
                         name={isRtl ? cat.nameAr : cat.name}
                         count={cat.totalFoods}
@@ -609,18 +617,18 @@ export default function RestaurantItms({
                 </div>
               )}
 
-              {/* VIEW: "menu" — The multi-section layout where subcategories function as structural sections */}
+              {/* VIEW: "menu" ── */}
               {viewMode === "menu" && (
-                <>
-                  {derivedMenu.map((category) => {
-                    return category.subCategories.map((sub) => {
+                <React.Fragment>
+                  {derivedMenu.flatMap((category) =>
+                    category.subCategories.map((sub) => {
                       if (sub.foods.length === 0) return null;
 
                       const uniqueKey = getSectionKey(category.id, sub.id);
 
                       return (
                         <div
-                          key={uniqueKey}
+                          key={`section-${uniqueKey}`}
                           id={uniqueKey}
                           data-category={category.id}
                           data-subcategory={sub.id}
@@ -641,14 +649,17 @@ export default function RestaurantItms({
                           </div>
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             {sub.foods.map((item) => (
-                              <FoodCard key={item.id} item={item} />
+                              <FoodCard
+                                key={`food-item-${item.id}`}
+                                item={item}
+                              />
                             ))}
                           </div>
                         </div>
                       );
-                    });
-                  })}
-                </>
+                    }),
+                  )}
+                </React.Fragment>
               )}
             </>
           )}
@@ -728,7 +739,7 @@ export default function RestaurantItms({
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both">
                       {selectedItem.variations.map((variation) => (
                         <div
-                          key={variation.id}
+                          key={`variation-${variation.id}`}
                           className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50"
                         >
                           <div className="flex items-center justify-between mb-4">
@@ -758,7 +769,7 @@ export default function RestaurantItms({
                                 ).includes(option.id);
                                 return (
                                   <label
-                                    key={option.id}
+                                    key={`option-${option.id}`}
                                     className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
                                   ${
                                     isSelected
