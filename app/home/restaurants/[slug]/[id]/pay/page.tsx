@@ -37,7 +37,7 @@ export default function Checkout() {
   const { data: zonesRes, loading: loadingZones } = useGet<any>("/api/user/address/zone");
   const { postData, loading: isSubmitting } = usePost();
   const { postData: postAddress, loading: postingAddress } = usePost("/api/user/address");
-const paymentMethods = [t("Cashondelivery"), t("Creditcard"), t("Mywallet")]; // example methods
+const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // example methods
   const data = checkoutData?.data?.data;
   const zones: Zone[] = zonesRes?.data?.data || [];
 
