@@ -14,6 +14,19 @@ import {
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 
+interface AddonItem {
+  id: string;
+  name: string;
+  nameAr: string;
+  price: string;
+  status: string;
+  category?: {
+    id: string;
+    name: string;
+    nameAr: string;
+  };
+}
+
 interface DerivedSubCategory {
   id: string; // subcategory id OR "__no_sub__"
   name: string;
@@ -100,11 +113,12 @@ export default function RestaurantItms({
   const [searchQuery, setSearchQuery] = useState("");
 
   // ── Item modal ────────────────────────────────────────────────────
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<
     Record<string, string[]>
   >({});
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
 
   // ─────────────────────────────────────────────────────────────────
   // DERIVED DATA — group flat foods into DerivedCategory[]
@@ -319,6 +333,7 @@ export default function RestaurantItms({
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
     setQuantity(1);
+    setSelectedAddons([]); // Reset additions selected on click
     const init: Record<string, string[]> = {};
     (item.variations || []).forEach((v) => {
       init[v.id] =
@@ -351,17 +366,41 @@ export default function RestaurantItms({
     });
   };
 
+  const handleAddonToggle = (addonId: string) => {
+    if (!token) {
+      toast.error(t("loginFirst"));
+      return;
+    }
+    setSelectedAddons((prev) =>
+      prev.includes(addonId)
+        ? prev.filter((id) => id !== addonId)
+        : [...prev, addonId]
+    );
+  };
+
   const calculateTotalPrice = () => {
     if (!selectedItem) return 0;
     let total = parseFloat(selectedItem.price || "0");
+    
+    // Sum variations price
     Object.entries(selectedOptions).forEach(([vId, optIds]) => {
-      const v = selectedItem.variations?.find((x) => x.id === vId);
+      const v = selectedItem.variations?.find((x: any) => x.id === vId);
       if (v)
         optIds.forEach((oId) => {
-          const o = v.options.find((x) => x.id === oId);
+          const o = v.options.find((x: any) => x.id === oId);
           if (o) total += parseFloat(o.additionalPrice || "0");
         });
     });
+
+    // Sum active checked add-ons price
+    if (Array.isArray(selectedItem.addons)) {
+      selectedItem.addons.forEach((addon: AddonItem) => {
+        if (selectedAddons.includes(addon.id)) {
+          total += parseFloat(addon.price || "0");
+        }
+      });
+    }
+
     return total * quantity;
   };
 
@@ -401,10 +440,12 @@ export default function RestaurantItms({
         ([vId, optIds]) =>
           optIds.map((oId) => ({ variationId: vId, optionId: oId })),
       );
+      
       await api.post("/api/user/cart", {
         foodId: selectedItem.id,
         quantity,
         variations,
+        addons: selectedAddons, // Attached selected add-on id values here
       });
       toast.success(t("addedToCart"));
       setLoading(false);
@@ -602,7 +643,7 @@ export default function RestaurantItms({
                   <div className="flex items-center gap-2 mb-6">
                     <LayoutGrid className="w-5 h-5 text-yellow-400" />
                     <h2 className="text-xl font-black text-gray-800 dark:text-zinc-100">
-                      {isRtl ? "الأقسام" : "Subcategories"}
+                      {isRtl ? "الأقسام" : "Categories"}
                     </h2>
                   </div>
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
@@ -739,6 +780,7 @@ export default function RestaurantItms({
                   )}
                 </div>
 
+                {/* ── VARIATIONS SELECTION ── */}
                 {Array.isArray(selectedItem.variations) &&
                   selectedItem.variations.length > 0 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both">
@@ -804,7 +846,7 @@ export default function RestaurantItms({
                                     </div>
                                     {parseFloat(option.additionalPrice) > 0 && (
                                       <span
-                                        className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800"}`}
+                                        className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"}`}
                                       >
                                         + {option.additionalPrice} E£
                                       </span>
@@ -815,6 +857,58 @@ export default function RestaurantItms({
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                {/* ── ADDONS SELECTION (الإضافات) ── */}
+                {Array.isArray(selectedItem.addons) &&
+                  selectedItem.addons.length > 0 && (
+                    <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-base text-zinc-800 dark:text-zinc-200">
+                          {isRtl ? "الإضافات" : "Add-ons"}
+                        </h4>
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+                          {isRtl ? "اختياري" : "Optional"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {selectedItem.addons.map((addon: AddonItem) => {
+                          const isAddonSelected = selectedAddons.includes(addon.id);
+                          return (
+                            <label
+                              key={`addon-option-${addon.id}`}
+                              className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
+                              ${
+                                isAddonSelected
+                                  ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
+                                  : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isAddonSelected}
+                                  onChange={() => handleAddonToggle(addon.id)}
+                                  className="w-5 h-5 accent-yellow-400 rounded-lg border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
+                                />
+                                <span
+                                  className={`text-sm transition-all duration-200 ${isAddonSelected ? "font-black text-zinc-950 dark:text-zinc-50" : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"}`}
+                                >
+                                  {isRtl ? addon.nameAr : addon.name}
+                                </span>
+                              </div>
+                              {parseFloat(addon.price) > 0 && (
+                                <span
+                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isAddonSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"}`}
+                                >
+                                  + {addon.price} E£
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
               </div>
