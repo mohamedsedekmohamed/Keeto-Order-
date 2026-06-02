@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Plus, X, Minus, LayoutGrid, Heart } from "lucide-react";
+import { Search, Plus, X, Minus, Heart, LayoutGrid } from "lucide-react";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -18,7 +18,7 @@ interface DerivedSubCategory {
   id: string; // subcategory id OR "__no_sub__"
   name: string;
   nameAr: string;
-  orderLevel: number; // Added to handle sorting
+  orderLevel: number;
   foods: MenuItem[];
 }
 
@@ -31,7 +31,7 @@ interface DerivedCategory {
   coverImage: string;
 }
 
-type ViewMode = "all" | "menu";
+type ViewMode = "menu";
 
 export default function RestaurantItms({
   menu,
@@ -84,16 +84,15 @@ export default function RestaurantItms({
   };
 
   // ── Navigation state ──────────────────────────────────────────────
-  const [viewMode, setViewMode] = useState<ViewMode>("all");
-  const [activeCategoryTab, setActiveCategoryTab] = useState("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("menu");
+  const [activeCategoryTab, setActiveCategoryTab] = useState("");
   const [activeSubCategoryTab, setActiveSubCategoryTab] = useState<
     string | null
-  >(null);
+  >("all");
 
   // ── Scroll-spy state ──────────────────────────────────────────────
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
-  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const subCategoryMenuRef = useRef<HTMLDivElement | null>(null);
   const isManualClick = useRef(false);
 
@@ -116,14 +115,14 @@ export default function RestaurantItms({
       const subMap = new Map<string, DerivedSubCategory>();
       (cat.foods || []).forEach((food: any) => {
         const sub = food.subcategory;
-        const key = sub ? sub.id : "__no_sub__";
+        const key = sub?.id ? sub.id : "__no_sub__";
         if (!subMap.has(key)) {
           subMap.set(key, {
             id: key,
-            name: sub ? sub.name : cat.name,
-            nameAr: sub ? sub.nameAr : cat.nameAr,
+            name: sub?.id ? sub.name : cat.name,
+            nameAr: sub?.id ? sub.nameAr : cat.nameAr,
             orderLevel:
-              sub && typeof sub.order_level === "number"
+              sub?.id && typeof sub.order_level === "number"
                 ? sub.order_level
                 : 999,
             foods: [],
@@ -132,7 +131,6 @@ export default function RestaurantItms({
         subMap.get(key)!.foods.push(food as MenuItem);
       });
 
-      // Convert map to array and sort dynamically by orderLevel ascendingly
       const subCategories = Array.from(subMap.values()).sort(
         (a, b) => a.orderLevel - b.orderLevel,
       );
@@ -148,25 +146,46 @@ export default function RestaurantItms({
     });
   }, [menu]);
 
-  // Main Categories Tabs Top Bar
-  const dynamicCategories = useMemo(() => {
-    const cats = [{ id: "all", name: t("All") }];
+  // Flat SubCategories pill bar — sorted by orderLevel ascending
+  const dynamicSubCategories = useMemo(() => {
+    const subs: {
+      id: string;
+      rawId: string;
+      name: string;
+      nameAr: string;
+      catId: string;
+      orderLevel: number;
+      totalFoods: number;
+      coverImage: string;
+    }[] = [];
     derivedMenu.forEach((cat) => {
-      cats.push({ id: cat.id, name: isRtl ? cat.nameAr : cat.name });
+      cat.subCategories.forEach((sub) => {
+        const uniqueId =
+          sub.id === "__no_sub__" ? `${cat.id}__no_sub__` : sub.id;
+        subs.push({
+          id: uniqueId,
+          rawId: sub.id,
+          name: sub.name,
+          nameAr: sub.nameAr,
+          catId: cat.id,
+          orderLevel: sub.orderLevel,
+          totalFoods: sub.foods.length,
+          coverImage: sub.foods[0]?.image || "/placeholder.jpg",
+        });
+      });
     });
-    return cats;
-  }, [derivedMenu, t, isRtl]);
+    return subs.sort((a, b) => a.orderLevel - b.orderLevel);
+  }, [derivedMenu]);
 
-  // Active Subcategories sub-bar tabs
-  const activeSubCategories = useMemo(() => {
-    if (activeCategoryTab === "all") return [];
-    const currentCat = derivedMenu.find((c) => c.id === activeCategoryTab);
-    if (!currentCat) return [];
+  // Initialize active tab to "all" when menu loads
+  useEffect(() => {
+    if (dynamicSubCategories.length > 0 && !activeCategoryTab) {
+      const first = dynamicSubCategories[0];
+      setActiveCategoryTab(first.catId);
+      setActiveSubCategoryTab("all");
+    }
+  }, [dynamicSubCategories]);
 
-    return currentCat.subCategories.filter((sub) => sub.id !== "__no_sub__");
-  }, [derivedMenu, activeCategoryTab]);
-
-  // Flat dynamic items mapper
   const dynamicItems = useMemo(() => {
     const itms: (MenuItem & { categoryId: string; subCategoryId: string })[] =
       [];
@@ -190,12 +209,17 @@ export default function RestaurantItms({
     );
   }, [dynamicItems, searchQuery]);
 
-  // Helper to generate a collision-free section anchor key
   const getSectionKey = (catId: string, subId: string) => `${catId}||${subId}`;
 
   // ── Dual Layer Scroll-spy System ──────────────────────────────────
   useEffect(() => {
-    if (searchQuery || viewMode !== "menu" || !Array.isArray(menu)) return;
+    if (
+      searchQuery ||
+      viewMode !== "menu" ||
+      !Array.isArray(menu) ||
+      activeSubCategoryTab === "all"
+    )
+      return;
 
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
       if (isManualClick.current) return;
@@ -209,36 +233,23 @@ export default function RestaurantItms({
           setActiveCategoryTab(parentCatId);
           setActiveSubCategoryTab(subId === "__no_sub__" ? null : subId);
 
-          const mainTab = document.getElementById(`tab-${parentCatId}`);
-          if (mainTab && categoryMenuRef.current) {
-            const container = categoryMenuRef.current;
+          const activeId =
+            subId === "__no_sub__"
+              ? `subtab-${parentCatId}__no_sub__`
+              : `subtab-${subId}`;
+          const subTab = document.getElementById(activeId);
+          if (subTab && subCategoryMenuRef.current) {
+            const container = subCategoryMenuRef.current;
             const scrollPos =
-              mainTab.offsetLeft -
+              subTab.offsetLeft -
               container.offsetWidth / 2 +
-              mainTab.offsetWidth / 2;
+              subTab.offsetWidth / 2;
             container.scrollTo({
               left: isRtl
                 ? container.scrollWidth - container.clientWidth - scrollPos
                 : scrollPos,
               behavior: "smooth",
             });
-          }
-
-          if (subId !== "__no_sub__") {
-            const subTab = document.getElementById(`subtab-${subId}`);
-            if (subTab && subCategoryMenuRef.current) {
-              const container = subCategoryMenuRef.current;
-              const scrollPos =
-                subTab.offsetLeft -
-                container.offsetWidth / 2 +
-                subTab.offsetWidth / 2;
-              container.scrollTo({
-                left: isRtl
-                  ? container.scrollWidth - container.clientWidth - scrollPos
-                  : scrollPos,
-                behavior: "smooth",
-              });
-            }
           }
         }
       }
@@ -252,36 +263,39 @@ export default function RestaurantItms({
 
     Object.values(sectionRefs.current).forEach((s) => s && observer.observe(s));
     return () => observer.disconnect();
-  }, [menu, searchQuery, viewMode, isRtl]);
+  }, [menu, searchQuery, viewMode, isRtl, activeSubCategoryTab]);
 
   // ── Navigation actions ────────────────────────────────────────────
-  const scrollToCategory = (catId: string) => {
-    if (catId === "all") {
-      setViewMode("all");
-      setActiveCategoryTab("all");
-      setActiveSubCategoryTab(null);
+  const scrollToSubCategory = (subUniqueId: string) => {
+    if (subUniqueId === "all") {
+      isManualClick.current = true;
+      setActiveSubCategoryTab("all");
+
+      // Center the horizontal pill bar selection
+      const subTabAll = document.getElementById("subtab-all");
+      if (subTabAll && subCategoryMenuRef.current) {
+        subCategoryMenuRef.current.scrollTo({
+          left: isRtl ? subCategoryMenuRef.current.scrollWidth : 0,
+          behavior: "smooth",
+        });
+      }
+
+      setTimeout(() => {
+        isManualClick.current = false;
+      }, 400);
       return;
     }
 
-    setViewMode("menu");
-    setActiveCategoryTab(catId);
-
-    const targetedCat = derivedMenu.find((c) => c.id === catId);
-    if (targetedCat && targetedCat.subCategories.length > 0) {
-      const firstSub = targetedCat.subCategories[0];
+    const found = dynamicSubCategories.find((s) => s.id === subUniqueId);
+    if (found) {
+      setActiveCategoryTab(found.catId);
       setActiveSubCategoryTab(
-        firstSub.id === "__no_sub__" ? null : firstSub.id,
+        found.rawId === "__no_sub__" ? null : found.rawId,
       );
 
-      const combinedKey = getSectionKey(catId, firstSub.id);
+      const combinedKey = getSectionKey(found.catId, found.rawId);
       performSmoothScroll(combinedKey);
     }
-  };
-
-  const scrollToSubCategory = (subId: string) => {
-    setActiveSubCategoryTab(subId);
-    const combinedKey = getSectionKey(activeCategoryTab, subId);
-    performSmoothScroll(combinedKey);
   };
 
   const performSmoothScroll = (sectionKey: string) => {
@@ -296,17 +310,9 @@ export default function RestaurantItms({
         window.scrollTo({ top, behavior: "smooth" });
         setTimeout(() => {
           isManualClick.current = false;
-        }, 600);
+        }, 700);
       }
-    }, 50);
-  };
-
-  const openCategoryCard = (cat: DerivedCategory) => {
-    setViewMode("menu");
-    setActiveCategoryTab(cat.id);
-    const firstSubId = cat.subCategories[0]?.id || "__no_sub__";
-    setActiveSubCategoryTab(firstSubId === "__no_sub__" ? null : firstSubId);
-    performSmoothScroll(getSectionKey(cat.id, firstSubId));
+    }, 60);
   };
 
   // ── Item modal helpers ────────────────────────────────────────────
@@ -467,7 +473,7 @@ export default function RestaurantItms({
     );
   };
 
-  const CategoryCard = ({
+  const SubCategoryCard = ({
     image,
     name,
     count,
@@ -480,9 +486,9 @@ export default function RestaurantItms({
   }) => (
     <div
       onClick={onClick}
-      className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden cursor-pointer hover:-translate-y-2 duration-300"
+      className="relative p-6 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-xl transition-all text-center group overflow-hidden cursor-pointer hover:-translate-y-1 duration-300"
     >
-      <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
+      <div className="absolute top-0 right-0 w-12 h-12 rounded-bl-[2rem] bg-yellow-400/5 group-hover:bg-yellow-400 transition-colors duration-500" />
       <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
         <img
           src={image}
@@ -494,7 +500,7 @@ export default function RestaurantItms({
         {name}
       </h3>
       <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
-        {count} {t("Item")}
+        {count} {isRtl ? "منتج" : "Items"}
       </span>
     </div>
   );
@@ -521,51 +527,47 @@ export default function RestaurantItms({
           ref={stickyHeaderRef}
           className="sticky top-0 z-40 bg-gray-50/80 dark:bg-zinc-950/80 backdrop-blur-md pb-2 pt-2"
         >
-          {/* Layer 1: Main Category Tab Bar */}
+          {/* SubCategory Pill Bar */}
           <div
-            ref={categoryMenuRef}
+            ref={subCategoryMenuRef}
             dir={isRtl ? "rtl" : "ltr"}
             className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth mb-2"
           >
-            {dynamicCategories.map((cat) => (
-              <button
-                id={`tab-${cat.id}`}
-                key={`tab-btn-${cat.id}`}
-                onClick={() => scrollToCategory(cat.id)}
-                className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
-                  activeCategoryTab === cat.id
-                    ? "bg-yellow-400 text-white shadow-md transform scale-105"
-                    : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Layer 2: Optional Sub-Category Pills Bar */}
-          {viewMode === "menu" && activeSubCategories.length > 0 && (
-            <div
-              ref={subCategoryMenuRef}
-              dir={isRtl ? "rtl" : "ltr"}
-              className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth pt-1 animate-in fade-in duration-300"
+            <button
+              id="subtab-all"
+              onClick={() => scrollToSubCategory("all")}
+              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
+                activeSubCategoryTab === "all"
+                  ? "bg-yellow-400 text-white shadow-md transform scale-105"
+                  : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
+              }`}
             >
-              {activeSubCategories.map((sub) => (
+              {isRtl ? "الكل" : "All"}
+            </button>
+
+            {dynamicSubCategories.map((sub) => {
+              const isActive =
+                activeSubCategoryTab !== "all" &&
+                (sub.rawId === "__no_sub__"
+                  ? activeCategoryTab === sub.catId &&
+                    activeSubCategoryTab === null
+                  : activeSubCategoryTab === sub.rawId);
+              return (
                 <button
                   id={`subtab-${sub.id}`}
                   key={`subtab-btn-${sub.id}`}
                   onClick={() => scrollToSubCategory(sub.id)}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 shrink-0 ${
-                    activeSubCategoryTab === sub.id
-                      ? "bg-amber-100 text-amber-700 dark:bg-yellow-400/20 dark:text-yellow-400 ring-1 ring-yellow-400"
-                      : "bg-white dark:bg-zinc-900 text-gray-400 dark:text-zinc-500 border border-gray-100 dark:border-zinc-800"
+                  className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
+                    isActive
+                      ? "bg-yellow-400 text-white shadow-md transform scale-105"
+                      : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
                   }`}
                 >
                   {isRtl ? sub.nameAr : sub.name}
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
 
         <div className="space-y-12 mt-4">
@@ -594,32 +596,30 @@ export default function RestaurantItms({
             </>
           ) : (
             <>
-              {/* VIEW: "all" ── */}
-              {viewMode === "all" && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-                      <LayoutGrid size={24} className="text-yellow-400" />
-                      {t("categories")}
+              {/* 1. Dashboard Subcategories View: Shown ONLY when "All" tab is active */}
+              {activeSubCategoryTab === "all" ? (
+                <div className="animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2 mb-6">
+                    <LayoutGrid className="w-5 h-5 text-yellow-400" />
+                    <h2 className="text-xl font-black text-gray-800 dark:text-zinc-100">
+                      {isRtl ? "الأقسام" : "Subcategories"}
                     </h2>
                   </div>
-                  <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
-                    {derivedMenu.map((cat) => (
-                      <CategoryCard
-                        key={`cat-card-${cat.id}`}
-                        image={cat.coverImage}
-                        name={isRtl ? cat.nameAr : cat.name}
-                        count={cat.totalFoods}
-                        onClick={() => openCategoryCard(cat)}
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
+                    {dynamicSubCategories.map((sub) => (
+                      <SubCategoryCard
+                        key={`grid-sub-${sub.id}`}
+                        image={sub.coverImage}
+                        name={isRtl ? sub.nameAr : sub.name}
+                        count={sub.totalFoods}
+                        onClick={() => scrollToSubCategory(sub.id)}
                       />
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* VIEW: "menu" ── */}
-              {viewMode === "menu" && (
-                <React.Fragment>
+              ) : (
+                /* 2. Foods List Stack View with Full Scroll-Spy mapping */
+                <div className="space-y-12">
                   {derivedMenu.flatMap((category) =>
                     category.subCategories.map((sub) => {
                       if (sub.foods.length === 0) return null;
@@ -635,17 +635,22 @@ export default function RestaurantItms({
                           ref={(el) => {
                             sectionRefs.current[uniqueKey] = el;
                           }}
-                          className="scroll-mt-40"
+                          className="scroll-mt-40 animate-in fade-in duration-300"
                         >
-                          <div className="flex flex-col mb-4 border-b pb-2 dark:border-zinc-800">
+                          <div
+                            className={`flex flex-col mb-4 border-b pb-2 dark:border-zinc-800 ${
+                              isRtl ? "text-right" : "text-left"
+                            }`}
+                          >
                             <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
-                              {isRtl ? category.nameAr : category.name}
+                              {sub.id === "__no_sub__"
+                                ? isRtl
+                                  ? category.nameAr
+                                  : category.name
+                                : isRtl
+                                  ? sub.nameAr
+                                  : sub.name}
                             </h2>
-                            {sub.id !== "__no_sub__" && (
-                              <span className="text-xs font-medium text-yellow-500 mt-0.5">
-                                {isRtl ? sub.nameAr : sub.name}
-                              </span>
-                            )}
                           </div>
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             {sub.foods.map((item) => (
@@ -659,7 +664,7 @@ export default function RestaurantItms({
                       );
                     }),
                   )}
-                </React.Fragment>
+                </div>
               )}
             </>
           )}

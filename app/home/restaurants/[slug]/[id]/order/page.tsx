@@ -75,7 +75,7 @@ export default function Cart() {
 
           localStorage.removeItem(CART_EXPIRY_KEY);
 
-          toast.success(t("cartExpired") || "تم مسح السلة بعد ساعة");
+         /*  toast.success(t("cartExpired") || "تم مسح السلة بعد ساعة"); */
         } catch (error) {
           console.error("Failed to clear expired cart");
         }
@@ -150,6 +150,12 @@ export default function Cart() {
         <p className="mt-2 text-gray-500 dark:text-zinc-400">
           {t("orderDeliciousMealsNow")}
         </p>
+              <button
+          onClick={() => router.back()}
+          className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-20 top-4 left-4 active:scale-95"
+        >
+          <ChevronLeft className="w-6 h-6 text-white" />
+        </button>
       </div>
     );
   }
