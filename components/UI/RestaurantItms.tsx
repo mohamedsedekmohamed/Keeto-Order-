@@ -285,7 +285,6 @@ export default function RestaurantItms({
       isManualClick.current = true;
       setActiveSubCategoryTab("all");
 
-      // Center the horizontal pill bar selection
       const subTabAll = document.getElementById("subtab-all");
       if (subTabAll && subCategoryMenuRef.current) {
         subCategoryMenuRef.current.scrollTo({
@@ -333,7 +332,7 @@ export default function RestaurantItms({
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
     setQuantity(1);
-    setSelectedAddons([]); // Reset additions selected on click
+    setSelectedAddons([]);
     const init: Record<string, string[]> = {};
     (item.variations || []).forEach((v) => {
       init[v.id] =
@@ -374,15 +373,14 @@ export default function RestaurantItms({
     setSelectedAddons((prev) =>
       prev.includes(addonId)
         ? prev.filter((id) => id !== addonId)
-        : [...prev, addonId]
+        : [...prev, addonId],
     );
   };
 
   const calculateTotalPrice = () => {
     if (!selectedItem) return 0;
     let total = parseFloat(selectedItem.price || "0");
-    
-    // Sum variations price
+
     Object.entries(selectedOptions).forEach(([vId, optIds]) => {
       const v = selectedItem.variations?.find((x: any) => x.id === vId);
       if (v)
@@ -392,7 +390,6 @@ export default function RestaurantItms({
         });
     });
 
-    // Sum active checked add-ons price
     if (Array.isArray(selectedItem.addons)) {
       selectedItem.addons.forEach((addon: AddonItem) => {
         if (selectedAddons.includes(addon.id)) {
@@ -440,12 +437,12 @@ export default function RestaurantItms({
         ([vId, optIds]) =>
           optIds.map((oId) => ({ variationId: vId, optionId: oId })),
       );
-      
+
       await api.post("/api/user/cart", {
         foodId: selectedItem.id,
         quantity,
         variations,
-        addons: selectedAddons, // Attached selected add-on id values here
+        addons: selectedAddons,
       });
       toast.success(t("addedToCart"));
       setLoading(false);
@@ -637,7 +634,6 @@ export default function RestaurantItms({
             </>
           ) : (
             <>
-              {/* 1. Dashboard Subcategories View: Shown ONLY when "All" tab is active */}
               {activeSubCategoryTab === "all" ? (
                 <div className="animate-in fade-in duration-300">
                   <div className="flex items-center gap-2 mb-6">
@@ -659,7 +655,6 @@ export default function RestaurantItms({
                   </div>
                 </div>
               ) : (
-                /* 2. Foods List Stack View with Full Scroll-Spy mapping */
                 <div className="space-y-12">
                   {derivedMenu.flatMap((category) =>
                     category.subCategories.map((sub) => {
@@ -784,7 +779,7 @@ export default function RestaurantItms({
                 {Array.isArray(selectedItem.variations) &&
                   selectedItem.variations.length > 0 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both">
-                      {selectedItem.variations.map((variation) => (
+                      {selectedItem.variations.map((variation: Variation) => (
                         <div
                           key={`variation-${variation.id}`}
                           className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50"
@@ -874,7 +869,9 @@ export default function RestaurantItms({
                       </div>
                       <div className="grid grid-cols-1 gap-2.5">
                         {selectedItem.addons.map((addon: AddonItem) => {
-                          const isAddonSelected = selectedAddons.includes(addon.id);
+                          const isAddonSelected = selectedAddons.includes(
+                            addon.id,
+                          );
                           return (
                             <label
                               key={`addon-option-${addon.id}`}
