@@ -1,11 +1,21 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Plus, X, Minus, Heart, LayoutGrid } from "lucide-react";
+import {
+  Search,
+  Plus,
+  X,
+  Minus,
+  Heart,
+  LayoutGrid,
+  AlertTriangle,
+} from "lucide-react";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { clearCartLocal } from "@/redux/cartSlice";
 import {
   MenuItem,
   Variation,
@@ -13,6 +23,7 @@ import {
   MenuCategory,
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
+import useDelete from "@/app/hooks/useDelete";
 
 interface AddonItem {
   id: string;
@@ -59,6 +70,7 @@ export default function RestaurantItms({
   const isRtl = language === "العربية";
   const router = useRouter();
   const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
+  const dispatch = useAppDispatch();
 
   // ── Auth ──────────────────────────────────────────────────────────
   const [token, setToken] = useState<string | null>(null);
@@ -111,14 +123,20 @@ export default function RestaurantItms({
 
   // ── Search ────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
-
-  // ── Item modal ────────────────────────────────────────────────────
+  const { deleteData } = useDelete("/users");
+  // ── Item modal & Cart conflict states ─────────────────────────────
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<
     Record<string, string[]>
   >({});
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
+  // States to handle cart replacement dialog box flow
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [pendingCartPayload, setPendingCartPayload] = useState<any | null>(
+    null,
+  );
 
   // ─────────────────────────────────────────────────────────────────
   // DERIVED DATA — group flat foods into DerivedCategory[]
@@ -171,6 +189,7 @@ export default function RestaurantItms({
       orderLevel: number;
       totalFoods: number;
       coverImage: string;
+      foods: MenuItem[];
     }[] = [];
     derivedMenu.forEach((cat) => {
       cat.subCategories.forEach((sub) => {
@@ -185,6 +204,7 @@ export default function RestaurantItms({
           orderLevel: sub.orderLevel,
           totalFoods: sub.foods.length,
           coverImage: sub.foods[0]?.image || "/placeholder.jpg",
+          foods: sub.foods,
         });
       });
     });
@@ -432,30 +452,73 @@ export default function RestaurantItms({
       return;
     }
     if (!selectedItem) return;
-    try {
-      const variations = Object.entries(selectedOptions).flatMap(
-        ([vId, optIds]) =>
-          optIds.map((oId) => ({ variationId: vId, optionId: oId })),
-      );
 
-      await api.post("/api/user/cart", {
-        foodId: selectedItem.id,
-        quantity,
-        variations,
-        addons: selectedAddons,
-      });
+    const variations = Object.entries(selectedOptions).flatMap(
+      ([vId, optIds]) =>
+        optIds.map((oId) => ({ variationId: vId, optionId: oId })),
+    );
+
+    const payload = {
+      foodId: selectedItem.id,
+      quantity,
+      variations,
+      addons: selectedAddons,
+    };
+
+    try {
+      setLoading(true);
+      await api.post("/api/user/cart", payload);
       toast.success(t("addedToCart"));
-      setLoading(false);
       onCartUpdated();
       setSelectedItem(null);
     } catch (error: any) {
-      setLoading(false);
       const status = error?.response?.status;
-      if (status === 409) toast.error(t("alreadyInCart"));
-      else if (status === 400) toast.error("بيانات غير صحيحة");
-      else if (status === 401) toast.error(t("loginFirst"));
-      else if (error?.response) toast.error("حدث خطأ ما، حاول مرة أخرى");
-      else toast.error("تحقق من الاتصال بالإنترنت");
+      if (status === 409) {
+        // Intercept 409 and store selected parameters to launch confirmation modal
+        setPendingCartPayload(payload);
+        setShowConflictDialog(true);
+      } else if (status === 400) {
+        toast.error("بيانات غير صحيحة");
+      } else if (status === 401) {
+        toast.error(t("loginFirst"));
+      } else if (error?.response) {
+        toast.error("حدث خطأ ما، حاول مرة أخرى");
+      } else {
+        toast.error("تحقق من الاتصال بالإنترنت");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleClearCart = async () => {
+    try {
+      await deleteData("/api/user/cart");
+      dispatch(clearCartLocal());
+    } catch (error) {
+      toast.error(t("failedClearCart"));
+    }
+  };
+  // Clears the cart database entirely, then adds the new selection item immediately
+  const handleClearCartAndAdd = async () => {
+    if (!pendingCartPayload) return;
+    try {
+      setLoading(true);
+      // 1. Send clear cart command to endpoint
+      handleClearCart();
+
+      // 2. Post the newly selected product criteria
+      handleAddToCartSubmit();
+
+      onCartUpdated();
+
+      // Complete modal routines & reset views
+      setShowConflictDialog(false);
+      setPendingCartPayload(null);
+      setSelectedItem(null);
+    } catch (err) {
+      toast.error("حدث خطأ أثناء تحديث السلة");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -656,50 +719,42 @@ export default function RestaurantItms({
                 </div>
               ) : (
                 <div className="space-y-12">
-                  {derivedMenu.flatMap((category) =>
-                    category.subCategories.map((sub) => {
-                      if (sub.foods.length === 0) return null;
+                  {dynamicSubCategories.map((sub) => {
+                    if (!sub.foods || sub.foods.length === 0) return null;
 
-                      const uniqueKey = getSectionKey(category.id, sub.id);
+                    const uniqueKey = getSectionKey(sub.catId, sub.rawId);
 
-                      return (
+                    return (
+                      <div
+                        key={`section-${uniqueKey}`}
+                        id={uniqueKey}
+                        data-category={sub.catId}
+                        data-subcategory={sub.rawId}
+                        ref={(el) => {
+                          sectionRefs.current[uniqueKey] = el;
+                        }}
+                        className="scroll-mt-40 animate-in fade-in duration-300"
+                      >
                         <div
-                          key={`section-${uniqueKey}`}
-                          id={uniqueKey}
-                          data-category={category.id}
-                          data-subcategory={sub.id}
-                          ref={(el) => {
-                            sectionRefs.current[uniqueKey] = el;
-                          }}
-                          className="scroll-mt-40 animate-in fade-in duration-300"
+                          className={`flex flex-col mb-4 border-b pb-2 dark:border-zinc-800 ${
+                            isRtl ? "text-right" : "text-left"
+                          }`}
                         >
-                          <div
-                            className={`flex flex-col mb-4 border-b pb-2 dark:border-zinc-800 ${
-                              isRtl ? "text-right" : "text-left"
-                            }`}
-                          >
-                            <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
-                              {sub.id === "__no_sub__"
-                                ? isRtl
-                                  ? category.nameAr
-                                  : category.name
-                                : isRtl
-                                  ? sub.nameAr
-                                  : sub.name}
-                            </h2>
-                          </div>
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            {sub.foods.map((item) => (
-                              <FoodCard
-                                key={`food-item-${item.id}`}
-                                item={item}
-                              />
-                            ))}
-                          </div>
+                          <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
+                            {isRtl ? sub.nameAr : sub.name}
+                          </h2>
                         </div>
-                      );
-                    }),
-                  )}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                          {sub.foods.map((item) => (
+                            <FoodCard
+                              key={`food-item-${item.id}`}
+                              item={item}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -953,6 +1008,51 @@ export default function RestaurantItms({
                   ) : (
                     t("addToCart")
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 409 CONFLICT RESIDUAL CART REPLACEMENT DIALOG ── */}
+        {showConflictDialog && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-md p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-300">
+              <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100 dark:border-amber-900/30">
+                <AlertTriangle size={28} />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                  {isRtl
+                    ? "هل أنت متأكد من رغبتك في إضافة هذا المنتج إلى السلة؟"
+                    : "Are you sure you want to add this item to the cart ?"}
+                </h3>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleClearCartAndAdd}
+                  disabled={loading}
+                  className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-zinc-950 font-black py-3 rounded-xl shadow-lg transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin inline-block" />
+                  ) : isRtl ? (
+                    "نعم، متأكد"
+                  ) : (
+                    "Yes, Sure"
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConflictDialog(false);
+                    setPendingCartPayload(null);
+                  }}
+                  disabled={loading}
+                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 font-bold py-3 rounded-xl transition-all active:scale-[0.98] border border-zinc-200/40 dark:border-zinc-700/30"
+                >
+                  {isRtl ? "إلغاء" : "Cancel"}
                 </button>
               </div>
             </div>

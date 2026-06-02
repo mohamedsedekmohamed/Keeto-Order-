@@ -122,8 +122,7 @@ export default function Cart() {
   const handleClearCart = async () => {
     try {
       await deleteData("/api/user/cart", t("cartCleared"));
-      dispatch(clearCartLocal());
-      localStorage.removeItem("cart-expiry");
+      dispatch(clearCartLocal());;
     } catch (error) {
       toast.error(t("failedClearCart"));
     }
