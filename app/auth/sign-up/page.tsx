@@ -11,38 +11,20 @@ import {
   EyeOff,
   ArrowRight,
   Phone,
-  MapPin,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
 import usePost from "@/app/hooks/usePost";
 import { useRouter } from "next/navigation";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
-
-interface Location {
-  id: string;
-  name: string;
-  displayName?: string;
-  countryId?: string;
-  cityId?: string;
-}
-
-interface ActiveLocationsResponse {
-  success: boolean;
-  data: {
-    message: string;
-    data: {
-      countries: Location[];
-      cities: Location[];
-      zones: Location[];
-    };
-  };
-}
+// Import your token context hook
+import { useToken } from "@/context/TokenContext";
 
 function SignUpForm() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { setToken } = useToken(); // Extract setToken to update client-side global authentication state
 
   const [formData, setFormData] = useState({
     name: "",
@@ -61,7 +43,7 @@ function SignUpForm() {
 
   // 2. Google Sign Up API Call
   const { postData: signupWithGoogle, loading: isGoogleSubmitting } = usePost(
-    "/api/user/auth/auth/google",
+    "/api/user/auth/google",
   );
 
   const handleChange = (
@@ -75,9 +57,10 @@ function SignUpForm() {
     e.preventDefault();
     try {
       await signupWithCredentials(formData, null, t("signupSuccess"));
+      // Redirect credentials signup to sign-in since they still need to authenticate
       router.push("/auth/sign-in");
     } catch (error) {
-      // Handled globally by your usePost handler instance
+      // Handled globally
     }
   };
 
@@ -233,31 +216,6 @@ function SignUpForm() {
             </div>
           </div>
 
-          {/* Address Field */}
-         {/*  <div>
-            <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
-              {t("address")}
-            </label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <MapPin
-                  size={20}
-                  className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
-                />
-              </div>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                required
-                autoComplete="street-address"
-                placeholder={t("enterAddress")}
-                className="w-full py-4 text-gray-900 transition-all border-2 border-transparent outline-none bg-gray-100/50 rounded-2xl ps-12 pe-4 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/10"
-              />
-            </div>
-          </div>
- */}
           {/* Core Sign Up Submission Trigger */}
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -292,12 +250,27 @@ function SignUpForm() {
             onSuccess={async (credentialResponse) => {
               try {
                 if (credentialResponse.credential) {
-                  await signupWithGoogle(
+                  const response = await signupWithGoogle(
                     { token: credentialResponse.credential },
                     null,
                     t("signupSuccess"),
                   );
-                  router.push("/");
+
+                  // Fix: Extracting flat token from your actual API payload response layout
+                  const token =
+                    response?.token ||
+                    response?.data?.token ||
+                    response?.data?.data?.token;
+
+                  if (token) {
+                    setToken(token); // Global context updates -> Navbar updates instantly!
+                    const redirectPath =
+                      localStorage.getItem("lastRestaurantPath");
+                    router.push(redirectPath || "/");
+                  } else {
+                    // Fallback if token wasn't returned on initial register configuration
+                    router.push("/auth/sign-in");
+                  }
                 }
               } catch (error) {
                 // Handled globally
@@ -306,7 +279,6 @@ function SignUpForm() {
             onError={() => {
               console.error("Google authentication failed");
             }}
-            // Removed useOneTap to clear out FedCM background collision abort errors
             shape="pill"
             theme={
               typeof window !== "undefined" &&
@@ -314,12 +286,6 @@ function SignUpForm() {
                 ? "filled_blue"
                 : "outline"
             }
-           /*  text={
-              (t("signupWith") as
-                | "signup_with"
-                | "signin_with"
-                | "continue_with") || "signup_with"
-            } */
             width="100%"
           />
         </div>
