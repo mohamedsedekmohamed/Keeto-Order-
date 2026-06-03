@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
-import usePut from "@/app/hooks/usePut"; // استدعاء usePut
+import usePut from "@/app/hooks/usePut";
 import { redirect } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
@@ -56,6 +56,9 @@ interface ProfileApiResponse {
 export default function ProfilePage() {
   const { t } = useLanguage();
   const { logout } = useToken();
+  const router = useRouter();
+
+  const isRtl = typeof document !== "undefined" && document.dir === "rtl";
 
   // 1. جلب بيانات المستخدم
   const {
@@ -66,7 +69,7 @@ export default function ProfilePage() {
 
   // 2. إعداد دالة التحديث
   const { putData, loading: isUpdating } = usePut("/api/user/profile");
-  const router = useRouter();
+  
   // استخراج البيانات للوصول السهل
   const userData = profileResponse?.data?.data?.user;
   const walletBalance = profileResponse?.data?.data?.walletBalance || "0.00";
@@ -132,12 +135,14 @@ export default function ProfilePage() {
       {/* Ambient Background Orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-400/10 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-yellow-500/5 blur-[130px] rounded-full pointer-events-none" />
+      
       <button
         onClick={() => router.back()}
-        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 left-4 active:scale-95"
+        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 start-4 active:scale-95"
       >
-        <ChevronLeft className="w-6 h-6 text-white" />
+        <ChevronLeft className={`w-6 h-6 text-white ${isRtl ? "rotate-180" : ""}`} />
       </button>
+
       <div className="relative z-10 max-w-5xl mx-auto">
         {/* Header Section */}
         <motion.div
@@ -191,9 +196,19 @@ export default function ProfilePage() {
                 <button
                   onClick={() => {
                     logout();
-                    const lastPath = localStorage.getItem("lastRestaurantPath");
+                    
+                    let redirectPath = "/";
+                    if (typeof window !== "undefined") {
+                      // Lookup safe dynamic path targeting multi-tab configuration
+                      const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
+                      if (activeSlug) {
+                        redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
+                      } else {
+                        redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+                      }
+                    }
 
-                    router.push(lastPath || "/");
+                    router.push(redirectPath);
                   }}
                   className="flex items-center justify-center w-full gap-2 py-3 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl"
                 >
@@ -312,20 +327,22 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Save Button */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  disabled={isUpdating}
-                  type="submit"
-                  className="flex items-center justify-center w-full gap-2 py-4 mt-4 font-black text-gray-900 transition-all bg-yellow-400 shadow-xl rounded-2xl hover:bg-yellow-500 shadow-yellow-400/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isUpdating ? (
-                    <Loader2 size={20} className="animate-spin" />
-                  ) : (
-                    <Save size={20} />
-                  )}
-                  {isUpdating ? t("saving") : t("saveChanges")}
-                </motion.button>
+                <div className="pt-4">
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    disabled={isUpdating}
+                    type="submit"
+                    className="flex items-center justify-center w-full gap-2 py-4 font-black text-gray-900 transition-all bg-yellow-400 shadow-xl rounded-2xl hover:bg-yellow-500 shadow-yellow-400/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {isUpdating ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                      <Save size={20} />
+                    )}
+                    {isUpdating ? t("saving") : t("saveChanges")}
+                  </motion.button>
+                </div>
               </form>
             </div>
           </motion.div>

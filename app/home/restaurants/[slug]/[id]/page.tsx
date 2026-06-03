@@ -282,12 +282,14 @@ import usePost from "@/app/hooks/usePost";
 export default function Home() {
   const { t } = useLanguage();
   const params = useParams();
-  const isRTL = typeof window !== "undefined" && document.documentElement.dir === "rtl";
+  const isRTL =
+    typeof window !== "undefined" && document.documentElement.dir === "rtl";
   const router = useRouter();
-  
+
   const restaurantName = params?.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const { restaurant, isLoading, isError } = useRestaurant();
 
@@ -299,10 +301,17 @@ export default function Home() {
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("lastRestaurantPath", window.location.pathname);
+    if (typeof window !== "undefined" && restaurantName) {
+      // Save the specific path for this restaurant slug
+      localStorage.setItem(
+        `lastRestaurantPath-${restaurantName}`,
+        window.location.pathname,
+      );
+
+      // Fallback: Also track which restaurant slug was active *last* overall
+      localStorage.setItem("lastActiveRestaurantSlug", restaurantName);
     }
-  }, []);
+  }, [restaurantName]);
 
   // Trigger modal on first load of the session
   useEffect(() => {

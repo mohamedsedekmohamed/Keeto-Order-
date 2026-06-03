@@ -24,7 +24,7 @@ export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const { setToken } = useToken();
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
-  
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -32,17 +32,31 @@ export default function SignIn() {
 
   // Hooks for both methods
   const { postData, loading } = usePost("/api/user/auth/login");
-  const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost("/api/user/auth/google");
+  const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
+    "/api/user/auth/google",
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSuccessAuth = (token: string) => {
-    setToken(token);
-    const redirectPath = localStorage.getItem("lastRestaurantPath");
-    router.push(redirectPath || "/");
-  };
+ const handleSuccessAuth = (token: string) => {
+  setToken(token);
+  
+  let redirectPath = "/";
+  if (typeof window !== "undefined") {
+    // 1. Check if we know which restaurant slug triggered the auth redirect flow
+    const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
+    if (activeSlug) {
+      redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
+    } else {
+      // 2. Global fallback if all else fails
+      redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+    }
+  }
+  
+  router.push(redirectPath);
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +87,10 @@ export default function SignIn() {
               onClick={() => router.back()}
               className="absolute flex items-center gap-2 text-sm font-bold text-gray-600 transition-all left-6 top-6 dark:text-zinc-300 hover:text-yellow-500"
             >
-              <ArrowRight size={18} className={`${isRtl ? "" : "rotate-180"}`} />
+              <ArrowRight
+                size={18}
+                className={`${isRtl ? "" : "rotate-180"}`}
+              />
               {t("back") || "Back"}
             </button>
             <motion.div
@@ -100,7 +117,10 @@ export default function SignIn() {
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                  <Mail size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                  <Mail
+                    size={20}
+                    className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                  />
                 </div>
                 <input
                   name="email"
@@ -120,13 +140,19 @@ export default function SignIn() {
                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300">
                   {t("password")}
                 </label>
-                <button type="button" className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80">
+                <button
+                  type="button"
+                  className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80"
+                >
                   {t("forgotPassword")}
                 </button>
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                  <Lock size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                  <Lock
+                    size={20}
+                    className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                  />
                 </div>
                 <input
                   name="password"
@@ -149,10 +175,20 @@ export default function SignIn() {
 
             <motion.button
               disabled={loading || isGoogleLoading}
-              className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${(loading || isGoogleLoading) ? "opacity-70 cursor-not-allowed" : "hover:bg-yellow-500"}`}
+              className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading || isGoogleLoading ? "opacity-70 cursor-not-allowed" : "hover:bg-yellow-500"}`}
             >
               <span className="flex items-center gap-2">
-                {loading ? <Loader2 className="animate-spin" size={20} /> : <>{t("SignInbtn")}<ArrowRight size={20} className="transition-transform group-hover:translate-x-1" /></>}
+                {loading ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <>
+                    {t("SignInbtn")}
+                    <ArrowRight
+                      size={20}
+                      className="transition-transform group-hover:translate-x-1"
+                    />
+                  </>
+                )}
               </span>
             </motion.button>
           </form>
@@ -172,8 +208,12 @@ export default function SignIn() {
               onSuccess={async (credentialResponse) => {
                 try {
                   if (credentialResponse.credential) {
-                    const response = await loginWithGoogle({ token: credentialResponse.credential }, null, t("loginSuccess"));
-                    
+                    const response = await loginWithGoogle(
+                      { token: credentialResponse.credential },
+                      null,
+                      t("loginSuccess"),
+                    );
+
                     // Fixed: Reads response.token directly based on your backend output layout
                     if (response?.token) {
                       handleSuccessAuth(response.token);
@@ -185,7 +225,12 @@ export default function SignIn() {
               }}
               onError={() => console.error("Google authentication failed")}
               shape="pill"
-              theme={typeof window !== "undefined" && document.documentElement.classList.contains("dark") ? "filled_blue" : "outline"}
+              theme={
+                typeof window !== "undefined" &&
+                document.documentElement.classList.contains("dark")
+                  ? "filled_blue"
+                  : "outline"
+              }
               width="100%"
             />
           </div>
@@ -193,7 +238,10 @@ export default function SignIn() {
           <div className="mt-10 text-center space-y-3">
             <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
               {t("noAccount")}{" "}
-              <Link href="/auth/sign-up" className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4">
+              <Link
+                href="/auth/sign-up"
+                className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
+              >
                 {t("createAccount")}
               </Link>
             </p>

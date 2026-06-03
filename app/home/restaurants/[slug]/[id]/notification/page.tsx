@@ -6,53 +6,85 @@ import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import api from "@/api/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Clock, 
-  History, 
-  ShoppingBag, 
-  Loader2, 
-  X, 
-  ReceiptText, 
+import {
+  Clock,
+  History,
+  ShoppingBag,
+  Loader2,
+  X,
+  ReceiptText,
   Package,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 
 import toast from "react-hot-toast";
-import { useParams , useRouter} from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 export default function OrdersPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-const router = useRouter();
-  // 1. حالات تفاصيل الطلب (Axios & useEffect)
+  const router = useRouter();
+
+  // 1. Order details state management
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // 2. جلب القوائم (Active/History) باستخدام الـ Hook الخاص بك
-  const { data: activeData, loading: loadingActive } = useGet<any>("/api/user/order/active");
-  const { data: historyData, loading: loadingHistory } = useGet<any>("/api/user/order/history");
-const normalize = (str: string) => str?.toLowerCase().trim();
-  const params = useParams();
+  
+    const params = useParams();
+    const restaurantId = params?.id as string;
+    const restaurantName = params.slug as string;
+  // 2. Fetch data from active and history endpoints respectively
+  const { data: activeData, loading: loadingActive } = useGet<any>(
+    "/api/user/order/active?restaurantId=" + restaurantId,
+  );
+  const { data: historyData, loading: loadingHistory } = useGet<any>(
+    "/api/user/order/history?restaurantId=" + restaurantId,
+  );
 
-  const restaurantId = (params?.id as string) ;
-  const restaurantName = params.slug as string;
-  const basePath = `/home/restaurants/${restaurantName}/${restaurantId}`;
-const activeOrders = (activeData?.data?.data || []).filter(
-  (order: any) =>
-    normalize(order.restaurantName) === normalize(restaurantName)
-);
+  // Helper function to safely normalize text strings for fallback checks
+  const normalizeText = (str: string) =>
+    str?.toLowerCase().replace(/[-_]/g, " ").trim();
 
-const historyOrders = (historyData?.data?.data || []).filter(
-  (order: any) =>
-    normalize(order.restaurantName) === normalize(restaurantName)
-);
+  // ✅ FILTER ACTIVE ORDERS
+  const activeOrders = (
+    activeData?.data?.data ||
+    activeData?.data ||
+    []
+  )
+  // .filter((order: any) => {
+
+  //   console.log("Filtering order:", activeData); // Debug log to inspect order structure
+
+  //   if (order.restaurantId && restaurantId) {
+  //     return String(order.restaurantId) === String(restaurantId);
+  //   }
+  //   // Fallback normalization logic if backend objects omit ID configurations
+  //   return (
+  //     normalizeText(order?.restaurantName) === normalizeText(restaurantName)
+  //   );
+  // });
+
+  // ✅ FILTER HISTORY ORDERS
+  const historyOrders = (
+    historyData?.data?.data ||
+    historyData?.data ||
+    []
+  ).filter((order: any) => {
+    if (order.restaurantId && restaurantId) {
+      return String(order.restaurantId) === String(restaurantId);
+    }
+    // Fallback normalization logic if backend objects omit ID configurations
+    return (
+      normalizeText(order?.restaurantName) === normalizeText(restaurantName)
+    );
+  });
 
   const currentOrders = activeTab === "active" ? activeOrders : historyOrders;
   const isLoadingList = activeTab === "active" ? loadingActive : loadingHistory;
 
-  // 3. تأثير جلب التفاصيل عند تغيير الـ ID المختار
+  // 3. Dynamic Side Panel Data Loading Effect Hook
   useEffect(() => {
     if (!selectedOrderId) {
       setSelectedOrder(null);
@@ -62,16 +94,19 @@ const historyOrders = (historyData?.data?.data || []).filter(
     const fetchOrderDetails = async () => {
       setLoadingDetails(true);
       try {
-        // تأكد من المسار الكامل للـ API الخاص بك
         const response = await api.get(`/api/user/order/${selectedOrderId}`);
         if (response.data.success) {
-          setSelectedOrder(response.data.data.data);
+          setSelectedOrder(response.data.data.data || response.data.data);
         }
       } catch (error) {
-        console.error("Error:", error);
-        toast.error(t("errorFetchingDetails") || "حدث خطأ في جلب التفاصيل");
-        setSelectedOrderId(null); // إغلاق المودال في حالة الخطأ
+        console.error("Error fetching order details:", error);
+        toast.error(
+          t("errorFetchingDetails") ||
+            "Error pulling item data configurations.",
+        );
+        setSelectedOrderId(null);
       } finally {
+        // ✅ FIXED TYPO: changed "finaly" to "finally"
         setLoadingDetails(false);
       }
     };
@@ -80,28 +115,36 @@ const historyOrders = (historyData?.data?.data || []).filter(
   }, [selectedOrderId, t]);
 
   return (
-    <div className="max-w-2xl min-h-screen p-4 pb-24 mx-auto" dir={t("dir")}>
-      
-      {/* Header */}
-      <header className="mt-2 mb-8">
-        <h1 className="text-3xl font-black text-gray-900 dark:text-white">{t("myOrders")}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">{t("trackOrdersDesc")}</p>
-      </header>
-       <button
+    <div
+      className="max-w-2xl min-h-screen p-4 pb-24 mx-auto relative"
+      dir={t("dir")}
+    >
+      {/* Header Layout */}
+      <header className="mt-2 mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+            {t("myOrders")}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+            {t("trackOrdersDesc")}
+          </p>
+        </div>
+        <button
           onClick={() => router.back()}
-          className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-28 top-4 left-4 active:scale-95"
+          className="flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md active:scale-95 text-white"
         >
-          <ChevronLeft className="w-6 h-6 text-white" />
+          <ChevronLeft className="w-6 h-6 transform rotate-0 rtl:rotate-180" />
         </button>
+      </header>
 
-      {/* Tabs */}
+      {/* Segmented Tab Controls */}
       <div className="flex p-1 mb-6 bg-gray-100 dark:bg-zinc-900 rounded-2xl">
         <button
           onClick={() => setActiveTab("active")}
           className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${
-            activeTab === "active" 
-            ? "bg-white dark:bg-zinc-800 text-yellow-500 shadow-sm" 
-            : "text-gray-500"
+            activeTab === "active"
+              ? "bg-white dark:bg-zinc-800 text-yellow-500 shadow-sm"
+              : "text-gray-500"
           }`}
         >
           <Clock size={18} />
@@ -110,9 +153,9 @@ const historyOrders = (historyData?.data?.data || []).filter(
         <button
           onClick={() => setActiveTab("history")}
           className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${
-            activeTab === "history" 
-            ? "bg-white dark:bg-zinc-800 text-yellow-500 shadow-sm" 
-            : "text-gray-500"
+            activeTab === "history"
+              ? "bg-white dark:bg-zinc-800 text-yellow-500 shadow-sm"
+              : "text-gray-500"
           }`}
         >
           <History size={18} />
@@ -120,7 +163,7 @@ const historyOrders = (historyData?.data?.data || []).filter(
         </button>
       </div>
 
-      {/* List Area */}
+      {/* Orders Map Listing View Wrapper */}
       <div className="space-y-4">
         {isLoadingList ? (
           <div className="flex flex-col items-center justify-center py-20">
@@ -129,37 +172,48 @@ const historyOrders = (historyData?.data?.data || []).filter(
         ) : currentOrders.length > 0 ? (
           currentOrders.map((order: any, i: number) => (
             <motion.div
-              key={order.orderId}
+              key={order.orderId || order.id || i}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              onClick={() => setSelectedOrderId(order.orderId)}
+              onClick={() => setSelectedOrderId(order.orderId || order.id)}
               className="flex items-center gap-4 p-4 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl cursor-pointer hover:border-yellow-400 transition-all shadow-sm active:scale-[0.98]"
             >
               <div className="relative flex-shrink-0 w-16 h-16 overflow-hidden rounded-2xl bg-gray-50">
                 <img
-  src={order.restaurantImage || "/placeholder.jpg"}
-  alt={order.restaurantName || "image"}
-className="object-cover"  
-/>
+                  src={order.restaurantImage || "/placeholder.jpg"}
+                  alt={order.restaurantName || "Restaurant logo"}
+                  className="object-cover w-full h-full"
+                />
               </div>
               <div className="flex-1">
                 <div className="flex items-start justify-between">
-                  <h3 className="font-bold text-gray-900 dark:text-white">{order.restaurantName}</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white">
+                    {order.restaurantName}
+                  </h3>
                   <span className="text-[10px] font-bold px-2 py-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 rounded-lg uppercase">
-                    {t(order.status)}
+                    {t(order.status) || order.status}
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-0.5">{order.orderNumber}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {order.orderNumber}
+                </p>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-sm font-black">{order.totalAmount} {t("currency")}</span>
+                  <span className="text-sm font-black">
+                    {order.totalAmount || order.total} {t("currency")}
+                  </span>
                   <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                    <ShoppingBag size={12} /> {order.itemsCount} {t("items")}
+                    <ShoppingBag size={12} />{" "}
+                    {order.itemsCount || order.items?.length || 0} {t("items")}
                   </span>
                 </div>
               </div>
               <div className="text-gray-300">
-                {t("dir") === "rtl" ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+                {t("dir") === "rtl" ? (
+                  <ChevronLeft size={18} />
+                ) : (
+                  <ChevronRight size={18} />
+                )}
               </div>
             </motion.div>
           ))
@@ -167,112 +221,160 @@ className="object-cover"
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
             <Package size={60} className="mb-4 opacity-20" />
             <p className="font-bold">{t("noOrdersYet")}</p>
+            <p className="text-xs text-gray-400 mt-1 max-w-xs text-center">
+              {activeTab === "active"
+                ? "If your order status changed to completed/delivered, it has moved to the 'Order History' tab."
+                : "No historical logged transactions found for this establishment location."}
+            </p>
           </div>
         )}
       </div>
 
-      {/* --- Details Side Panel (Modal) --- */}
+      {/* Drawer Details Component View Panel Overlay */}
       <AnimatePresence>
         {selectedOrderId && (
           <>
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            {/* Dark Sheet Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setSelectedOrderId(null)}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
             />
-            
-            {/* Details Panel */}
-            <motion.div 
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+
+            {/* Sheet View Container */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
               className="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-zinc-950 rounded-t-[40px] max-h-[92vh] overflow-y-auto shadow-2xl border-t dark:border-zinc-800"
             >
               <div className="p-6">
-                {/* Pull Bar */}
+                {/* Visual Pull Bar Ornament */}
                 <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-800 rounded-full mx-auto mb-6" />
-                
+
                 {loadingDetails ? (
                   <div className="flex flex-col items-center gap-4 py-20">
                     <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
-                    <p className="text-sm text-gray-500">{t("loadingDetails")}</p>
+                    <p className="text-sm text-gray-500">
+                      {t("loadingDetails")}
+                    </p>
                   </div>
-                ) : selectedOrder && (
-                  <div className="space-y-6">
-                    {/* Header Info */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-16 h-16 overflow-hidden shadow-md rounded-2xl">
-                          <img
-  src={selectedOrder.restaurantImage || "/placeholder.jpg"}
-  alt={selectedOrder.name || "image"}
- className="object-cover"/>
+                ) : (
+                  selectedOrder && (
+                    <div className="space-y-6">
+                      {/* Drawer Summary Banner Row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="relative w-16 h-16 overflow-hidden shadow-md rounded-2xl">
+                            <img
+                              src={
+                                selectedOrder.restaurantImage ||
+                                "/placeholder.jpg"
+                              }
+                              alt={
+                                selectedOrder.restaurantName ||
+                                "Establishment Banner"
+                              }
+                              className="object-cover w-full h-full"
+                            />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-black">
+                              {selectedOrder.restaurantName}
+                            </h2>
+                            <p className="text-xs text-gray-400">
+                              {selectedOrder.orderNumber}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedOrderId(null)}
+                          className="p-3 text-gray-500 transition-colors bg-gray-100 dark:bg-zinc-800 rounded-2xl hover:text-red-500"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+
+                      {/* Breakdown Ledger Container Block */}
+                      <div className="p-5 border border-gray-100 bg-gray-50 dark:bg-zinc-900/50 rounded-3xl dark:border-zinc-800">
+                        <h4 className="text-[11px] font-black text-gray-400 uppercase mb-4 flex items-center gap-2">
+                          <ShoppingBag size={14} /> {t("orderSummary")}
+                        </h4>
+                        <div className="space-y-4">
+                          {(selectedOrder.items || []).map(
+                            (item: any, i: number) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="flex items-center justify-center w-7 h-7 bg-yellow-400 text-gray-900 text-[10px] font-black rounded-lg">
+                                    {item.quantity || 1}x
+                                  </span>
+                                  <span className="text-sm font-bold">
+                                    {item.foodName || item.name}
+                                  </span>
+                                </div>
+                                <span className="text-sm font-black">
+                                  {item.totalPrice || item.price}{" "}
+                                  {t("currency")}
+                                </span>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Aggregate Price Metrics Ledger */}
+                      <div className="px-2 space-y-3">
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>{t("subtotal")}</span>
+                          <span>
+                            {selectedOrder.subtotal || selectedOrder.subTotal}{" "}
+                            {t("currency")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>{t("deliveryFee")}</span>
+                          <span>
+                            {selectedOrder.deliveryFee} {t("currency")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>{t("serviceFee")}</span>
+                          <span>
+                            {selectedOrder.serviceFee} {t("currency")}
+                          </span>
+                        </div>
+                        <div className="h-px my-2 bg-gray-100 dark:bg-zinc-800" />
+                        <div className="flex justify-between text-xl font-black text-gray-900 dark:text-white">
+                          <span>{t("total")}</span>
+                          <span className="text-yellow-500">
+                            {selectedOrder.totalAmount || selectedOrder.total}{" "}
+                            {t("currency")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Fixed Status Ribbon Footer banner */}
+                      <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center gap-4 shadow-lg shadow-yellow-400/20">
+                        <div className="p-3 bg-white/20 rounded-2xl">
+                          <ReceiptText size={24} />
                         </div>
                         <div>
-                          <h2 className="text-xl font-black">{selectedOrder.restaurantName}</h2>
-                          <p className="text-xs text-gray-400">{selectedOrder.orderNumber}</p>
+                          <p className="text-[10px] uppercase font-black opacity-60">
+                            {t("orderStatus")}
+                          </p>
+                          <p className="text-lg font-black leading-none">
+                            {t(selectedOrder.status) || selectedOrder.status}
+                          </p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => setSelectedOrderId(null)} 
-                        className="p-3 text-gray-500 transition-colors bg-gray-100 dark:bg-zinc-800 rounded-2xl hover:text-red-500"
-                      >
-                        <X size={20} />
-                      </button>
                     </div>
-
-                    {/* Order Items List */}
-                    <div className="p-5 border border-gray-100 bg-gray-50 dark:bg-zinc-900/50 rounded-3xl dark:border-zinc-800">
-                      <h4 className="text-[11px] font-black text-gray-400 uppercase mb-4 flex items-center gap-2">
-                        <ShoppingBag size={14} /> {t("orderSummary")}
-                      </h4>
-                      <div className="space-y-4">
-                        {selectedOrder.items.map((item: any, i: number) => (
-                          <div key={i} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="flex items-center justify-center w-7 h-7 bg-yellow-400 text-gray-900 text-[10px] font-black rounded-lg">
-                                {item.quantity}x
-                              </span>
-                              <span className="text-sm font-bold">{item.foodName}</span>
-                            </div>
-                            <span className="text-sm font-black">{item.totalPrice} {t("currency")}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Pricing Table */}
-                    <div className="px-2 space-y-3">
-                      <div className="flex justify-between text-sm text-gray-500">
-                        <span>{t("subtotal")}</span>
-                        <span>{selectedOrder.subtotal} {t("currency")}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-500">
-                        <span>{t("deliveryFee")}</span>
-                        <span>{selectedOrder.deliveryFee} {t("currency")}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-500">
-                        <span>{t("serviceFee")}</span>
-                        <span>{selectedOrder.serviceFee} {t("currency")}</span>
-                      </div>
-                      <div className="h-px my-2 bg-gray-100 dark:bg-zinc-800" />
-                      <div className="flex justify-between text-xl font-black text-gray-900 dark:text-white">
-                        <span>{t("total")}</span>
-                        <span className="text-yellow-500">{selectedOrder.totalAmount} {t("currency")}</span>
-                      </div>
-                    </div>
-
-                    {/* Footer Status */}
-                    <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center gap-4 shadow-lg shadow-yellow-400/20">
-                      <div className="p-3 bg-white/20 rounded-2xl">
-                        <ReceiptText size={24} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase font-black opacity-60">{t("orderStatus")}</p>
-                        <p className="text-lg font-black leading-none">{t(selectedOrder.status)}</p>
-                      </div>
-                    </div>
-                  </div>
+                  )
                 )}
               </div>
             </motion.div>

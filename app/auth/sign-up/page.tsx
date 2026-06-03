@@ -17,14 +17,13 @@ import Link from "next/link";
 import usePost from "@/app/hooks/usePost";
 import { useRouter } from "next/navigation";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
-// Import your token context hook
 import { useToken } from "@/context/TokenContext";
 
 function SignUpForm() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const { setToken } = useToken(); // Extract setToken to update client-side global authentication state
+  const { setToken } = useToken();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -256,19 +255,27 @@ function SignUpForm() {
                     t("signupSuccess"),
                   );
 
-                  // Fix: Extracting flat token from your actual API payload response layout
                   const token =
                     response?.token ||
                     response?.data?.token ||
                     response?.data?.data?.token;
 
                   if (token) {
-                    setToken(token); // Global context updates -> Navbar updates instantly!
-                    const redirectPath =
-                      localStorage.getItem("lastRestaurantPath");
-                    router.push(redirectPath || "/");
+                    setToken(token);
+                    
+                    let redirectPath = "/";
+                    if (typeof window !== "undefined") {
+                      // Lookup redirect path based on the dynamic active tab restaurant slug key setup
+                      const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
+                      if (activeSlug) {
+                        redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
+                      } else {
+                        redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+                      }
+                    }
+                    
+                    router.push(redirectPath);
                   } else {
-                    // Fallback if token wasn't returned on initial register configuration
                     router.push("/auth/sign-in");
                   }
                 }
