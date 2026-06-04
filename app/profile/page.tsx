@@ -204,22 +204,11 @@ export default function ProfilePage() {
 
                     if (callbackSlug) {
                       redirectPath = `/home/restaurants/${callbackSlug}`;
-                    } else if (typeof window !== "undefined") {
-                      // الحماية الاحتياطية (Fallback) من الـ localStorage
-                      const activeSlug = localStorage.getItem(
-                        "lastActiveRestaurantSlug",
-                      );
-                      if (activeSlug) {
-                        redirectPath =
-                          localStorage.getItem(
-                            `lastRestaurantPath-${activeSlug}`,
-                          ) || `/home/restaurants/${activeSlug}`;
-                      } else {
-                        redirectPath =
-                          localStorage.getItem("lastRestaurantPath") || "/";
-                      }
                     }
-
+                    // الحماية الاحتياطية (Fallback) من الـ localStorage
+                    else {
+                      redirectPath = "/";
+                    }
                     router.push(redirectPath);
                   }}
                   className="flex items-center justify-center w-full gap-2 py-3 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl"

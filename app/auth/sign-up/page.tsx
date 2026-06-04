@@ -15,7 +15,7 @@ import {
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
 import usePost from "@/app/hooks/usePost";
-import { useRouter, useSearchParams } from "next/navigation"; // تحديث: استيراد useSearchParams لتعقب الـ Slug
+import { useRouter, useSearchParams } from "next/navigation";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useToken } from "@/context/TokenContext";
 
@@ -23,10 +23,10 @@ function SignUpForm() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams(); // تهيئة جلب الـ Query Parameters من الرابط
+  const searchParams = useSearchParams();
   const { setToken } = useToken();
 
-  // جلب الـ callbackSlug الحالي لتمريره عبر الصفحات أو استخدامه للتوجيه المباشر
+  // جلب الـ callbackSlug الحالي للحفاظ على هوية المطعم
   const callbackSlug = searchParams.get("callbackSlug");
 
   const [formData, setFormData] = useState({
@@ -61,7 +61,7 @@ function SignUpForm() {
     try {
       await signupWithCredentials(formData, null, t("signupSuccess"));
 
-      // إصلاح: تمرير الـ callbackSlug إلى صفحة تسجيل الدخول لكي لا يفقد التطبيق سياق المطعم الحالي
+      // تمرير الـ callbackSlug إلى صفحة تسجيل الدخول التقليدية لكي لا يفقد التطبيق السياق
       const signInPath = callbackSlug
         ? `/auth/sign-in?callbackSlug=${callbackSlug}`
         : "/auth/sign-in";
@@ -264,6 +264,7 @@ function SignUpForm() {
                     t("signupSuccess"),
                   );
 
+                  // فحص التوكن القادم من Google في الـ Sign Up
                   const token =
                     response?.token ||
                     response?.data?.token ||
@@ -274,11 +275,10 @@ function SignUpForm() {
 
                     let redirectPath = "/";
 
-                    // إصلاح: الأولوية القصوى لمعطيات الرابط (callbackSlug) مباشرة
+                    // الأولوية للـ callbackSlug الممرر بالرابط الحالي لمنع الفقدان
                     if (callbackSlug) {
                       redirectPath = `/home/restaurants/${callbackSlug}`;
                     } else if (typeof window !== "undefined") {
-                      // الحماية الاحتياطية (Fallback)
                       const activeSlug = localStorage.getItem(
                         "lastActiveRestaurantSlug",
                       );
@@ -295,7 +295,6 @@ function SignUpForm() {
 
                     router.push(redirectPath);
                   } else {
-                    // إذا لم يعد التوكن مباشرة، يتم التوجيه لصفحة تسجيل الدخول مع الحفاظ على السياق
                     const fallbackSignIn = callbackSlug
                       ? `/auth/sign-in?callbackSlug=${callbackSlug}`
                       : "/auth/sign-in";

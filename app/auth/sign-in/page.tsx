@@ -14,24 +14,27 @@ import {
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
-import { useRouter, useSearchParams } from "next/navigation"; // 1. استيراد useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 
 export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
-  const searchParams = useSearchParams(); // 2. تهيئة جلب القيم من الـ URL
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const { setToken } = useToken();
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+
+  // قراءة الـ callbackSlug الحالي مباشرة من الـ URL إن وجد
+  const callbackSlug = searchParams.get("callbackSlug");
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  // Hooks for both methods
+  // Hooks للمصادقة
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
     "/api/user/auth/google",
@@ -43,23 +46,18 @@ export default function SignIn() {
 
   const handleSuccessAuth = (token: string) => {
     setToken(token);
-    
-    // 3. الأولوية القصوى لقراءة المطعم الحالي من الـ URL مباشرة
-    const callbackSlug = searchParams.get("callbackSlug");
+
     let redirectPath = "/";
 
+    // 1. الأولوية القصوى لـ callbackSlug القادم من الرابط لتفادي خسارة مسار المطعم الحالي
     if (callbackSlug) {
       redirectPath = `/home/restaurants/${callbackSlug}`;
-    } else if (typeof window !== "undefined") {
-      // الحماية الاحتياطية (Fallback) في حال عدم وجود البارامتر
-      const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
-      if (activeSlug) {
-        redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
-      } else {
-        redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
-      }
     }
-    
+    // الحماية الاحتياطية (Fallback) من الـ localStorage
+    else {
+      redirectPath = "/";
+    }
+
     router.push(redirectPath);
   };
 
@@ -67,15 +65,10 @@ export default function SignIn() {
     e.preventDefault();
     try {
       const response = await postData(formData, null, t("loginSuccess"));
+      // تمرير الـ token من نموذج الـ Credentials التقليدي
       handleSuccessAuth(response.data.data.token);
     } catch {}
   };
-
-  // 4. جعل رابط صفحة "إنشاء حساب" يحافظ ديناميكياً على المطعم الحالي في الـ URL
-  const currentSlug = searchParams.get("callbackSlug");
-  const signUpLink = currentSlug 
-    ? `/home/restaurants/${currentSlug}/auth/sign-up` 
-    : "/auth/sign-up";
 
   return (
     <GoogleOAuthProvider clientId="798541723323-gt1bh29472nra4ujivcsnnc9f662gr08.apps.googleusercontent.com">
@@ -224,6 +217,7 @@ export default function SignIn() {
                       t("loginSuccess"),
                     );
 
+                    // التأكد من جلب التوكن بدقة بناءً على تركيبة الرد من الـ API لديك لقوقل
                     if (response?.token) {
                       handleSuccessAuth(response.token);
                     } else if (response?.data?.token) {
@@ -248,7 +242,11 @@ export default function SignIn() {
             <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
               {t("noAccount")}{" "}
               <Link
-                href={signUpLink}
+                href={
+                  callbackSlug
+                    ? `/auth/sign-up?callbackSlug=${callbackSlug}`
+                    : "/auth/sign-up"
+                }
                 className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
               >
                 {t("createAccount")}

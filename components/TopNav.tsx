@@ -7,7 +7,8 @@ import { MapPin, ChevronDown, Sun, Moon, User } from "lucide-react";
 import { useToken } from "@/context/TokenContext";
 import Link from "next/link";
 import ReactCountryFlag from "react-country-flag";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 type Language = "English" | "العربية";
 export default function TopNav() {
   const { setTheme, resolvedTheme } = useTheme();
@@ -18,7 +19,16 @@ export default function TopNav() {
     changeLanguage(lang);
     setIsLangMenuOpen(false);
   };
-/*   const userEmail =
+  const router = useRouter();
+
+  const handleClick = () => {
+    if (!restaurantSlug) return;
+
+    router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+  };
+  const params = useParams();
+  const restaurantSlug = params?.slug as string;
+  /*   const userEmail =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("user") || "{}")?.email || ""
       : "";
@@ -47,23 +57,23 @@ export default function TopNav() {
  */}
         {token ? (
           <Link
-            href="/profile"
-            className="flex items-center gap-2 text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95"
+            href={
+              restaurantSlug
+                ? `/profile?callbackSlug=${restaurantSlug}`
+                : "/profile"
+            }
           >
             <User className="w-5 h-5" />
 
             <span className=" sm:block text-sm font-medium">
               {t("welcome")}
-          {/*     <span className="font-semibold text-yellow-500">{userName}</span> */}
+              {/*     <span className="font-semibold text-yellow-500">{userName}</span> */}
             </span>
           </Link>
         ) : (
-          <Link
-            href="/auth/sign-in"
-            className="flex gap-1 text-gray-600 transition-all duration-300 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110 active:scale-95"
-          >
-            <span className="">{t("signIn")}</span>
-          </Link>
+          <span className="cursor-pointer" onClick={handleClick}>
+            {t("signIn")}
+          </span>
         )}
 
         {/* قسم اللغة والوضع الليلي */}
