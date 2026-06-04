@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import {
   User,
   Mail,
-  Camera,
   Save,
   LogOut,
   Shield,
@@ -20,8 +19,7 @@ import {
 import { useLanguage } from "../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePut from "@/app/hooks/usePut";
-import { redirect } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // 1. استيراد useSearchParams لضمان استقرار مسار الخروج
 import { useToken } from "@/context/TokenContext";
 
 // تعريف واجهات البيانات
@@ -57,6 +55,7 @@ export default function ProfilePage() {
   const { t } = useLanguage();
   const { logout } = useToken();
   const router = useRouter();
+  const searchParams = useSearchParams(); // 2. تهيئة جلب القيم من الـ URL
 
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
 
@@ -69,7 +68,7 @@ export default function ProfilePage() {
 
   // 2. إعداد دالة التحديث
   const { putData, loading: isUpdating } = usePut("/api/user/profile");
-  
+
   // استخراج البيانات للوصول السهل
   const userData = profileResponse?.data?.data?.user;
   const walletBalance = profileResponse?.data?.data?.walletBalance || "0.00";
@@ -135,12 +134,14 @@ export default function ProfilePage() {
       {/* Ambient Background Orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-400/10 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-yellow-500/5 blur-[130px] rounded-full pointer-events-none" />
-      
+
       <button
         onClick={() => router.back()}
         className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 start-4 active:scale-95"
       >
-        <ChevronLeft className={`w-6 h-6 text-white ${isRtl ? "rotate-180" : ""}`} />
+        <ChevronLeft
+          className={`w-6 h-6 text-white ${isRtl ? "rotate-180" : ""}`}
+        />
       </button>
 
       <div className="relative z-10 max-w-5xl mx-auto">
@@ -196,15 +197,26 @@ export default function ProfilePage() {
                 <button
                   onClick={() => {
                     logout();
-                    
+
+                    // 3. الأولوية القصوى لقراءة المطعم الحالي من الرابط مباشرة عند الخروج
+                    const callbackSlug = searchParams.get("callbackSlug");
                     let redirectPath = "/";
-                    if (typeof window !== "undefined") {
-                      // Lookup safe dynamic path targeting multi-tab configuration
-                      const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
+
+                    if (callbackSlug) {
+                      redirectPath = `/home/restaurants/${callbackSlug}`;
+                    } else if (typeof window !== "undefined") {
+                      // الحماية الاحتياطية (Fallback) من الـ localStorage
+                      const activeSlug = localStorage.getItem(
+                        "lastActiveRestaurantSlug",
+                      );
                       if (activeSlug) {
-                        redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
+                        redirectPath =
+                          localStorage.getItem(
+                            `lastRestaurantPath-${activeSlug}`,
+                          ) || `/home/restaurants/${activeSlug}`;
                       } else {
-                        redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+                        redirectPath =
+                          localStorage.getItem("lastRestaurantPath") || "/";
                       }
                     }
 

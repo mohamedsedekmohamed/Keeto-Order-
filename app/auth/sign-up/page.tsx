@@ -15,7 +15,7 @@ import {
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
 import usePost from "@/app/hooks/usePost";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // تحديث: استيراد useSearchParams لتعقب الـ Slug
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useToken } from "@/context/TokenContext";
 
@@ -23,7 +23,11 @@ function SignUpForm() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams(); // تهيئة جلب الـ Query Parameters من الرابط
   const { setToken } = useToken();
+
+  // جلب الـ callbackSlug الحالي لتمريره عبر الصفحات أو استخدامه للتوجيه المباشر
+  const callbackSlug = searchParams.get("callbackSlug");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,8 +60,13 @@ function SignUpForm() {
     e.preventDefault();
     try {
       await signupWithCredentials(formData, null, t("signupSuccess"));
-      // Redirect credentials signup to sign-in since they still need to authenticate
-      router.push("/auth/sign-in");
+
+      // إصلاح: تمرير الـ callbackSlug إلى صفحة تسجيل الدخول لكي لا يفقد التطبيق سياق المطعم الحالي
+      const signInPath = callbackSlug
+        ? `/auth/sign-in?callbackSlug=${callbackSlug}`
+        : "/auth/sign-in";
+
+      router.push(signInPath);
     } catch (error) {
       // Handled globally
     }
@@ -89,7 +98,7 @@ function SignUpForm() {
           {t("back") || "Back"}
         </button>
 
-        {/* Header Header */}
+        {/* Header Title */}
         <div className="mb-8 text-center mt-4">
           <motion.div
             initial={{ rotate: -10, scale: 0.5 }}
@@ -262,21 +271,35 @@ function SignUpForm() {
 
                   if (token) {
                     setToken(token);
-                    
+
                     let redirectPath = "/";
-                    if (typeof window !== "undefined") {
-                      // Lookup redirect path based on the dynamic active tab restaurant slug key setup
-                      const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
+
+                    // إصلاح: الأولوية القصوى لمعطيات الرابط (callbackSlug) مباشرة
+                    if (callbackSlug) {
+                      redirectPath = `/home/restaurants/${callbackSlug}`;
+                    } else if (typeof window !== "undefined") {
+                      // الحماية الاحتياطية (Fallback)
+                      const activeSlug = localStorage.getItem(
+                        "lastActiveRestaurantSlug",
+                      );
                       if (activeSlug) {
-                        redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
+                        redirectPath =
+                          localStorage.getItem(
+                            `lastRestaurantPath-${activeSlug}`,
+                          ) || `/home/restaurants/${activeSlug}`;
                       } else {
-                        redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+                        redirectPath =
+                          localStorage.getItem("lastRestaurantPath") || "/";
                       }
                     }
-                    
+
                     router.push(redirectPath);
                   } else {
-                    router.push("/auth/sign-in");
+                    // إذا لم يعد التوكن مباشرة، يتم التوجيه لصفحة تسجيل الدخول مع الحفاظ على السياق
+                    const fallbackSignIn = callbackSlug
+                      ? `/auth/sign-in?callbackSlug=${callbackSlug}`
+                      : "/auth/sign-in";
+                    router.push(fallbackSignIn);
                   }
                 }
               } catch (error) {
@@ -302,7 +325,11 @@ function SignUpForm() {
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {t("haveAccount")}{" "}
             <Link
-              href="/auth/sign-in"
+              href={
+                callbackSlug
+                  ? `/auth/sign-in?callbackSlug=${callbackSlug}`
+                  : "/auth/sign-in"
+              }
               className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
             >
               {t("signIn")}

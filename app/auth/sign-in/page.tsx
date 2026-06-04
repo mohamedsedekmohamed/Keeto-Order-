@@ -14,13 +14,14 @@ import {
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // 1. استيراد useSearchParams
 import { useToken } from "@/context/TokenContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 
 export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams(); // 2. تهيئة جلب القيم من الـ URL
   const [showPassword, setShowPassword] = useState(false);
   const { setToken } = useToken();
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
@@ -40,32 +41,41 @@ export default function SignIn() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
- const handleSuccessAuth = (token: string) => {
-  setToken(token);
-  
-  let redirectPath = "/";
-  if (typeof window !== "undefined") {
-    // 1. Check if we know which restaurant slug triggered the auth redirect flow
-    const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
-    if (activeSlug) {
-      redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
-    } else {
-      // 2. Global fallback if all else fails
-      redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+  const handleSuccessAuth = (token: string) => {
+    setToken(token);
+    
+    // 3. الأولوية القصوى لقراءة المطعم الحالي من الـ URL مباشرة
+    const callbackSlug = searchParams.get("callbackSlug");
+    let redirectPath = "/";
+
+    if (callbackSlug) {
+      redirectPath = `/home/restaurants/${callbackSlug}`;
+    } else if (typeof window !== "undefined") {
+      // الحماية الاحتياطية (Fallback) في حال عدم وجود البارامتر
+      const activeSlug = localStorage.getItem("lastActiveRestaurantSlug");
+      if (activeSlug) {
+        redirectPath = localStorage.getItem(`lastRestaurantPath-${activeSlug}`) || `/home/restaurants/${activeSlug}`;
+      } else {
+        redirectPath = localStorage.getItem("lastRestaurantPath") || "/";
+      }
     }
-  }
-  
-  router.push(redirectPath);
-};
+    
+    router.push(redirectPath);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const response = await postData(formData, null, t("loginSuccess"));
-      // Standard credentials matching your original nesting
       handleSuccessAuth(response.data.data.token);
     } catch {}
   };
+
+  // 4. جعل رابط صفحة "إنشاء حساب" يحافظ ديناميكياً على المطعم الحالي في الـ URL
+  const currentSlug = searchParams.get("callbackSlug");
+  const signUpLink = currentSlug 
+    ? `/home/restaurants/${currentSlug}/auth/sign-up` 
+    : "/auth/sign-up";
 
   return (
     <GoogleOAuthProvider clientId="798541723323-gt1bh29472nra4ujivcsnnc9f662gr08.apps.googleusercontent.com">
@@ -214,7 +224,6 @@ export default function SignIn() {
                       t("loginSuccess"),
                     );
 
-                    // Fixed: Reads response.token directly based on your backend output layout
                     if (response?.token) {
                       handleSuccessAuth(response.token);
                     } else if (response?.data?.token) {
@@ -239,7 +248,7 @@ export default function SignIn() {
             <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
               {t("noAccount")}{" "}
               <Link
-                href="/auth/sign-up"
+                href={signUpLink}
                 className="inline-block text-yellow-600 transition-all dark:text-yellow-400 hover:underline underline-offset-4"
               >
                 {t("createAccount")}
