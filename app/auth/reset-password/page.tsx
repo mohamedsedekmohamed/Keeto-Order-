@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { KeyRound, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
+import {
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  CheckCircle2,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import usePost from "@/app/hooks/usePost";
@@ -13,17 +20,21 @@ import { toast } from "react-hot-toast";
 export default function ResetPassword() {
   const { t } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { email, code } = useAuth(); // سحب البيانات من الـ Context
 
   const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const isRtl = typeof document !== 'undefined' && document.dir === 'rtl';
+  const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+
+  // 🎯 قراءة الـ callbackSlug الحالي مباشرة من الـ URL إن وجد
+  const callbackSlug = searchParams.get("callbackSlug");
 
   // استخدام الهوك الذي قمنا بتعديله
-  const { postData, loading: isSubmitting } = usePost("/api/user/auth/reset-password");
-
-
+  const { postData, loading: isSubmitting } = usePost(
+    "/api/user/auth/reset-password",
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,19 +49,22 @@ export default function ResetPassword() {
       await postData(
         { email, code, newPassword },
         null,
-        t("passwordResetSuccess")
+        t("passwordResetSuccess"),
       );
 
-      router.push("/auth/sign-in");
+      // 🎯 بعد النجاح، التوجيه لصفحة تسجيل الدخول مع الحفاظ على الـ callbackSlug
+      if (callbackSlug) {
+        router.push(`/auth/sign-in?callbackSlug=${callbackSlug}`);
+      } else {
+        router.push("/auth/sign-in");
+      }
     } catch (error) {
-
       console.error("Reset password failed", error);
     }
   };
 
   return (
     <div className="relative flex items-center justify-center min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-
       {/* Background Effects */}
       <div className="absolute top-[-5%] left-[-5%] w-[500px] h-[500px] bg-yellow-400/15 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
@@ -76,7 +90,6 @@ export default function ResetPassword() {
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
-
           {/* New Password */}
           <div>
             <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
@@ -84,7 +97,10 @@ export default function ResetPassword() {
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <Lock size={18} className="text-gray-400 group-focus-within:text-yellow-500" />
+                <Lock
+                  size={18}
+                  className="text-gray-400 group-focus-within:text-yellow-500"
+                />
               </div>
               <input
                 type={showPassword ? "text" : "password"}
@@ -111,7 +127,10 @@ export default function ResetPassword() {
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <CheckCircle2 size={18} className="text-gray-400 group-focus-within:text-yellow-500" />
+                <CheckCircle2
+                  size={18}
+                  className="text-gray-400 group-focus-within:text-yellow-500"
+                />
               </div>
               <input
                 type={showPassword ? "text" : "password"}
@@ -133,17 +152,29 @@ export default function ResetPassword() {
           >
             <span className="flex items-center gap-2">
               {isSubmitting ? t("loading") : t("updatePassword")}
-              {!isSubmitting && <ArrowRight size={20} className={`transition-transform ${isRtl ? 'rotate-180 group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`} />}
+              {!isSubmitting && (
+                <ArrowRight
+                  size={20}
+                  className={`transition-transform ${isRtl ? "rotate-180 group-hover:-translate-x-1" : "group-hover:translate-x-1"}`}
+                />
+              )}
             </span>
           </motion.button>
         </form>
 
         <div className="mt-8 text-center">
-          <Link href="/auth/sign-in" className="text-sm font-bold text-gray-500 transition-colors dark:text-zinc-400 hover:text-yellow-600 dark:hover:text-yellow-400">
+          {/* 🎯 ربط زرار الرجوع بالـ callbackSlug */}
+          <Link
+            href={
+              callbackSlug
+                ? `/auth/sign-in?callbackSlug=${callbackSlug}`
+                : "/auth/sign-in"
+            }
+            className="text-sm font-bold text-gray-500 transition-colors dark:text-zinc-400 hover:text-yellow-600 dark:hover:text-yellow-400"
+          >
             {t("backToLogin")}
           </Link>
         </div>
-
       </motion.div>
     </div>
   );

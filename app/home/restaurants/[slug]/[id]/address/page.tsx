@@ -172,12 +172,12 @@ const AddressPage = () => {
 
   return (
     <div className="p-4 pb-24 mx-auto max-w-7xl md:p-6 lg:flex lg:gap-8 lg:items-start">
-       <button
-          onClick={() => router.back()}
-          className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-8 top-4 left-4 active:scale-95"
-        >
-          <ChevronLeft className="w-6 h-6 text-white" />
-        </button>
+      <button
+        onClick={() => router.back()}
+        className="flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md active:scale-95 text-white"
+      >
+        <ChevronLeft className="w-6 h-6 transform rotate-0 rtl:rotate-180" />
+      </button>
       {/* FORM SECTION (Sticky on Desktop) */}
       <div className="w-full mb-10 lg:w-1/3 lg:sticky lg:top-24 shrink-0 lg:mb-0">
         <form

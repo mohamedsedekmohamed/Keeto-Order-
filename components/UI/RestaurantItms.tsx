@@ -120,10 +120,16 @@ export default function RestaurantItms({
   const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
   const subCategoryMenuRef = useRef<HTMLDivElement | null>(null);
   const isManualClick = useRef(false);
+  const manualClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // لحفظ القسم والـ sub الحالي الفعلي لمنع التكرار العشوائي
+  const currentActiveSectionRef = useRef<string>("");
+  const lastActiveIdRef = useRef<string>("");
 
   // ── Search ────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const { deleteData } = useDelete("/users");
+
   // ── Item modal & Cart conflict states ─────────────────────────────
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -132,7 +138,6 @@ export default function RestaurantItms({
   >({});
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
 
-  // States to handle cart replacement dialog box flow
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [pendingCartPayload, setPendingCartPayload] = useState<any | null>(
     null,
@@ -178,7 +183,6 @@ export default function RestaurantItms({
     });
   }, [menu]);
 
-  // Flat SubCategories pill bar — sorted by orderLevel ascending
   const dynamicSubCategories = useMemo(() => {
     const subs: {
       id: string;
@@ -211,14 +215,13 @@ export default function RestaurantItms({
     return subs.sort((a, b) => a.orderLevel - b.orderLevel);
   }, [derivedMenu]);
 
-  // Initialize active tab to "all" when menu loads
   useEffect(() => {
     if (dynamicSubCategories.length > 0 && !activeCategoryTab) {
       const first = dynamicSubCategories[0];
       setActiveCategoryTab(first.catId);
       setActiveSubCategoryTab("all");
     }
-  }, [dynamicSubCategories]);
+  }, [dynamicSubCategories, activeCategoryTab]);
 
   const dynamicItems = useMemo(() => {
     const itms: (MenuItem & { categoryId: string; subCategoryId: string })[] =
@@ -233,7 +236,6 @@ export default function RestaurantItms({
     return itms;
   }, [derivedMenu]);
 
-  // Search filter loop
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
@@ -245,7 +247,36 @@ export default function RestaurantItms({
 
   const getSectionKey = (catId: string, subId: string) => `${catId}||${subId}`;
 
-  // ── Dual Layer Scroll-spy System ──────────────────────────────────
+  const centerActiveTab = (targetId: string) => {
+    if (lastActiveIdRef.current === targetId) return;
+    lastActiveIdRef.current = targetId;
+
+    const subTab = document.getElementById(targetId);
+    if (subTab && subCategoryMenuRef.current) {
+      const container = subCategoryMenuRef.current;
+      const tabWidth = subTab.offsetWidth;
+      const tabOffsetLeft = subTab.offsetLeft;
+      const containerWidth = container.offsetWidth;
+
+      if (isRtl) {
+        const targetScrollRight =
+          container.scrollWidth - tabOffsetLeft - tabWidth;
+        const centerPos = targetScrollRight - containerWidth / 2 + tabWidth / 2;
+        container.scrollTo({
+          left: -(container.scrollWidth - containerWidth - centerPos),
+          behavior: "smooth",
+        });
+      } else {
+        const centerPos = tabOffsetLeft - containerWidth / 2 + tabWidth / 2;
+        container.scrollTo({
+          left: centerPos,
+          behavior: "smooth",
+        });
+      }
+    }
+  };
+
+  // ── ✅ تعديل الـ Scroll-spy لإصلاح مشكلة الارتداد في الفيديو ──────────────────────────
   useEffect(() => {
     if (
       searchQuery ||
@@ -256,66 +287,78 @@ export default function RestaurantItms({
       return;
 
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
+      // إذا كان التمرير ناتج عن ضغطة زر مستخدم لا نغير الـ Tabs تلقائياً
       if (isManualClick.current) return;
 
-      const visible = entries.find((e) => e.isIntersecting);
-      if (visible) {
-        const parentCatId = visible.target.getAttribute("data-category");
-        const subId = visible.target.getAttribute("data-subcategory");
+      // تصفية العناصر الظاهرة في المساحة المحددة
+      const visibleEntries = entries.filter((e) => e.isIntersecting);
+
+      if (visibleEntries.length > 0) {
+        // نأخذ العنصر الأكثر هيمنة وظهوراً داخل الـ Viewport حالياً لمنع التداخل العشوائي
+        const topEntry = visibleEntries.reduce(
+          (max, entry) =>
+            entry.intersectionRatio > max.intersectionRatio ? entry : max,
+          visibleEntries[0],
+        );
+
+        const parentCatId = topEntry.target.getAttribute("data-category");
+        const subId = topEntry.target.getAttribute("data-subcategory");
 
         if (parentCatId && subId) {
-          setActiveCategoryTab(parentCatId);
-          setActiveSubCategoryTab(subId === "__no_sub__" ? null : subId);
+          const sectionIdentifier = `${parentCatId}-${subId}`;
 
-          const activeId =
-            subId === "__no_sub__"
-              ? `subtab-${parentCatId}__no_sub__`
-              : `subtab-${subId}`;
-          const subTab = document.getElementById(activeId);
-          if (subTab && subCategoryMenuRef.current) {
-            const container = subCategoryMenuRef.current;
-            const scrollPos =
-              subTab.offsetLeft -
-              container.offsetWidth / 2 +
-              subTab.offsetWidth / 2;
-            container.scrollTo({
-              left: isRtl
-                ? container.scrollWidth - container.clientWidth - scrollPos
-                : scrollPos,
-              behavior: "smooth",
-            });
+          // حماية أساسية: لا نغير الـ State إلا إذا دخل المستخدم بالفعل في نطاق قسم جديد تماماً
+          if (currentActiveSectionRef.current !== sectionIdentifier) {
+            currentActiveSectionRef.current = sectionIdentifier;
+
+            setActiveCategoryTab(parentCatId);
+            setActiveSubCategoryTab(subId === "__no_sub__" ? null : subId);
+
+            const activeId =
+              subId === "__no_sub__"
+                ? `subtab-${parentCatId}__no_sub__`
+                : `subtab-${subId}`;
+            centerActiveTab(activeId);
           }
         }
       }
     };
 
+    // تحسين الـ rootMargin لتتوافق مع الهيدر العلوي تماماً (160px من الأعلى و -40% من الأسفل لسنترة دقيقة)
     const observer = new IntersectionObserver(handleIntersect, {
       root: null,
-      rootMargin: "-120px 0px -65% 0px",
-      threshold: 0,
+      rootMargin: "-160px 0px -40% 0px",
+      threshold: [0.1, 0.2, 0.4],
     });
 
-    Object.values(sectionRefs.current).forEach((s) => s && observer.observe(s));
+    Object.values(sectionRefs.current).forEach((s) => {
+      if (s) observer.observe(s);
+    });
+
     return () => observer.disconnect();
   }, [menu, searchQuery, viewMode, isRtl, activeSubCategoryTab]);
 
   // ── Navigation actions ────────────────────────────────────────────
   const scrollToSubCategory = (subUniqueId: string) => {
-    if (subUniqueId === "all") {
-      isManualClick.current = true;
-      setActiveSubCategoryTab("all");
+    if (manualClickTimeoutRef.current)
+      clearTimeout(manualClickTimeoutRef.current);
 
-      const subTabAll = document.getElementById("subtab-all");
-      if (subTabAll && subCategoryMenuRef.current) {
+    isManualClick.current = true;
+
+    if (subUniqueId === "all") {
+      setActiveSubCategoryTab("all");
+      lastActiveIdRef.current = "subtab-all";
+      currentActiveSectionRef.current = "";
+      if (subCategoryMenuRef.current) {
         subCategoryMenuRef.current.scrollTo({
           left: isRtl ? subCategoryMenuRef.current.scrollWidth : 0,
           behavior: "smooth",
         });
       }
-
-      setTimeout(() => {
+     
+      manualClickTimeoutRef.current = setTimeout(() => {
         isManualClick.current = false;
-      }, 400);
+      }, 1000);
       return;
     }
 
@@ -326,27 +369,35 @@ export default function RestaurantItms({
         found.rawId === "__no_sub__" ? null : found.rawId,
       );
 
+      const activeId = `subtab-${subUniqueId}`;
+      centerActiveTab(activeId);
+
       const combinedKey = getSectionKey(found.catId, found.rawId);
-      performSmoothScroll(combinedKey);
+      currentActiveSectionRef.current = `${found.catId}-${found.rawId}`;
+
+      setTimeout(() => {
+        const el = sectionRefs.current[combinedKey];
+        if (el) {
+          const headerHeight = stickyHeaderRef.current?.offsetHeight || 130;
+          const top =
+            el.getBoundingClientRect().top + window.scrollY - headerHeight - 12;
+
+          window.scrollTo({ top, behavior: "smooth" });
+        }
+
+        manualClickTimeoutRef.current = setTimeout(() => {
+          isManualClick.current = false;
+        }, 1000);
+      }, 50);
     }
   };
 
-  const performSmoothScroll = (sectionKey: string) => {
-    isManualClick.current = true;
-    setTimeout(() => {
-      const el = sectionRefs.current[sectionKey];
-      if (el) {
-        const headerHeight = stickyHeaderRef.current?.offsetHeight || 130;
-        const top =
-          el.getBoundingClientRect().top + window.scrollY - headerHeight - 16;
-
-        window.scrollTo({ top, behavior: "smooth" });
-        setTimeout(() => {
-          isManualClick.current = false;
-        }, 700);
-      }
-    }, 60);
-  };
+  useEffect(() => {
+    return () => {
+      if (manualClickTimeoutRef.current)
+        clearTimeout(manualClickTimeoutRef.current);
+    };
+  }, []);
 
   // ── Item modal helpers ────────────────────────────────────────────
   const handleItemClick = (item: MenuItem) => {
@@ -374,17 +425,13 @@ export default function RestaurantItms({
     setSelectedOptions((prev) => {
       const cur = prev[variation.id] || [];
 
-      // Handle single selection types (Custom Radio simulation)
       if (variation.selectionType === "single") {
-        // If the same option is clicked again, remove it completely to deselect
         if (cur.includes(option.id)) {
           return { ...prev, [variation.id]: [] };
         }
-        // Otherwise, set it as the only active choice
         return { ...prev, [variation.id]: [option.id] };
       }
 
-      // Multi-selection types (Checkbox logic)
       if (cur.includes(option.id))
         return {
           ...prev,
@@ -500,7 +547,6 @@ export default function RestaurantItms({
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 409) {
-        // Intercept 409 and store selected parameters to launch confirmation modal
         setPendingCartPayload(payload);
         setShowConflictDialog(true);
       } else if (status === 400) {
@@ -516,6 +562,7 @@ export default function RestaurantItms({
       setLoading(false);
     }
   };
+
   const handleClearCart = async () => {
     try {
       await deleteData("/api/user/cart");
@@ -525,21 +572,16 @@ export default function RestaurantItms({
       throw error;
     }
   };
-  // Clears the cart database entirely, then adds the new selection item immediately
+
   const handleClearCartAndAdd = async () => {
     if (!pendingCartPayload) return;
 
     try {
       setLoading(true);
-
       await handleClearCart();
-
       await api.post("/api/user/cart", pendingCartPayload);
-
       toast.success(t("addedToCart"));
-
       onCartUpdated();
-
       setShowConflictDialog(false);
       setPendingCartPayload(null);
       setSelectedItem(null);
@@ -549,6 +591,7 @@ export default function RestaurantItms({
       setLoading(false);
     }
   };
+
   // ── Shared UI templates ───────────────────────────────────────────
   const FoodCard = ({ item }: { item: MenuItem }) => {
     const isFav = favoritesList.includes(item.id);
@@ -659,12 +702,13 @@ export default function RestaurantItms({
           <div
             ref={subCategoryMenuRef}
             dir={isRtl ? "rtl" : "ltr"}
-            className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth mb-2"
+            className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth mb-2 transition-all duration-300 touch-pan-x"
+            style={{ WebkitOverflowScrolling: "touch" }}
           >
             <button
               id="subtab-all"
               onClick={() => scrollToSubCategory("all")}
-              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
+              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-350 shrink-0 ${
                 activeSubCategoryTab === "all"
                   ? "bg-yellow-400 text-white shadow-md transform scale-105"
                   : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
@@ -685,7 +729,7 @@ export default function RestaurantItms({
                   id={`subtab-${sub.id}`}
                   key={`subtab-btn-${sub.id}`}
                   onClick={() => scrollToSubCategory(sub.id)}
-                  className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-300 shrink-0 ${
+                  className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-350 shrink-0 ${
                     isActive
                       ? "bg-yellow-400 text-white shadow-md transform scale-105"
                       : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
@@ -938,7 +982,7 @@ export default function RestaurantItms({
                     </div>
                   )}
 
-                {/* ── ADDONS SELECTION (الإضافات) ── */}
+                {/* ── ADDONS SELECTION ── */}
                 {Array.isArray(selectedItem.addons) &&
                   selectedItem.addons.length > 0 && (
                     <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">

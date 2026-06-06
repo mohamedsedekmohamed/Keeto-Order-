@@ -143,12 +143,16 @@ export default function SignIn() {
                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300">
                   {t("password")}
                 </label>
-                <button
-                  type="button"
-                  className="text-xs font-bold tracking-wider text-yellow-600 uppercase transition-colors hover:text-yellow-500 dark:text-yellow-500/80"
+                <Link
+                  href={
+                    callbackSlug
+                      ? `/auth/forgot-password?callbackSlug=${callbackSlug}`
+                      : "/auth/forgot-password"
+                  }
+                  className="text-xs font-bold text-yellow-600 transition-colors dark:text-yellow-400 hover:underline"
                 >
                   {t("forgotPassword")}
-                </button>
+                </Link>
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">

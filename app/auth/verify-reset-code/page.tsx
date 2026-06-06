@@ -3,34 +3,38 @@
 import { motion } from "framer-motion";
 import { ShieldCheck, ArrowRight } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import usePost from "@/app/hooks/usePost";
 import { useAuth } from "@/context/AuthContext";
 
 export default function VerifyResetCode() {
   const { t } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const { postData, loading: isSubmitting } = usePost(
-    "/api/user/auth/verify-reset-code"
+    "/api/user/auth/verify-reset-code",
   );
 
   const { email, code, setCode } = useAuth();
 
-  const isRtl =
-    typeof document !== "undefined" && document.dir === "rtl";
+  const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+
+  // 🎯 قراءة الـ callbackSlug الحالي مباشرة من الـ URL إن وجد
+  const callbackSlug = searchParams.get("callbackSlug");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {
-      await postData(
-        { email, code },
-        null,
-        t("verify-reset-code")
-      );
+      await postData({ email, code }, null, t("verify-reset-code"));
 
-      router.push("/auth/reset-password");
+      // 🎯 توجيه المستخدم لصفحة تعيين كلمة المرور الجديدة مع تمرير الـ callbackSlug
+      if (callbackSlug) {
+        router.push(`/auth/reset-password?callbackSlug=${callbackSlug}`);
+      } else {
+        router.push("/auth/reset-password");
+      }
     } catch (error) {
       console.error("Verify code failed", error);
     }
@@ -38,7 +42,6 @@ export default function VerifyResetCode() {
 
   return (
     <div className="relative flex items-center justify-center min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-
       {/* Background effects */}
       <div className="absolute top-[-5%] left-[-5%] w-[500px] h-[500px] bg-yellow-400/15 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
@@ -49,7 +52,6 @@ export default function VerifyResetCode() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="relative w-full max-w-lg p-8 sm:p-12 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[3rem] z-10"
       >
-
         {/* Top line */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1.5 bg-yellow-400 rounded-b-full shadow-[0_2px_10px_rgba(250,204,21,0.4)]"></div>
 
@@ -65,7 +67,7 @@ export default function VerifyResetCode() {
           </motion.div>
 
           <h2 className="text-3xl font-black text-gray-900 sm:text-4xl dark:text-white">
-            {t("verifyCode") }
+            {t("verifyCode")}
           </h2>
 
           <p className="mt-3 text-base font-medium text-gray-500 dark:text-zinc-400">
@@ -75,11 +77,10 @@ export default function VerifyResetCode() {
 
         {/* Form */}
         <form className="space-y-5" onSubmit={handleSubmit}>
-
           {/* Code Input */}
           <div>
             <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
-              {t("resetCode") }
+              {t("resetCode")}
             </label>
 
             <div className="relative group">
@@ -122,7 +123,6 @@ export default function VerifyResetCode() {
             </span>
           </motion.button>
         </form>
-
       </motion.div>
     </div>
   );

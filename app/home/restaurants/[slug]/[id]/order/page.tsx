@@ -75,7 +75,7 @@ export default function Cart() {
 
           localStorage.removeItem(CART_EXPIRY_KEY);
 
-         /*  toast.success(t("cartExpired") || "تم مسح السلة بعد ساعة"); */
+          /*  toast.success(t("cartExpired") || "تم مسح السلة بعد ساعة"); */
         } catch (error) {
           console.error("Failed to clear expired cart");
         }
@@ -122,7 +122,7 @@ export default function Cart() {
   const handleClearCart = async () => {
     try {
       await deleteData("/api/user/cart", t("cartCleared"));
-      dispatch(clearCartLocal());;
+      dispatch(clearCartLocal());
     } catch (error) {
       toast.error(t("failedClearCart"));
     }
@@ -149,7 +149,7 @@ export default function Cart() {
         <p className="mt-2 text-gray-500 dark:text-zinc-400">
           {t("orderDeliciousMealsNow")}
         </p>
-              <button
+        <button
           onClick={() => router.back()}
           className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-20 top-4 left-4 active:scale-95"
         >
@@ -184,9 +184,9 @@ export default function Cart() {
         </button>
         <button
           onClick={() => router.back()}
-          className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-20 top-4 left-4 active:scale-95"
+          className="flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 -mr-2 rounded-full shadow-md active:scale-95 text-white"
         >
-          <ChevronLeft className="w-6 h-6 text-white" />
+          <ChevronLeft className="w-6 h-6 transform rotate-0 rtl:rotate-180" />
         </button>
       </div>
 

@@ -5,13 +5,24 @@ import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import {
-  MapPin, CreditCard, ArrowLeft, Truck, Store, CheckCircle2,
-  Navigation, Loader2, ChevronLeft, Plus, X,
+  MapPin,
+  CreditCard,
+  ArrowLeft,
+  Truck,
+  Store,
+  CheckCircle2,
+  Navigation,
+  Loader2,
+  ChevronLeft,
+  Plus,
+  X,
+  FileText,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 type Zone = { id: string; name: string };
+type CartItem = { totalPrice: string | number; [key: string]: any };
 
 export default function Checkout() {
   const { t } = useLanguage();
@@ -20,7 +31,9 @@ export default function Checkout() {
   const restaurantName = params.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
 
-  const [orderType, setOrderType] = useState<"delivery" | "takeaway" | "dine_in">("delivery");
+  const [orderType, setOrderType] = useState<
+    "delivery" | "takeaway" | "dine_in"
+  >("delivery");
   const [selectedAddress, setSelectedAddress] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedPayment, setSelectedPayment] = useState("");
@@ -28,22 +41,52 @@ export default function Checkout() {
   // ✅ Add Address Popup State
   const [showAddressPopup, setShowAddressPopup] = useState(false);
   const [addressForm, setAddressForm] = useState({
-    title: "", zoneId: "", type: "home", street: "", number: "", floor: "",
+    title: "",
+    zoneId: "",
+    type: "home",
+    street: "",
+    number: "",
+    floor: "",
   });
 
-  const { data: checkoutData, loading: isLoading, refetch } = useGet<any>(
-    `/api/user/order/select?restaurantId=${params.id}`,
+  // 1. جلب بيانات خيارات الدفع والعناوين والفروع
+  const {
+    data: checkoutData,
+    loading: isLoadingCheckout,
+    refetch,
+  } = useGet<any>(`/api/user/order/select?restaurantId=${params.id}`);
+
+  // 2. جلب بيانات الكارت لحساب الـ subtotal
+  const { data: cartRes, loading: isLoadingCart } =
+    useGet<any>("/api/user/cart");
+
+  const { data: zonesRes, loading: loadingZones } = useGet<any>(
+    "/api/user/address/zone",
   );
-  const { data: zonesRes, loading: loadingZones } = useGet<any>("/api/user/address/zone");
   const { postData, loading: isSubmitting } = usePost();
-  const { postData: postAddress, loading: postingAddress } = usePost("/api/user/address");
-const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // example methods
+  const { postData: postAddress, loading: postingAddress } =
+    usePost("/api/user/address");
+
+  const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")];
   const data = checkoutData?.data?.data;
   const zones: Zone[] = zonesRes?.data?.data || [];
+  const cartItems: CartItem[] = cartRes?.data?.data || [];
 
-  const inputClass = "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white";
+  const inputClass =
+    "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white";
 
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // 🧮 حسابات ملخص الطلب ديناميكياً من ريسبرنس الكارت
+  const subtotal = cartItems.reduce(
+    (acc, item) => acc + Number(item.totalPrice || 0),
+    0,
+  );
+  const deliveryFee = orderType === "delivery" ? data?.deliveryFee || 0 : 0; // قيمة التوصيل من الـ checkout data (أو 0 لو مش دليفري)
+  const serviceFee = 5; // قيمة الخدمة الثابتة
+  const total = subtotal + deliveryFee + serviceFee; // الإجمالي النهائي
+
+  const handleAddressChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     setAddressForm({ ...addressForm, [e.target.name]: e.target.value });
   };
 
@@ -52,15 +95,24 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
     try {
       await postAddress(addressForm, null, t("address-added-success"));
       setShowAddressPopup(false);
-      setAddressForm({ title: "", zoneId: "", type: "home", street: "", number: "", floor: "" });
-      refetch(); // refresh checkout data to show new address
+      setAddressForm({
+        title: "",
+        zoneId: "",
+        type: "home",
+        street: "",
+        number: "",
+        floor: "",
+      });
+      refetch(); // تحديث البيانات لإظهار العنوان الجديد
     } catch {}
   };
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
-    if (orderType === "delivery" && !selectedAddress) return toast.error(t("selectAddressError"));
-    if (orderType !== "delivery" && !selectedBranch) return toast.error(t("selectBranchError"));
+    if (orderType === "delivery" && !selectedAddress)
+      return toast.error(t("selectAddressError"));
+    if (orderType !== "delivery" && !selectedBranch)
+      return toast.error(t("selectBranchError"));
 
     const payload = {
       orderSource: "food_aggregator",
@@ -68,7 +120,8 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
       paymentMethod: selectedPayment,
       idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       addressId: orderType === "delivery" ? selectedAddress : null,
-      branchId: orderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
+      branchId:
+        orderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
     };
 
     try {
@@ -80,7 +133,8 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
     }
   };
 
-  if (isLoading)
+  // عرض شاشة التحميل في حالة تحميل الكارت أو بيانات الـ Checkout
+  if (isLoadingCheckout || isLoadingCart)
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
@@ -89,14 +143,18 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
     );
 
   return (
-    <div className="max-w-2xl p-4 pb-32 mx-auto duration-500 animate-in fade-in" dir={t("dir")}>
-      <h2 className="mb-8 text-3xl font-black text-gray-900 dark:text-white">{t("completeOrder")}</h2>
-
+    <div
+      className="max-w-2xl p-4 pb-32 mx-auto duration-500 animate-in fade-in"
+      dir={t("dir")}
+    >
+      <h2 className="mb-8 text-3xl font-black text-gray-900 dark:text-white">
+        {t("completeOrder")}
+      </h2>
       <button
         onClick={() => router.back()}
-        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md mt-20 top-4 left-4 active:scale-95"
+        className="flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md active:scale-95 text-white"
       >
-        <ChevronLeft className="w-6 h-6 text-white" />
+        <ChevronLeft className="w-6 h-6 transform rotate-0 rtl:rotate-180" />
       </button>
 
       {/* 1. Order Type */}
@@ -131,7 +189,8 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
         <section className="mb-8 animate-in slide-in-from-top-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="flex items-center gap-2 text-lg font-bold">
-              <MapPin size={20} className="text-yellow-500" /> {t("deliveryAddress")}
+              <MapPin size={20} className="text-yellow-500" />{" "}
+              {t("deliveryAddress")}
             </h3>
             {/* ✅ Add Address Button */}
             <button
@@ -164,10 +223,14 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
                     </div>
                     <div>
                       <p className="font-bold">{addr.title}</p>
-                      <p className="text-sm text-gray-500">{addr.street}, {addr.number}</p>
+                      <p className="text-sm text-gray-500">
+                        {addr.street}, {addr.number}
+                      </p>
                     </div>
                   </div>
-                  {selectedAddress === addr.id && <CheckCircle2 size={20} className="text-yellow-500" />}
+                  {selectedAddress === addr.id && (
+                    <CheckCircle2 size={20} className="text-yellow-500" />
+                  )}
                 </div>
               ))
             )}
@@ -196,7 +259,9 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
                   <p className="font-bold">{branch.name}</p>
                   <p className="text-sm text-gray-500">{branch.address}</p>
                 </div>
-                {selectedBranch === branch.id && <CheckCircle2 size={20} className="text-yellow-500" />}
+                {selectedBranch === branch.id && (
+                  <CheckCircle2 size={20} className="text-yellow-500" />
+                )}
               </div>
             ))}
           </div>
@@ -206,7 +271,8 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
       {/* 4. Payment */}
       <section className="mb-8">
         <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
-          <CreditCard size={20} className="text-yellow-500" /> {t("paymentMethod")}
+          <CreditCard size={20} className="text-yellow-500" />{" "}
+          {t("paymentMethod")}
         </h3>
         <div className="grid grid-cols-1 gap-3">
           {paymentMethods.map((method: string) => (
@@ -221,11 +287,54 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
             >
               <div className="flex-1">
                 <p className="font-bold">{method}</p>
-               
               </div>
-              {selectedPayment === method && <CheckCircle2 size={20} className="text-yellow-500" />}
+              {selectedPayment === method && (
+                <CheckCircle2 size={20} className="text-yellow-500" />
+              )}
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* 5. Order Summary (ملخص الطلب) */}
+      <section className="mb-8 p-5 rounded-2xl border-2 border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+        <h3 className="flex items-center gap-2 mb-4 text-lg font-bold text-gray-900 dark:text-white">
+          <FileText size={20} className="text-yellow-500" />{" "}
+          {t("orderSummary") || "Order Summary"}
+        </h3>
+
+        <div className="space-y-3 text-sm font-medium text-gray-600 dark:text-zinc-400">
+          <div className="flex justify-between items-center">
+            <span>{t("subtotal") || "Subtotal"}</span>
+            <span className="text-gray-900 dark:text-white font-bold">
+              {subtotal} {t("egp") || "EGP"}
+            </span>
+          </div>
+
+          {orderType === "delivery" && (
+            <div className="flex justify-between items-center">
+              <span>{t("deliveryFee") || "Delivery Fee"}</span>
+              <span className="text-gray-900 dark:text-white font-bold">
+                {deliveryFee} {t("egp") || "EGP"}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <span>{t("serviceFee") || "Service Fee"}</span>
+            <span className="text-gray-900 dark:text-white font-bold">
+              {serviceFee} {t("egp") || "EGP"}
+            </span>
+          </div>
+
+          <hr className="border-gray-200 dark:border-zinc-800 my-2" />
+
+          <div className="flex justify-between items-center text-base font-bold text-gray-900 dark:text-white pt-1">
+            <span>{t("total") || "Total"}</span>
+            <span className="text-yellow-500 text-lg">
+              {total} {t("egp") || "EGP"}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -239,12 +348,17 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
         {isSubmitting ? (
           <div className="flex items-center gap-2">
             <Loader2 className="animate-spin" size={20} />
-            <span className="text-sm">{t("processing") || "Processing..."}</span>
+            <span className="text-sm">
+              {t("processing") || "Processing..."}
+            </span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-base">{t("confirmAndPay")}</span>
-            <ArrowLeft size={20} className={`transition-transform duration-300 group-hover:-translate-x-1 ${t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""}`} />
+            <ArrowLeft
+              size={20}
+              className={`transition-transform duration-300 group-hover:-translate-x-1 ${t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""}`}
+            />
           </div>
         )}
       </button>
@@ -254,7 +368,9 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold dark:text-white">{t("add-address")}</h2>
+              <h2 className="text-xl font-bold dark:text-white">
+                {t("add-address")}
+              </h2>
               <button
                 onClick={() => setShowAddressPopup(false)}
                 className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
@@ -280,9 +396,13 @@ const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")]; // examp
                 className={inputClass}
                 required
               >
-                <option value="" disabled>{loadingZones ? t("loading") : t("select-zone")}</option>
+                <option value="" disabled>
+                  {loadingZones ? t("loading") : t("select-zone")}
+                </option>
                 {zones.map((z) => (
-                  <option key={z.id} value={z.id}>{z.name}</option>
+                  <option key={z.id} value={z.id}>
+                    {z.name}
+                  </option>
                 ))}
               </select>
 

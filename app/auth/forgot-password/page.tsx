@@ -5,24 +5,37 @@ import { motion } from "framer-motion";
 import { Mail, ArrowRight } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import usePost from "@/app/hooks/usePost";
 import { useAuth } from "@/context/AuthContext";
+
 export default function EmailOnlyForm() {
   const { t } = useLanguage();
   const [email, setEmaill] = useState("");
   const router = useRouter();
-  const { postData, loading: isSubmitting } = usePost('/api/user/auth/forgot-password');
-const { setEmail } = useAuth();
-  const isRtl = typeof document !== 'undefined' && document.dir === 'rtl';
+  const searchParams = useSearchParams();
+  const { postData, loading: isSubmitting } = usePost(
+    "/api/user/auth/forgot-password",
+  );
+  const { setEmail } = useAuth();
+  const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+
+  // 🎯 قراءة الـ callbackSlug الحالي مباشرة من الـ URL إن وجد
+  const callbackSlug = searchParams.get("callbackSlug");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-     await postData({ email }, null, t("signupSuccess"));
+      await postData({ email }, null, t("signupSuccess"));
 
-setEmail(email); // 🔥 هنا المهم
-router.push("/auth/verify-reset-code");
+      setEmail(email); // 🔥 حفظ الإيميل في الـ Context
+
+      // 🎯 توجيه المستخدم مع الحفاظ على الـ callbackSlug في الـ URL
+      if (callbackSlug) {
+        router.push(`/auth/verify-reset-code?callbackSlug=${callbackSlug}`);
+      } else {
+        router.push("/auth/verify-reset-code");
+      }
     } catch (error) {
       console.error("Signup failed", error);
     }
@@ -30,7 +43,6 @@ router.push("/auth/verify-reset-code");
 
   return (
     <div className="relative flex items-center justify-center min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      
       {/* Background glow */}
       <div className="absolute top-[-5%] left-[-5%] w-[500px] h-[500px] bg-yellow-400/15 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
@@ -47,7 +59,7 @@ router.push("/auth/verify-reset-code");
 
         {/* Header */}
         <div className="mb-8 text-center">
-          <motion.div 
+          <motion.div
             initial={{ rotate: -10, scale: 0.5 }}
             animate={{ rotate: 0, scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
@@ -67,7 +79,6 @@ router.push("/auth/verify-reset-code");
 
         {/* Form */}
         <form className="space-y-6" onSubmit={handleSubmit}>
-          
           {/* Email Input */}
           <div>
             <label className="block mb-1.5 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
@@ -76,7 +87,10 @@ router.push("/auth/verify-reset-code");
 
             <div className="relative group">
               <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                <Mail size={20} className="text-gray-400 transition-colors group-focus-within:text-yellow-500" />
+                <Mail
+                  size={20}
+                  className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                />
               </div>
 
               <input
@@ -116,7 +130,7 @@ router.push("/auth/verify-reset-code");
         <div className="mt-10 text-center">
           <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
             <Link
-              href="/"
+              href={callbackSlug ? `/home/restaurants/${callbackSlug}` : "/"}
               className="inline-block text-gray-400 transition-all hover:text-yellow-600 dark:hover:text-yellow-400 hover:underline underline-offset-4"
             >
               {t("backToHome")}
