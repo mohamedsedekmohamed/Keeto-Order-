@@ -373,8 +373,18 @@ export default function RestaurantItms({
     }
     setSelectedOptions((prev) => {
       const cur = prev[variation.id] || [];
-      if (variation.selectionType === "single")
+
+      // Handle single selection types (Custom Radio simulation)
+      if (variation.selectionType === "single") {
+        // If the same option is clicked again, remove it completely to deselect
+        if (cur.includes(option.id)) {
+          return { ...prev, [variation.id]: [] };
+        }
+        // Otherwise, set it as the only active choice
         return { ...prev, [variation.id]: [option.id] };
+      }
+
+      // Multi-selection types (Checkbox logic)
       if (cur.includes(option.id))
         return {
           ...prev,
@@ -453,6 +463,22 @@ export default function RestaurantItms({
     }
     if (!selectedItem) return;
 
+    const missingRequiredVariation = selectedItem.variations?.some(
+      (variation: Variation) =>
+        variation.isRequired &&
+        (!selectedOptions[variation.id] ||
+          selectedOptions[variation.id].length === 0),
+    );
+
+    if (missingRequiredVariation) {
+      toast.error(
+        isRtl
+          ? "يرجى اختيار جميع الخيارات المطلوبة"
+          : "Please select all required options",
+      );
+      return;
+    }
+
     const variations = Object.entries(selectedOptions).flatMap(
       ([vId, optIds]) =>
         optIds.map((oId) => ({ variationId: vId, optionId: oId })),
@@ -496,22 +522,24 @@ export default function RestaurantItms({
       dispatch(clearCartLocal());
     } catch (error) {
       toast.error(t("failedClearCart"));
+      throw error;
     }
   };
   // Clears the cart database entirely, then adds the new selection item immediately
   const handleClearCartAndAdd = async () => {
     if (!pendingCartPayload) return;
+
     try {
       setLoading(true);
-      // 1. Send clear cart command to endpoint
-      handleClearCart();
 
-      // 2. Post the newly selected product criteria
-      handleAddToCartSubmit();
+      await handleClearCart();
+
+      await api.post("/api/user/cart", pendingCartPayload);
+
+      toast.success(t("addedToCart"));
 
       onCartUpdated();
 
-      // Complete modal routines & reset views
       setShowConflictDialog(false);
       setPendingCartPayload(null);
       setSelectedItem(null);
@@ -521,7 +549,6 @@ export default function RestaurantItms({
       setLoading(false);
     }
   };
-
   // ── Shared UI templates ───────────────────────────────────────────
   const FoodCard = ({ item }: { item: MenuItem }) => {
     const isFav = favoritesList.includes(item.id);
@@ -865,8 +892,11 @@ export default function RestaurantItms({
                                   selectedOptions[variation.id] || []
                                 ).includes(option.id);
                                 return (
-                                  <label
+                                  <div
                                     key={`option-${option.id}`}
+                                    onClick={() =>
+                                      handleOptionSelect(variation, option)
+                                    }
                                     className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
                                   ${
                                     isSelected
@@ -883,9 +913,7 @@ export default function RestaurantItms({
                                         }
                                         name={variation.name}
                                         checked={isSelected}
-                                        onChange={() =>
-                                          handleOptionSelect(variation, option)
-                                        }
+                                        readOnly
                                         className="w-5 h-5 accent-yellow-400 rounded-full border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
                                       />
                                       <span
@@ -901,7 +929,7 @@ export default function RestaurantItms({
                                         + {option.additionalPrice} E£
                                       </span>
                                     )}
-                                  </label>
+                                  </div>
                                 );
                               })}
                           </div>
