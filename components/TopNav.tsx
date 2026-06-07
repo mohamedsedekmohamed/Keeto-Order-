@@ -21,13 +21,13 @@ export default function TopNav() {
   };
   const router = useRouter();
 
+  const params = useParams();
+  const restaurantSlug = params?.slug as string;
   const handleClick = () => {
     if (!restaurantSlug) return;
 
     router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
   };
-  const params = useParams();
-  const restaurantSlug = params?.slug as string;
   /*   const userEmail =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("user") || "{}")?.email || ""

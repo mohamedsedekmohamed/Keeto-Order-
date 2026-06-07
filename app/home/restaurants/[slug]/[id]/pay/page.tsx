@@ -25,6 +25,7 @@ type Zone = { id: string; name: string };
 type CartItem = { totalPrice: string | number; [key: string]: any };
 
 export default function Checkout() {
+  const [orderNote, setOrderNote] = useState("");
   const { t } = useLanguage();
   const router = useRouter();
   const params = useParams();
@@ -122,6 +123,7 @@ export default function Checkout() {
       addressId: orderType === "delivery" ? selectedAddress : null,
       branchId:
         orderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
+      note: orderNote,
     };
 
     try {
@@ -294,6 +296,20 @@ export default function Checkout() {
             </div>
           ))}
         </div>
+      </section>
+      {/* مساحة كتابة الملاحظات */}
+      <section className="mb-6 bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+        <textarea
+          value={orderNote}
+          onChange={(e) => setOrderNote(e.target.value)}
+          placeholder={
+            t("dir") === "rtl"
+              ? "اكتب أي ملاحظات خاصة بالطلب هنا..."
+              : "Write any special instructions here..."
+          }
+          rows={3}
+          className="w-full p-4 text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none resize-none focus:ring-2 focus:ring-yellow-400 transition-all"
+        />
       </section>
 
       {/* 5. Order Summary (ملخص الطلب) */}

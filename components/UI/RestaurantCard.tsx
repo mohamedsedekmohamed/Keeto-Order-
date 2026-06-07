@@ -1,29 +1,119 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, MapPin, Star, Heart, X, ExternalLink } from "lucide-react";
+import {
+  Clock,
+  MapPin,
+  Star,
+  Heart,
+  X,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import ShareButton from "../ShareButton";
 import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface RatingResponse {
   success: boolean;
   data: {
     data: {
-      // ✅ matches real response
       avgRating: string;
       totalRatings: number;
     };
   };
 }
 
+interface SliderImage {
+  id: string;
+  restaurantid: string;
+  img: string; // base64 or URL
+  createdAt: string;
+  updatedAt: string;
+  periorty: number;
+}
+
+/* ---------------- SLIDER COMPONENT ---------------- */
+function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
+  const [current, setCurrent] = useState(0);
+
+  const { data: sliderResponse, loading } = useGet<{
+    success: boolean;
+    data: { data: SliderImage[] };
+  }>(`/api/user/slider/${restaurantId}`);
+
+ const images = [...(sliderResponse?.data?.data ?? [])].sort(
+  (a, b) => a.periorty - b.periorty
+);
+
+  if (loading || images.length === 0) return null;
+
+  const prev = () => setCurrent((i) => (i === 0 ? images.length - 1 : i - 1));
+  const next = () => setCurrent((i) => (i === images.length - 1 ? 0 : i + 1));
+
+  return (
+    <div className="relative w-[92%] md:w-full max-w-4xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-md">
+      {/* IMAGE */}
+      <div className="relative w-full h-48 md:h-64 bg-gray-100 dark:bg-zinc-800">
+        <img
+          src={images[current].img}
+          alt={`slide-${current}`}
+          className="w-full h-full object-cover transition-all duration-300"
+        />
+
+        {/* OVERLAY GRADIENT */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+
+        {/* DOTS */}
+        {images.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  i === current ? "bg-white w-4" : "bg-white/50"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ARROWS — only show if more than 1 image */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- MAIN CARD ---------------- */
 export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   const [showMap, setShowMap] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const router = useRouter();
+
+  const params = useParams();
+  const restaurantSlug = params?.slug as string;
+
   const [comment, setComment] = useState("");
   const lat = restaurant?.latitude || restaurant?.lat;
   const lng = restaurant?.longitude || restaurant?.lng;
@@ -35,16 +125,15 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   );
 
   /* ---------------- API ---------------- */
-
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
 
   const { data, refetch } = useGet<RatingResponse>(
     `api/user/rating/restaurant/${restaurant?.id}`,
   );
 
-  const ratingItem = data?.data?.data; // ✅ gives you { avgRating, totalRatings }
-  /* ---------------- SUBMIT ---------------- */
+  const ratingItem = data?.data?.data;
 
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmitRating = async () => {
     if (rating === 0) return;
 
@@ -58,7 +147,11 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       setRating(0);
       refetch();
     } catch (err) {
-      router.push("/auth/sign-in");
+      if (restaurantSlug) {
+        router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+      } else {
+        router.push("/auth/sign-in");
+      }
       console.error(err);
     }
   };
@@ -98,7 +191,6 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               {/* ACTIONS */}
               <div dir="rtl" className="flex items-center gap-3 mt-3">
                 <ShareButton />
-
                 <button
                   onClick={() => setShowRating(true)}
                   className="p-2 text-yellow-500 transition rounded-full hover:bg-yellow-50 dark:hover:bg-zinc-800"
@@ -128,14 +220,12 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-1">
                 <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-
                 <span className="font-bold">
                   {ratingItem?.avgRating
                     ? parseFloat(ratingItem.avgRating).toFixed(1)
                     : "—"}
                 </span>
               </div>
-
               <span className="text-yellow-400 text-sm">
                 {ratingItem?.totalRatings} {t("Ratings")}
               </span>
@@ -144,19 +234,19 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
         </div>
       </div>
 
-      {/* ---------------- MAP MODAL ---------------- */}
+      {/* SLIDER — only mounts when restaurant.id is ready */}
+      {restaurant?.id && <RestaurantSlider restaurantId={restaurant.id} />}
 
+      {/* ---------------- MAP MODAL ---------------- */}
       {showMap && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-3xl bg-white rounded-2xl">
             <div className="flex justify-between p-4 border-b">
               <h2>{restaurant?.name}</h2>
-
               <button onClick={() => setShowMap(false)}>
                 <X />
               </button>
             </div>
-
             <iframe
               className="w-full h-[400px]"
               src={
@@ -170,7 +260,6 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       )}
 
       {/* ---------------- RATING MODAL ---------------- */}
-
       {showRating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl p-5">

@@ -8,11 +8,12 @@ import {
   Heart,
   LayoutGrid,
   AlertTriangle,
+  FileText, // تم إضافة الأيقونة هنا لشكل أفضل
 } from "lucide-react";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { clearCartLocal } from "@/redux/cartSlice";
@@ -71,6 +72,8 @@ export default function RestaurantItms({
   const router = useRouter();
   const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
   const dispatch = useAppDispatch();
+  const params = useParams();
+  const restaurantSlug = params?.slug as string;
 
   // ── Auth ──────────────────────────────────────────────────────────
   const [token, setToken] = useState<string | null>(null);
@@ -137,6 +140,7 @@ export default function RestaurantItms({
     Record<string, string[]>
   >({});
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [note, setNote] = useState(""); // 💡 الـ State الجديدة للملاحظات
 
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [pendingCartPayload, setPendingCartPayload] = useState<any | null>(
@@ -287,14 +291,11 @@ export default function RestaurantItms({
       return;
 
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      // إذا كان التمرير ناتج عن ضغطة زر مستخدم لا نغير الـ Tabs تلقائياً
       if (isManualClick.current) return;
 
-      // تصفية العناصر الظاهرة في المساحة المحددة
       const visibleEntries = entries.filter((e) => e.isIntersecting);
 
       if (visibleEntries.length > 0) {
-        // نأخذ العنصر الأكثر هيمنة وظهوراً داخل الـ Viewport حالياً لمنع التداخل العشوائي
         const topEntry = visibleEntries.reduce(
           (max, entry) =>
             entry.intersectionRatio > max.intersectionRatio ? entry : max,
@@ -307,7 +308,6 @@ export default function RestaurantItms({
         if (parentCatId && subId) {
           const sectionIdentifier = `${parentCatId}-${subId}`;
 
-          // حماية أساسية: لا نغير الـ State إلا إذا دخل المستخدم بالفعل في نطاق قسم جديد تماماً
           if (currentActiveSectionRef.current !== sectionIdentifier) {
             currentActiveSectionRef.current = sectionIdentifier;
 
@@ -324,7 +324,6 @@ export default function RestaurantItms({
       }
     };
 
-    // تحسين الـ rootMargin لتتوافق مع الهيدر العلوي تماماً (160px من الأعلى و -40% من الأسفل لسنترة دقيقة)
     const observer = new IntersectionObserver(handleIntersect, {
       root: null,
       rootMargin: "-160px 0px -40% 0px",
@@ -355,7 +354,7 @@ export default function RestaurantItms({
           behavior: "smooth",
         });
       }
-     
+
       manualClickTimeoutRef.current = setTimeout(() => {
         isManualClick.current = false;
       }, 1000);
@@ -404,6 +403,7 @@ export default function RestaurantItms({
     setSelectedItem(item);
     setQuantity(1);
     setSelectedAddons([]);
+    setNote(""); // 💡 تصفير الملاحظة عند فتح أي وجبة جديدة
     const init: Record<string, string[]> = {};
     (item.variations || []).forEach((v) => {
       init[v.id] =
@@ -505,7 +505,7 @@ export default function RestaurantItms({
   const handleAddToCartSubmit = async () => {
     if (!token) {
       toast.error(t("loginFirst"));
-      router.push("/auth/sign-in");
+      router.push("/auth/sign-in/?callbackSlug=" + restaurantSlug);
       return;
     }
     if (!selectedItem) return;
@@ -536,6 +536,7 @@ export default function RestaurantItms({
       quantity,
       variations,
       addons: selectedAddons,
+      note, // 💡 تم ربط الـ state هنا ليُرسل النص المدخل فعلياً
     };
 
     try {
@@ -1035,6 +1036,30 @@ export default function RestaurantItms({
                       </div>
                     </div>
                   )}
+
+                {/* ── 💡 ORDER NOTES SECTION (تمت الإضافة هنا) ── */}
+                <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText
+                      size={18}
+                      className="text-zinc-400 dark:text-zinc-500"
+                    />
+                    <h4 className="font-bold text-base text-zinc-800 dark:text-zinc-200">
+                      {isRtl ? "ملاحظات الطلب" : "Order Notes"}
+                    </h4>
+                  </div>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder={
+                      isRtl
+                        ? "مثال: بدون بصل، زيادة صوص..."
+                        : "E.g. No onions, extra sauce..."
+                    }
+                    rows={3}
+                    className="w-full p-4 text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl outline-none resize-none focus:ring-2 focus:ring-yellow-400 transition-all duration-200"
+                  />
+                </div>
               </div>
 
               <div className="p-6 bg-white border-t border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] shrink-0 space-y-4 z-10">

@@ -54,41 +54,48 @@ export default function Cart() {
   useEffect(() => {
     const CART_EXPIRY_KEY = "cart-expiry";
 
-    // لو الكارت فيها منتجات ومفيش expiry متسجل
-    if (items.length > 0 && !localStorage.getItem(CART_EXPIRY_KEY)) {
-      const expiryTime = Date.now() + 60 * 60 * 1000;
-      localStorage.setItem(CART_EXPIRY_KEY, expiryTime.toString());
-    }
-
     const checkCartExpiry = async () => {
       const expiry = localStorage.getItem(CART_EXPIRY_KEY);
-
       if (!expiry) return;
 
       const isExpired = Date.now() >= Number(expiry);
-
       if (isExpired) {
         try {
           await deleteData("/api/user/cart", t("cartCleared"));
-
           dispatch(clearCartLocal());
-
           localStorage.removeItem(CART_EXPIRY_KEY);
-
-          /*  toast.success(t("cartExpired") || "تم مسح السلة بعد ساعة"); */
         } catch (error) {
           console.error("Failed to clear expired cart");
         }
       }
     };
 
+    // ✅ Only set expiry on FIRST item ever added (no existing expiry)
+    // ✅ Reset expiry when new items are added while cart is active (not expired)
+    if (items.length > 0) {
+      const existingExpiry = localStorage.getItem(CART_EXPIRY_KEY);
+
+      if (!existingExpiry) {
+        // Brand new cart — set fresh 1 hour expiry
+        const expiryTime = Date.now() + 60 * 60 * 1000;
+        localStorage.setItem(CART_EXPIRY_KEY, expiryTime.toString());
+      } else {
+        // Cart already has a timer — check if it's expired BEFORE adding new item
+        const isAlreadyExpired = Date.now() >= Number(existingExpiry);
+        if (!isAlreadyExpired) {
+          // Still valid — extend expiry from now (sliding window)
+          const newExpiry = Date.now() + 60 * 60 * 1000;
+          localStorage.setItem(CART_EXPIRY_KEY, newExpiry.toString());
+        }
+        // If already expired, let the interval handle it — don't wipe mid-render
+      }
+    }
+
+    // Check expiry on mount only, then every minute
     checkCartExpiry();
-
-    // check كل دقيقة
     const interval = setInterval(checkCartExpiry, 60 * 1000);
-
     return () => clearInterval(interval);
-  }, [items, dispatch, t]);
+  }, []); // ✅ Run once on mount only — not on every items change
   const totalPrice = Array.isArray(items)
     ? items.reduce((total, item) => total + Number(item.totalPrice), 0)
     : 0;
