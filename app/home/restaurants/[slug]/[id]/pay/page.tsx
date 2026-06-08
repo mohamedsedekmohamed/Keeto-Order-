@@ -60,9 +60,9 @@ export default function Checkout() {
 
   const { postData, loading: isSubmitting } = usePost();
 
-  const paymentMethods = [t("cash_on_delivery"), t("visa"), t("wallet")];
   const data = checkoutData?.data?.data;
   const cartItems: CartItem[] = cartRes?.data?.data || [];
+  const paymentMethods = data?.paymentMethods || [];
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + Number(item.totalPrice || 0),
@@ -239,24 +239,32 @@ export default function Checkout() {
           {t("paymentMethod")}
         </h3>
         <div className="grid grid-cols-1 gap-3">
-          {paymentMethods.map((method: string) => (
-            <div
-              key={method}
-              onClick={() => setSelectedPayment(method)}
-              className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
-                selectedPayment === method
-                  ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                  : "border-gray-100 dark:border-zinc-800"
-              }`}
-            >
-              <div className="flex-1">
-                <p className="font-bold">{method}</p>
-              </div>
-              {selectedPayment === method && (
-                <CheckCircle2 size={20} className="text-yellow-500" />
-              )}
-            </div>
-          ))}
+          {paymentMethods.map(
+            (method: { id: string; name: string; nameAr?: string }) => {
+              const isRtl = t("dir") === "rtl";
+              const displayName =
+                isRtl && method.nameAr ? method.nameAr : t(method.name);
+
+              return (
+                <div
+                  key={method.id}
+                  onClick={() => setSelectedPayment(method.id)}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
+                    selectedPayment === method.id
+                      ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                      : "border-gray-100 dark:border-zinc-800"
+                  }`}
+                >
+                  <div className="flex-1">
+                    <p className="font-bold">{displayName}</p>
+                  </div>
+                  {selectedPayment === method.id && (
+                    <CheckCircle2 size={20} className="text-yellow-500" />
+                  )}
+                </div>
+              );
+            },
+          )}
         </div>
       </section>
 
