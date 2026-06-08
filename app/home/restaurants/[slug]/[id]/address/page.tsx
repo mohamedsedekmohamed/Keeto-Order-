@@ -30,7 +30,7 @@ type Address = {
 };
 
 const AddressPage = () => {
-  const { t, language } = useLanguage(); // assuming language returns 'ar' or 'en'
+  const { t, language } = useLanguage();
   const { restaurant } = useRestaurant();
   const { token, isReady } = useToken();
   const params = useParams();
@@ -86,10 +86,8 @@ const AddressPage = () => {
 
     zones.forEach((zone: any) => {
       if (zone.cityId && !uniqueCitiesMap.has(zone.cityId)) {
-        // Fallbacks if city-specific names aren't structural, though using zone properties as fallback
         uniqueCitiesMap.set(zone.cityId, {
           id: zone.cityId,
-          // If your backend doesn't provide city names here, we infer them or you can map hardcoded strings temporarily
           name:
             zone.cityId === "2cf2d384-9467-4d79-a269-d9527cdc66e2"
               ? "Alexandria"
@@ -161,7 +159,6 @@ const AddressPage = () => {
   };
 
   const handleEditClick = (address: Address) => {
-    // Find the zone to pre-select the corresponding city
     const associatedZone = zones.find((z) => z.id === address.zoneId);
 
     setForm({
@@ -223,6 +220,9 @@ const AddressPage = () => {
     );
   }
 
+  // Safe lowercased string check for the Language Context Type definition mismatch
+  const isArabic = String(language).toLowerCase() === "ar";
+
   return (
     <div className="p-4 pb-24 mx-auto max-w-7xl md:p-6 lg:flex lg:gap-8 lg:items-start">
       <button
@@ -270,7 +270,7 @@ const AddressPage = () => {
               </option>
               {cities.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {language === "ar" ? c.nameAr : c.name}
+                  {isArabic ? c.nameAr : c.name}
                 </option>
               ))}
             </select>
@@ -289,7 +289,7 @@ const AddressPage = () => {
               </option>
               {filteredZones.map((z) => (
                 <option key={z.id} value={z.id}>
-                  {language === "ar" ? z.nameAr : z.name}
+                  {isArabic ? z.nameAr : z.name}
                 </option>
               ))}
             </select>
