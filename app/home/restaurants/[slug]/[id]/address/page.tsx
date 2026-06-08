@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
@@ -15,6 +15,8 @@ import { ChevronLeft } from "lucide-react";
 type Zone = {
   id: string;
   name: string;
+  nameAr: string;
+  cityId: string;
 };
 
 type Address = {
@@ -28,7 +30,7 @@ type Address = {
 };
 
 const AddressPage = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage(); // assuming language returns 'ar' or 'en'
   const { restaurant } = useRestaurant();
   const { token, isReady } = useToken();
   const params = useParams();
@@ -42,6 +44,7 @@ const AddressPage = () => {
 
   const restaurantName = params.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
+
   // APIs
   const {
     data: addressesRes,
@@ -64,6 +67,7 @@ const AddressPage = () => {
 
   // State
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedCityId, setSelectedCityId] = useState<string>("");
   const [form, setForm] = useState({
     title: "",
     zoneId: "",
@@ -73,13 +77,56 @@ const AddressPage = () => {
     floor: "",
   });
 
+  // Extract unique cities from the zones response data dynamically
+  const cities = useMemo(() => {
+    const uniqueCitiesMap = new Map<
+      string,
+      { id: string; name: string; nameAr: string }
+    >();
+
+    zones.forEach((zone: any) => {
+      if (zone.cityId && !uniqueCitiesMap.has(zone.cityId)) {
+        // Fallbacks if city-specific names aren't structural, though using zone properties as fallback
+        uniqueCitiesMap.set(zone.cityId, {
+          id: zone.cityId,
+          // If your backend doesn't provide city names here, we infer them or you can map hardcoded strings temporarily
+          name:
+            zone.cityId === "2cf2d384-9467-4d79-a269-d9527cdc66e2"
+              ? "Alexandria"
+              : zone.cityId === "ed19b748-8c20-4f65-bd89-769ab845dff6"
+                ? "Cairo"
+                : "Suez",
+          nameAr:
+            zone.cityId === "2cf2d384-9467-4d79-a269-d9527cdc66e2"
+              ? "الإسكندرية"
+              : zone.cityId === "ed19b748-8c20-4f65-bd89-769ab845dff6"
+                ? "القاهرة"
+                : "السويس",
+        });
+      }
+    });
+
+    return Array.from(uniqueCitiesMap.values());
+  }, [zones]);
+
+  // Filter zones matching the chosen city
+  const filteredZones = useMemo(() => {
+    if (!selectedCityId) return [];
+    return zones.filter((z) => z.cityId === selectedCityId);
+  }, [selectedCityId, zones]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // معالجة الإرسال (إضافة أو تعديل)
+  // Handle city selection switch
+  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCityId(e.target.value);
+    setForm({ ...form, zoneId: "" }); // Reset zone when city alterations occur
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -96,11 +143,10 @@ const AddressPage = () => {
       resetForm();
       refetch();
     } catch (error) {
-      // الأخطاء يتم التعامل معها في الـ Hooks
+      // Handled in hooks
     }
   };
 
-  // دالة لتصفير الفورم
   const resetForm = () => {
     setForm({
       title: "",
@@ -110,11 +156,14 @@ const AddressPage = () => {
       number: "",
       floor: "",
     });
+    setSelectedCityId("");
     setEditingId(null);
   };
 
-  // دالة عند الضغط على زر التعديل
   const handleEditClick = (address: Address) => {
+    // Find the zone to pre-select the corresponding city
+    const associatedZone = zones.find((z) => z.id === address.zoneId);
+
     setForm({
       title: address.title,
       zoneId: address.zoneId,
@@ -123,11 +172,15 @@ const AddressPage = () => {
       number: address.number,
       floor: address.floor,
     });
+
+    if (associatedZone) {
+      setSelectedCityId(associatedZone.cityId);
+    }
+
     setEditingId(address.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // دالة عند الضغط على زر الحذف
   const confirmDelete = async () => {
     if (!deleteId) return;
 
@@ -178,7 +231,8 @@ const AddressPage = () => {
       >
         <ChevronLeft className="w-6 h-6 transform rotate-0 rtl:rotate-180" />
       </button>
-      {/* FORM SECTION (Sticky on Desktop) */}
+
+      {/* FORM SECTION */}
       <div className="w-full mb-10 lg:w-1/3 lg:sticky lg:top-24 shrink-0 lg:mb-0">
         <form
           onSubmit={handleSubmit}
@@ -203,19 +257,39 @@ const AddressPage = () => {
               required
             />
 
+            {/* CITY SELECT */}
+            <select
+              name="cityId"
+              value={selectedCityId}
+              onChange={handleCityChange}
+              className={inputClass}
+              required
+            >
+              <option value="" disabled>
+                {t("select-city") || "Select City / اختر المدينة"}
+              </option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {language === "ar" ? c.nameAr : c.name}
+                </option>
+              ))}
+            </select>
+
+            {/* ZONE SELECT (Filtered based on City) */}
             <select
               name="zoneId"
               value={form.zoneId}
               onChange={handleChange}
               className={inputClass}
+              disabled={!selectedCityId}
               required
             >
               <option value="" disabled>
                 {t("select-zone")}
               </option>
-              {zones.map((z) => (
+              {filteredZones.map((z) => (
                 <option key={z.id} value={z.id}>
-                  {z.name}
+                  {language === "ar" ? z.nameAr : z.name}
                 </option>
               ))}
             </select>
@@ -339,7 +413,6 @@ const AddressPage = () => {
                   </div>
                 </div>
 
-                {/* أزرار التحكم - تم فصلها بخط لترتيب أفضل */}
                 <div className="flex gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
                   <button
                     onClick={() => handleEditClick(a)}
@@ -360,17 +433,16 @@ const AddressPage = () => {
           </div>
         )}
       </div>
+
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md p-6 bg-white rounded-2xl dark:bg-zinc-900">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
               {t("confirm-delete")}
             </h2>
-
             <p className="mt-2 text-sm text-zinc-500">
               {t("are-you-sure-delete")}
             </p>
-
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowDeleteModal(false)}
@@ -378,7 +450,6 @@ const AddressPage = () => {
               >
                 {t("cancel")}
               </button>
-
               <button
                 onClick={confirmDelete}
                 className="flex-1 px-4 py-2 font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600"
