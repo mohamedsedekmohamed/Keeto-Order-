@@ -202,13 +202,13 @@ export default function RestaurantLinkPage() {
         <div className="max-w-xl mx-auto">
           {view === "menu" ? (
             <div className="duration-500 animate-in slide-in-from-bottom-5">
-              <button
+              {/*   <button
                 onClick={() => setView("links")}
                 className="w-full mb-6 py-4 bg-zinc-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-white rounded-2xl font-bold text-sm shadow-sm flex items-center justify-center gap-3 transition-all active:scale-95"
               >
                 <Phone size={18} className="text-[var(--primary-color)]" />
                 {isRtl ? "روابط التواصل والطلب" : "Contact & Social Links"}
-              </button>
+              </button> */}
 
               <div
                 ref={categoryBarRef}

@@ -142,7 +142,7 @@ export default function Home() {
       title: t("menu"),
       desc: t("menuDesc"),
       icon: UtensilsCrossed,
-      nameToAdd: "/restaurant",
+      nameToAdd: "/menu",
     },
   ];
 

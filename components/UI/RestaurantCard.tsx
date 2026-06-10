@@ -129,6 +129,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
   const { data, refetch } = useGet<RatingResponse>(
     `api/user/rating/restaurant/${restaurant?.id}`,
+  
   );
 
   const ratingItem = data?.data?.data;
