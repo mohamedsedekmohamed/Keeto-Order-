@@ -218,7 +218,7 @@ export default function MenuImageDownload() {
                 alt={`Menu page ${index + 1}`}
                 // هنا يكمن سر الجودة في العرض: الحفاظ على أبعاد العرض الاحترافية وعمل رندر عالي الدقة
                 className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-                style={{ imageRendering: "high-quality" }}
+                style={{ imageRendering: "auto" }}
                 loading="lazy"
               />
             </div>
@@ -237,7 +237,7 @@ export default function MenuImageDownload() {
               src={previewImage}
               alt="Menu Preview"
               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              style={{ imageRendering: "high-quality" }}
+              style={{ imageRendering: "auto" }}
             />
             <p className="absolute bottom-2 text-zinc-500 text-xs text-center w-full">
               {isRtl ? "اضغط في أي مكان للإغلاق" : "Click anywhere to close"}
