@@ -45,9 +45,9 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
     data: { data: SliderImage[] };
   }>(`/api/user/slider/${restaurantId}`);
 
- const images = [...(sliderResponse?.data?.data ?? [])].sort(
-  (a, b) => a.periorty - b.periorty
-);
+  const images = [...(sliderResponse?.data?.data ?? [])].sort(
+    (a, b) => a.periorty - b.periorty,
+  );
 
   if (loading || images.length === 0) return null;
 
@@ -129,23 +129,26 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
   const { data, refetch } = useGet<RatingResponse>(
     `api/user/rating/restaurant/${restaurant?.id}`,
-  
   );
 
   const ratingItem = data?.data?.data;
 
   /* ---------------- SUBMIT ---------------- */
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmitRating = async () => {
     if (rating === 0) return;
 
     try {
+      // 👇 ضيفنا الـ comment هنا عشان يتبعت مع الـ rating للـ API
       await postData({
         restaurantId: restaurant?.id,
         rating,
+        comment,
       });
 
       setShowRating(false);
       setRating(0);
+      setComment(""); // تفريغ التكست إريا بعد ما الـ تقييم يتبعت بنجاح
       refetch();
     } catch (err) {
       if (restaurantSlug) {
@@ -156,7 +159,6 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       console.error(err);
     }
   };
-
   return (
     <>
       {/* CARD */}
@@ -268,7 +270,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               <h2 className="font-bold text-lg dark:text-white">
                 {t("Enjoying your visit?")}
               </h2>
-              <button onClick={() => setShowRating(false)}>
+              <button onClick={() => {setShowRating(false); setComment("");}}>
                 <X />
               </button>
             </div>

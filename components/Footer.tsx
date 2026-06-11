@@ -30,7 +30,7 @@ const Footer = () => {
               rel="noopener noreferrer"
             >
               <Image
-                src="/logo.webp"
+                src="/main.webp"
                 alt="KeeTo Logo"
                 width={128} // تعادل w-32
                 height={128} // تعادل h-32

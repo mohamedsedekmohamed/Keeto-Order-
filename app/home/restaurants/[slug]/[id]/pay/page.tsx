@@ -366,6 +366,9 @@ export default function Checkout() {
 /**
  * النافذة المنبثقة لإضافة عنوان مع فلترة المناطق ديناميكياً بناءً على المدينة المستخرجة
  */
+/**
+ * النافذة المنبثقة لإضافة عنوان مع فلترة المناطق ديناميكياً ودعم الموقع الحالي
+ */
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
@@ -376,18 +379,15 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   const { postData: postAddress, loading: postingAddress } =
     usePost("/api/user/address");
 
-  // جلب مصفوفة المناطق من الرابط الموحد الخاص بك
   const { data: zonesRes, loading: loadingZones } = useGet<any>(
     "/api/user/address/zone",
   );
   const allZones: Zone[] = zonesRes?.data?.data || [];
 
-  // 1. استخراج الـ cityIds الفريدة من المناطق المتاحة
   const uniqueCityIds = Array.from(
     new Set(allZones.map((z) => z.cityId).filter(Boolean)),
   );
 
-  // 2. ربط الـ IDs بالأسماء الترجمية المناسبة للمدن
   const getCityDetails = (cityId: string) => {
     switch (cityId) {
       case "2cf2d384-9467-4d79-a269-d9527cdc66e2":
@@ -407,6 +407,8 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   }));
 
   const [selectedCityId, setSelectedCityId] = useState("");
+  const [isLocating, setIsLocating] = useState(false); // حالة تحميل أثناء جلب الـ GPS
+
   const [addressForm, setAddressForm] = useState({
     title: "",
     zoneId: "",
@@ -414,15 +416,55 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     street: "",
     number: "",
     floor: "",
+    lat: null as number | null,
+    lng: null as number | null,
   });
 
-  // تصفية المناطق التابعة للمدينة المحددة فقط
   const filteredZones = allZones.filter(
     (zone) => zone.cityId === selectedCityId,
   );
 
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
+
+  // دالة جلب الموقع الجغرافي الحالي لليوزر
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "المتصفح الخاص بك لا يدعم تحديد الموقع."
+          : "Geolocation is not supported by your browser.",
+      );
+    }
+
+    setIsLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setAddressForm((prev) => ({
+          ...prev,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        }));
+        setIsLocating(false);
+        toast.success(
+          t("dir") === "rtl"
+            ? "تم تحديد موقعك الحالي بنجاح!"
+            : "Current location fetched successfully!",
+        );
+      },
+      (error) => {
+        setIsLocating(false);
+        console.error("Error getting location:", error);
+        toast.error(
+          t("dir") === "rtl"
+            ? "فشل في تحديد الموقع. يرجى إعطاء الصلاحية للمتصفح."
+            : "Failed to get location. Please allow location access.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -432,15 +474,31 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCityId(e.target.value);
-    // تصفير المنطقة السابقة فور تغيير المدينة لضمان عدم إرسال اختيار خاطئ
     setAddressForm((prev) => ({ ...prev, zoneId: "" }));
   };
 
   const handleAddressSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // تأكيد وجود الـ Lat و Lng قبل الإرسال لو الباك إند بيطلبهم إجباري
+    if (addressForm.lat === null || addressForm.lng === null) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "يرجى تحديد الموقع الحالي أولاً لتأكيد إرسال الإحداثيات."
+          : "Please capture your current location before submitting.",
+      );
+    }
+
+    // تجهيز الداتا مع تحويل الأرقام إلى Numeric لضمان سلامة الـ API
+    const payload = {
+      ...addressForm,
+      number: Number(addressForm.number) || 0,
+      floor: Number(addressForm.floor) || 0,
+    };
+
     try {
       const response = await postAddress(
-        addressForm,
+        payload,
         null,
         t("address-added-success"),
       );
@@ -464,6 +522,39 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </button>
         </div>
 
+        {/* زرار جلب الموقع الحالي */}
+        <button
+          type="button"
+          onClick={handleGetCurrentLocation}
+          disabled={isLocating}
+          className="w-full mb-4 py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
+        >
+          {isLocating ? (
+            <Loader2 size={18} className="animate-spin text-yellow-500" />
+          ) : (
+            <Navigation size={18} className="text-yellow-500 fill-yellow-500" />
+          )}
+          {isLocating
+            ? t("dir") === "rtl"
+              ? "جاري تحديد موقعك..."
+              : "Locating..."
+            : t("dir") === "rtl"
+              ? "استخدام موقعي الحالي (GPS)"
+              : "Use Current Location (GPS)"}
+        </button>
+
+        {/* عرض الإحداثيات بشكل خفيف كـ Feedback لليوزر */}
+        {addressForm.lat && addressForm.lng && (
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
+            <CheckCircle2 size={16} />
+            <span>
+              {t("dir") === "rtl"
+                ? `تم التقاط الموقع: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`
+                : `Location captured: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`}
+            </span>
+          </div>
+        )}
+
         <form onSubmit={handleAddressSubmit} className="space-y-4">
           <input
             name="title"
@@ -474,7 +565,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             required
           />
 
-          {/* قائمة اختيار المدينة المستخرجة من المناطق */}
           <select
             name="cityId"
             value={selectedCityId}
@@ -492,7 +582,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             ))}
           </select>
 
-          {/* قائمة اختيار المنطقة المفلترة */}
           <select
             name="zoneId"
             value={addressForm.zoneId}
@@ -538,6 +627,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           <div className="grid grid-cols-2 gap-3">
             <input
               name="number"
+              type="number"
               placeholder={t("number")}
               value={addressForm.number}
               onChange={handleInputChange}
@@ -546,6 +636,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             />
             <input
               name="floor"
+              type="number"
               placeholder={t("floor")}
               value={addressForm.floor}
               onChange={handleInputChange}
@@ -564,7 +655,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             </button>
             <button
               type="submit"
-              disabled={postingAddress}
+              disabled={postingAddress || isLocating}
               className="flex-1 py-3 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
             >
               {postingAddress && <Loader2 size={16} className="animate-spin" />}

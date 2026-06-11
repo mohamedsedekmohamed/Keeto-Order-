@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   description:
     "Keeto is a cutting-edge food delivery service that connects you with your favorite local restaurants. With a user-friendly interface and lightning-fast delivery, Keeto ensures that your cravings are satisfied in no time. Whether you're in the mood for a quick snack or a full meal, Keeto has you covered with a wide variety of cuisines to choose from. Experience the future of food delivery with Keeto – where delicious meals are just a few clicks away.",
   icons: {
-    icon: "/logo.webp",
+    icon: "/logoo.webp",
   },
 };
 

@@ -10,7 +10,7 @@ import { useToken } from "@/context/TokenContext";
 import { useParams, useRouter } from "next/navigation";
 import { useRestaurant } from "@/context/RestaurantContext";
 import Loading from "@/components/Loading";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Navigation, Loader2, CheckCircle2 } from "lucide-react";
 
 type Zone = {
   id: string;
@@ -27,6 +27,8 @@ type Address = {
   floor: string;
   type: "home" | "work" | "other";
   zoneId: string;
+  lat: number | null;
+  lng: number | null;
 };
 
 const AddressPage = () => {
@@ -37,6 +39,8 @@ const AddressPage = () => {
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isLocating, setIsLocating] = useState(false); // حالة تحميل جلب الـ GPS
+
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
     setShowDeleteModal(true);
@@ -75,6 +79,8 @@ const AddressPage = () => {
     street: "",
     number: "",
     floor: "",
+    lat: null as number | null,
+    lng: null as number | null,
   });
 
   // Extract unique cities from the zones response data dynamically
@@ -125,18 +131,60 @@ const AddressPage = () => {
     setForm({ ...form, zoneId: "" }); // Reset zone when city alterations occur
   };
 
+  // دالة جلب الموقع الحالي بالـ GPS لليوزر
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert(
+        isArabic
+          ? "المتصفح الخاص بك لا يدعم تحديد الموقع."
+          : "Geolocation is not supported by your browser.",
+      );
+      return;
+    }
+
+    setIsLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm((prev) => ({
+          ...prev,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        }));
+        setIsLocating(false);
+      },
+      (error) => {
+        setIsLocating(false);
+        console.error("Error getting location:", error);
+        alert(
+          isArabic
+            ? "فشل في تحديد الموقع. يرجى تفعيل الـ GPS وإعطاء الصلاحية."
+            : "Failed to get location. Please allow location access.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // تأكيد تحويل الداتا لأرقام حقيقية Numeric لضمان توافق الباك إند
+    const payload = {
+      ...form,
+      number: Number(form.number) || 0,
+      floor: Number(form.floor) || 0,
+    };
 
     try {
       if (editingId) {
         await putData(
-          form,
+          payload,
           `/api/user/address/${editingId}`,
           t("address-updated-success"),
         );
       } else {
-        await postData(form, null, t("address-added-success"));
+        await postData(payload, null, t("address-added-success"));
       }
       resetForm();
       refetch();
@@ -153,6 +201,8 @@ const AddressPage = () => {
       street: "",
       number: "",
       floor: "",
+      lat: null,
+      lng: null,
     });
     setSelectedCityId("");
     setEditingId(null);
@@ -168,6 +218,8 @@ const AddressPage = () => {
       street: address.street,
       number: address.number,
       floor: address.floor,
+      lat: address.lat || null,
+      lng: address.lng || null,
     });
 
     if (associatedZone) {
@@ -248,6 +300,42 @@ const AddressPage = () => {
           </div>
 
           <div className="space-y-4">
+            {/* زرار جلب الموقع الحالي بالـ GPS */}
+            <button
+              type="button"
+              onClick={handleGetCurrentLocation}
+              disabled={isLocating}
+              className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
+            >
+              {isLocating ? (
+                <Loader2 size={18} className="animate-spin text-yellow-500" />
+              ) : (
+                <Navigation
+                  size={18}
+                  className="text-yellow-500 fill-yellow-500"
+                />
+              )}
+              {isLocating
+                ? isArabic
+                  ? "جاري تحديد موقعك..."
+                  : "Locating..."
+                : isArabic
+                  ? "استخدام موقعي الحالي (GPS)"
+                  : "Use Current Location (GPS)"}
+            </button>
+
+            {/* فيدباك بصري لليوزر إن الإحداثيات لُقطت بنجاح */}
+            {form.lat && form.lng && (
+              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
+                <CheckCircle2 size={16} className="shrink-0" />
+                <span>
+                  {isArabic
+                    ? `تم التقاط الموقع: (${form.lat.toFixed(4)}, ${form.lng.toFixed(4)})`
+                    : `Location captured: (${form.lat.toFixed(4)}, ${form.lng.toFixed(4)})`}
+                </span>
+              </div>
+            )}
+
             <input
               name="title"
               placeholder={t("title")}
@@ -336,7 +424,7 @@ const AddressPage = () => {
           <div className="flex flex-col gap-3 pt-4">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isLocating}
               className="w-full px-6 py-3.5 font-bold transition-all transform active:scale-[0.98] bg-yellow-400 text-zinc-900 rounded-xl hover:bg-yellow-500 disabled:opacity-70 disabled:active:scale-100 shadow-sm"
             >
               {isLoading
@@ -391,9 +479,16 @@ const AddressPage = () => {
                     <h3 className="text-lg font-bold text-zinc-900 dark:text-white line-clamp-1">
                       {a.title}
                     </h3>
-                    <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
-                      {t(a.type)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {a.lat && a.lng && (
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          📍 GPS
+                        </span>
+                      )}
+                      <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+                        {t(a.type)}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
