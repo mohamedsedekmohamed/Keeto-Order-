@@ -24,9 +24,10 @@ export default function TopNav() {
   const params = useParams();
   const restaurantSlug = params?.slug as string;
   const handleClick = () => {
-    if (!restaurantSlug) return;
-
-    router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+    if (typeof window !== "undefined" && router) {
+      if (!restaurantSlug) return;
+      router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+    }
   };
   /*   const userEmail =
     typeof window !== "undefined"
@@ -67,7 +68,6 @@ export default function TopNav() {
 
             <span className=" sm:block text-sm font-medium">
               {t("welcome")}
-              {/*     <span className="font-semibold text-yellow-500">{userName}</span> */}
             </span>
           </Link>
         ) : (
