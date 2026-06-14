@@ -26,22 +26,25 @@ import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
+
 export default function Cart() {
   const items = useAppSelector((state) => state.cart.items);
   const dispatch = useAppDispatch();
   const { t } = useLanguage();
   const params = useParams();
-  // const restaurantId = (params?.id as string) ;
   const restaurantName = params.slug as string;
   const [showConfirm, setShowConfirm] = useState(false);
   const basePath = `/home/restaurants/${restaurantName}`;
   const router = useRouter();
+
   // 👈 1. جلب البيانات عند فتح الصفحة
   const { data: cartData, loading: fetchingCart } =
     useGet<any>("/api/user/cart");
+
   useEffect(() => {
-    if (cartData?.data?.data) {
-      dispatch(setCartItems(cartData.data.data));
+    // التعديل هنا: استخراج الـ items بناءً على هيكل الريسبونس الجديد
+    if (cartData?.data?.data?.items) {
+      dispatch(setCartItems(cartData.data.data.items));
     }
   }, [cartData, dispatch]);
 
@@ -50,10 +53,28 @@ export default function Cart() {
   const { deleteData } = useDelete("/users", "تم الحذف بنجاح");
   const { language } = useLanguage();
   const isRtl = language === "العربية";
-  // حساب الإجمالي
-  useEffect(() => {
-    const CART_EXPIRY_KEY = "cart-expiry";
 
+  // إدارة وقت انتهاء صلاحية السلة
+
+  const CART_EXPIRY_KEY = "cart-expiry";
+
+  // ✅ Set expiry ONLY when cart goes from empty → has items (first add)
+  useEffect(() => {
+    if (items.length > 0) {
+      const existingExpiry = localStorage.getItem(CART_EXPIRY_KEY);
+      if (!existingExpiry) {
+        // Only set once, never extend
+        const expiryTime = Date.now() + 60 * 60 * 1000;
+        localStorage.setItem(CART_EXPIRY_KEY, expiryTime.toString());
+      }
+    } else {
+      // ✅ Cart is empty, clean up expiry key
+      localStorage.removeItem(CART_EXPIRY_KEY);
+    }
+  }, [items.length]);
+
+  // ✅ Check expiry on a separate interval, independent of items
+  useEffect(() => {
     const checkCartExpiry = async () => {
       const expiry = localStorage.getItem(CART_EXPIRY_KEY);
       if (!expiry) return;
@@ -64,41 +85,19 @@ export default function Cart() {
           await deleteData("/api/user/cart", t("cartCleared"));
           dispatch(clearCartLocal());
           localStorage.removeItem(CART_EXPIRY_KEY);
+          toast.error(t("cartExpired")); // ✅ notify user
         } catch (error) {
           console.error("Failed to clear expired cart");
         }
       }
     };
 
-    // ✅ Only set expiry on FIRST item ever added (no existing expiry)
-    // ✅ Reset expiry when new items are added while cart is active (not expired)
-    if (items.length > 0) {
-      const existingExpiry = localStorage.getItem(CART_EXPIRY_KEY);
-
-      if (!existingExpiry) {
-        // Brand new cart — set fresh 1 hour expiry
-        const expiryTime = Date.now() + 60 * 60 * 1000;
-        localStorage.setItem(CART_EXPIRY_KEY, expiryTime.toString());
-      } else {
-        // Cart already has a timer — check if it's expired BEFORE adding new item
-        const isAlreadyExpired = Date.now() >= Number(existingExpiry);
-        if (!isAlreadyExpired) {
-          // Still valid — extend expiry from now (sliding window)
-          const newExpiry = Date.now() + 60 * 60 * 1000;
-          localStorage.setItem(CART_EXPIRY_KEY, newExpiry.toString());
-        }
-        // If already expired, let the interval handle it — don't wipe mid-render
-      }
-    }
-
-    // Check expiry on mount only, then every minute
-    checkCartExpiry();
+    checkCartExpiry(); // run on mount
     const interval = setInterval(checkCartExpiry, 60 * 1000);
     return () => clearInterval(interval);
-  }, []); // ✅ Run once on mount only — not on every items change
-  const totalPrice = Array.isArray(items)
-    ? items.reduce((total, item) => total + Number(item.totalPrice), 0)
-    : 0;
+  }, []); // ✅ no dependency on items — runs independently
+  // التعديل هنا: جلب الـ subtotal الجاهز من الباك إند مباشرة بدلاً من الـ reduce اليدوي
+  const totalPrice = Number(cartData?.data?.data?.totalSummary?.subtotal || 0);
 
   // دوال التعامل مع الـ API
   const handleQuantityChange = async (
@@ -117,6 +116,7 @@ export default function Cart() {
       toast.error(t("failedUpdateQuantity"));
     }
   };
+
   const handleRemoveItem = async (cartId: string) => {
     try {
       await deleteData(`/api/user/cart/${cartId}`, t("itemRemoved"));
@@ -130,6 +130,7 @@ export default function Cart() {
     try {
       await deleteData("/api/user/cart", t("cartCleared"));
       dispatch(clearCartLocal());
+       localStorage.removeItem(CART_EXPIRY_KEY);
     } catch (error) {
       toast.error(t("failedClearCart"));
     }
@@ -137,10 +138,6 @@ export default function Cart() {
 
   if (fetchingCart && items.length === 0) {
     return <Loading />;
-  }
-
-  if (fetchingCart && items.length === 0) {
-    return <div className="flex justify-center py-20">{t("loadingCart")}</div>;
   }
 
   // 🟡 Empty Cart
@@ -207,8 +204,6 @@ export default function Cart() {
             >
               <div className="flex items-center gap-4">
                 <div className="relative flex-shrink-0 w-20 h-20 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
-                  {/* 👈 أضفنا relative هنا للحاوية الأساسية */}
-
                   {item.image ? (
                     <img
                       src={item.image || "/placeholder.jpg"}
@@ -312,6 +307,8 @@ export default function Cart() {
           />
         </Link>
       </div>
+
+      {/* Confirmation Modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
           <div className="w-[90%] max-w-sm p-6 bg-white dark:bg-zinc-900 rounded-3xl shadow-xl animate-in zoom-in-95 duration-300">
@@ -324,7 +321,6 @@ export default function Cart() {
             </p>
 
             <div className="flex justify-end gap-3">
-              {/* Cancel */}
               <button
                 onClick={() => setShowConfirm(false)}
                 className="px-4 py-2 text-sm font-semibold text-gray-600 transition bg-gray-100 rounded-xl hover:bg-gray-200 dark:bg-zinc-800 dark:text-white"
@@ -332,7 +328,6 @@ export default function Cart() {
                 {t("cancel")}
               </button>
 
-              {/* Confirm */}
               <button
                 onClick={() => {
                   handleClearCart();

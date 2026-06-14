@@ -542,6 +542,9 @@ export default function RestaurantItms({
     try {
       setLoading(true);
       await api.post("/api/user/cart", payload);
+      const newExpiry = Date.now() + 60 * 60 * 1000;
+      localStorage.setItem("cart-expiry", newExpiry.toString());
+
       toast.success(t("addedToCart"));
       onCartUpdated();
       setSelectedItem(null);
@@ -568,6 +571,7 @@ export default function RestaurantItms({
     try {
       await deleteData("/api/user/cart");
       dispatch(clearCartLocal());
+      localStorage.removeItem("cart-expiry");
     } catch (error) {
       toast.error(t("failedClearCart"));
       throw error;
@@ -581,6 +585,9 @@ export default function RestaurantItms({
       setLoading(true);
       await handleClearCart();
       await api.post("/api/user/cart", pendingCartPayload);
+      const newExpiry = Date.now() + 60 * 60 * 1000;
+      localStorage.setItem("cart-expiry", newExpiry.toString());
+
       toast.success(t("addedToCart"));
       onCartUpdated();
       setShowConflictDialog(false);

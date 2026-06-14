@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
@@ -21,12 +21,19 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
+// ✅ Zone type now includes deliveryFees
 type Zone = {
   id: string;
   name: string;
   nameAr?: string;
   cityId: string;
+  deliveryFees?: {
+    restaurantId: string;
+    deliveryFee: string;
+    status: string;
+  }[];
 };
+
 type CartItem = { totalPrice: string | number; [key: string]: any };
 
 export default function Checkout() {
@@ -43,8 +50,6 @@ export default function Checkout() {
   const [selectedAddress, setSelectedAddress] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedPayment, setSelectedPayment] = useState("");
-
-  // التحكم بظهور نافذة إضافة عنوان جديد
   const [showAddressPopup, setShowAddressPopup] = useState(false);
 
   // 1. جلب خيارات الدفع والعناوين والفروع
@@ -54,23 +59,87 @@ export default function Checkout() {
     refetch,
   } = useGet<any>(`/api/user/order/select?restaurantId=${params.id}`);
 
-  // 2. جلب بيانات السلة لحساب المجموع
+  // 2. جلب بيانات السلة
   const { data: cartRes, loading: isLoadingCart } =
     useGet<any>("/api/user/cart");
+
+  // ✅ 3. جلب الزونات مع deliveryFees في المكون الرئيسي
+  const { data: zonesRes } = useGet<any>("/api/user/address/zone");
+  const allZones: Zone[] = zonesRes?.data?.data || [];
 
   const { postData, loading: isSubmitting } = usePost();
 
   const data = checkoutData?.data?.data;
-  const cartItems: CartItem[] = cartRes?.data?.data || [];
   const paymentMethods = data?.paymentMethods || [];
+  const rawCartData = cartRes?.data?.data;
 
-  const subtotal = cartItems.reduce(
-    (acc, item) => acc + Number(item.totalPrice || 0),
-    0,
-  );
-  const deliveryFee = orderType === "delivery" ? data?.deliveryFee || 0 : 0;
+  const cartItems: CartItem[] = Array.isArray(rawCartData?.items)
+    ? rawCartData.items
+    : [];
+
+  const subtotal = useMemo(() => {
+    if (rawCartData?.totalSummary?.subtotal !== undefined) {
+      return Number(rawCartData.totalSummary.subtotal);
+    }
+    return cartItems.reduce(
+      (acc, item) => acc + Number(item.totalPrice || 0),
+      0,
+    );
+  }, [rawCartData, cartItems]);
+
+  const currentAddress = useMemo(() => {
+    return data?.addresses?.find((addr: any) => addr.id === selectedAddress);
+  }, [data?.addresses, selectedAddress]);
+
+  // ✅ حساب رسوم التوصيل من zones API مباشرة
+  const deliveryFee = useMemo(() => {
+    if (orderType !== "delivery" || !currentAddress) return 0;
+
+    const zoneId = currentAddress.zoneId;
+    if (!zoneId) return Number(data?.deliveryFee) || 0;
+
+    // البحث في allZones القادمة من /api/user/address/zone
+    const zone = allZones.find((z) => z.id === zoneId);
+    if (!zone) return Number(data?.deliveryFee) || 0;
+
+    const feeEntry = zone.deliveryFees?.find(
+      (fee) => fee.restaurantId === params.id && fee.status === "active",
+    );
+
+    if (feeEntry) return Number(feeEntry.deliveryFee) || 0;
+
+    return Number(data?.deliveryFee) || 0;
+  }, [orderType, currentAddress, allZones, data, params.id]);
+
+  // ✅ هل المطعم يوصل للزون المختار؟
+  const canDeliverToSelectedZone = useMemo(() => {
+    if (orderType !== "delivery" || !currentAddress) return true;
+    const zoneId = currentAddress.zoneId;
+    if (!zoneId) return true;
+    const zone = allZones.find((z) => z.id === zoneId);
+    if (!zone) return true; // لا نعرف، نسمح بالمتابعة
+    return !!zone.deliveryFees?.find(
+      (f) => f.restaurantId === params.id && f.status === "active",
+    );
+  }, [orderType, currentAddress, allZones, params.id]);
+
   const serviceFee = 5;
-  const total = subtotal + deliveryFee + serviceFee;
+
+  const total = useMemo(() => {
+    return subtotal + deliveryFee + serviceFee;
+  }, [subtotal, deliveryFee, serviceFee]);
+
+  useEffect(() => {
+    if (data?.addresses?.length > 0 && !selectedAddress) {
+      setSelectedAddress(data.addresses[0].id);
+    }
+    if (data?.branches?.length > 0 && !selectedBranch) {
+      setSelectedBranch(data.branches[0].id);
+    }
+    if (paymentMethods.length > 0 && !selectedPayment) {
+      setSelectedPayment(paymentMethods[0].id);
+    }
+  }, [data, selectedAddress, selectedBranch, selectedPayment, paymentMethods]);
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
@@ -78,6 +147,15 @@ export default function Checkout() {
       return toast.error(t("selectAddressError"));
     if (orderType !== "delivery" && !selectedBranch)
       return toast.error(t("selectBranchError"));
+
+    // ✅ منع الطلب لو المطعم مش بيوصل للمنطقة
+    if (orderType === "delivery" && !canDeliverToSelectedZone) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "هذا المطعم لا يوصل لمنطقتك، يرجى اختيار عنوان آخر"
+          : "This restaurant doesn't deliver to your area. Please choose a different address.",
+      );
+    }
 
     const payload = {
       orderSource: "food_aggregator",
@@ -171,32 +249,51 @@ export default function Checkout() {
                 <p className="mb-4 text-gray-500">{t("no-addresses-found")}</p>
               </div>
             ) : (
-              data?.addresses?.map((addr: any) => (
-                <div
-                  key={addr.id}
-                  onClick={() => setSelectedAddress(addr.id)}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                    selectedAddress === addr.id
-                      ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                      : "border-gray-100 dark:border-zinc-800"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl">
-                      <MapPin size={18} />
+              data?.addresses?.map((addr: any) => {
+                // ✅ هل المطعم بيوصل لزون هذا العنوان؟
+                const addrZone = allZones.find((z) => z.id === addr.zoneId);
+                const addrCanDeliver = addrZone
+                  ? !!addrZone.deliveryFees?.find(
+                      (f) =>
+                        f.restaurantId === params.id && f.status === "active",
+                    )
+                  : true;
+
+                return (
+                  <div
+                    key={addr.id}
+                    onClick={() => setSelectedAddress(addr.id)}
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                      selectedAddress === addr.id
+                        ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                        : "border-gray-100 dark:border-zinc-800"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl">
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <p className="font-bold">{addr.title}</p>
+                        <p className="text-sm text-gray-500">
+                          {addr.street}, {addr.number}
+                        </p>
+                        {/* ✅ تحذير لو المطعم مش بيوصل لهذا العنوان */}
+                        {!addrCanDeliver && (
+                          <p className="text-xs text-red-500 font-semibold mt-0.5">
+                            {t("dir") === "rtl"
+                              ? "المطعم لا يوصل لهذه المنطقة"
+                              : "Restaurant doesn't deliver here"}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold">{addr.title}</p>
-                      <p className="text-sm text-gray-500">
-                        {addr.street}, {addr.number}
-                      </p>
-                    </div>
+                    {selectedAddress === addr.id && (
+                      <CheckCircle2 size={20} className="text-yellow-500" />
+                    )}
                   </div>
-                  {selectedAddress === addr.id && (
-                    <CheckCircle2 size={20} className="text-yellow-500" />
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>
@@ -297,12 +394,25 @@ export default function Checkout() {
             </span>
           </div>
 
+          {/* ✅ عرض رسوم التوصيل مع تحذير لو المطعم مش بيوصل */}
           {orderType === "delivery" && (
             <div className="flex justify-between items-center">
               <span>{t("deliveryFee")}</span>
-              <span className="text-gray-900 dark:text-white font-bold">
-                {deliveryFee} {t("egp")}
-              </span>
+              {currentAddress && !canDeliverToSelectedZone ? (
+                <span className="text-red-500 text-xs font-bold">
+                  {t("dir") === "rtl"
+                    ? "لا يوصل لمنطقتك"
+                    : "Doesn't deliver here"}
+                </span>
+              ) : (
+                <span className="text-gray-900 dark:text-white font-bold">
+                  {deliveryFee === 0
+                    ? t("dir") === "rtl"
+                      ? "مجاني"
+                      : "Free"
+                    : `${deliveryFee} ${t("egp")}`}
+                </span>
+              )}
             </div>
           )}
 
@@ -349,7 +459,7 @@ export default function Checkout() {
         )}
       </button>
 
-      {/* Address Popup Component */}
+      {/* Address Popup */}
       {showAddressPopup && (
         <AddAddressPopup
           onClose={() => setShowAddressPopup(false)}
@@ -363,12 +473,10 @@ export default function Checkout() {
   );
 }
 
-/**
- * النافذة المنبثقة لإضافة عنوان مع فلترة المناطق ديناميكياً بناءً على المدينة المستخرجة
- */
-/**
- * النافذة المنبثقة لإضافة عنوان مع فلترة المناطق ديناميكياً ودعم الموقع الحالي
- */
+// ─────────────────────────────────────────────
+// AddAddressPopup Component
+// ─────────────────────────────────────────────
+
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
@@ -407,7 +515,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   }));
 
   const [selectedCityId, setSelectedCityId] = useState("");
-  const [isLocating, setIsLocating] = useState(false); // حالة تحميل أثناء جلب الـ GPS
+  const [isLocating, setIsLocating] = useState(false);
 
   const [addressForm, setAddressForm] = useState({
     title: "",
@@ -427,7 +535,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
 
-  // دالة جلب الموقع الجغرافي الحالي لليوزر
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       return toast.error(
@@ -480,7 +587,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   const handleAddressSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // تأكيد وجود الـ Lat و Lng قبل الإرسال لو الباك إند بيطلبهم إجباري
     if (addressForm.lat === null || addressForm.lng === null) {
       return toast.error(
         t("dir") === "rtl"
@@ -489,7 +595,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       );
     }
 
-    // تجهيز الداتا مع تحويل الأرقام إلى Numeric لضمان سلامة الـ API
     const payload = {
       ...addressForm,
       number: Number(addressForm.number) || 0,
@@ -522,7 +627,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </button>
         </div>
 
-        {/* زرار جلب الموقع الحالي */}
         <button
           type="button"
           onClick={handleGetCurrentLocation}
@@ -543,7 +647,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
               : "Use Current Location (GPS)"}
         </button>
 
-        {/* عرض الإحداثيات بشكل خفيف كـ Feedback لليوزر */}
         {addressForm.lat && addressForm.lng && (
           <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
             <CheckCircle2 size={16} />
