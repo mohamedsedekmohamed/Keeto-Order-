@@ -16,6 +16,8 @@ import {
   Package,
   ChevronLeft,
   ChevronRight,
+  Ban,
+  AlertTriangle,
 } from "lucide-react";
 
 import toast from "react-hot-toast";
@@ -30,41 +32,45 @@ export default function OrdersPage() {
   // 1. Order details state management
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  
-    const params = useParams();
-    const restaurantId = params?.id as string;
-    const restaurantName = params.slug as string;
+  // 👈 States جديدة للتحكم في منتقي أسباب الإلغاء
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedReasonId, setSelectedReasonId] = useState<string>("");
+
+  const params = useParams();
+  const restaurantId = params?.id as string;
+  const restaurantName = params.slug as string;
+
   // 2. Fetch data from active and history endpoints respectively
-  const { data: activeData, loading: loadingActive } = useGet<any>(
-    "/api/user/order/active?restaurantId=" + restaurantId,
+  const {
+    data: activeData,
+    loading: loadingActive,
+    refetch: refetchActive,
+  } = useGet<any>("/api/user/order/active?restaurantId=" + restaurantId);
+  const {
+    data: historyData,
+    loading: loadingHistory,
+    refetch: refetchHistory,
+  } = useGet<any>("/api/user/order/history?restaurantId=" + restaurantId);
+
+  // 👈 جلب أسباب الإلغاء والبيانات المساعدة بناءً على الـ Endpoint المطلوب
+  const { data: selectOptionsData } = useGet<any>(
+    `/api/user/order/select?restaurantId=${restaurantId}`,
   );
-  const { data: historyData, loading: loadingHistory } = useGet<any>(
-    "/api/user/order/history?restaurantId=" + restaurantId,
-  );
+
+  // استخراج مصفوفة الأسباب المتاحة من الـ Response المُرسل
+  const cancelReasons =
+    selectOptionsData?.data?.data?.reasons ||
+    selectOptionsData?.data?.reasons ||
+    [];
 
   // Helper function to safely normalize text strings for fallback checks
   const normalizeText = (str: string) =>
     str?.toLowerCase().replace(/[-_]/g, " ").trim();
 
   // ✅ FILTER ACTIVE ORDERS
-  const activeOrders = (
-    activeData?.data?.data ||
-    activeData?.data ||
-    []
-  )
-  // .filter((order: any) => {
-
-  //   console.log("Filtering order:", activeData); // Debug log to inspect order structure
-
-  //   if (order.restaurantId && restaurantId) {
-  //     return String(order.restaurantId) === String(restaurantId);
-  //   }
-  //   // Fallback normalization logic if backend objects omit ID configurations
-  //   return (
-  //     normalizeText(order?.restaurantName) === normalizeText(restaurantName)
-  //   );
-  // });
+  const activeOrders = activeData?.data?.data || activeData?.data || [];
 
   // ✅ FILTER HISTORY ORDERS
   const historyOrders = (
@@ -75,7 +81,6 @@ export default function OrdersPage() {
     if (order.restaurantId && restaurantId) {
       return String(order.restaurantId) === String(restaurantId);
     }
-    // Fallback normalization logic if backend objects omit ID configurations
     return (
       normalizeText(order?.restaurantName) === normalizeText(restaurantName)
     );
@@ -106,13 +111,67 @@ export default function OrdersPage() {
         );
         setSelectedOrderId(null);
       } finally {
-        // ✅ FIXED TYPO: changed "finaly" to "finally"
         setLoadingDetails(false);
       }
     };
 
     fetchOrderDetails();
   }, [selectedOrderId, t]);
+
+  // ✅ دالة إلغاء الطلب مع إرسال الـ cancelReasonId للباك إند
+  const handleCancelOrderSubmit = async () => {
+    if (!selectedOrderId) return;
+    if (!selectedReasonId) {
+      toast.error(t("pleaseSelectReason") || "برجاء اختيار سبب الإلغاء أولاً");
+      return;
+    }
+
+    setUpdatingStatus(true);
+    try {
+      // إرسال الطلب مع إرفاق الـ cancelReasonId المطلوب
+      const response = await api.put(
+        `/api/user/order/${selectedOrderId}/cancel`,
+        {
+          status: "cancelled",
+          cancelReasonId: selectedReasonId,
+        },
+      );
+
+      if (response.data.success || response.status === 200) {
+        toast.success(
+          t("orderCancelledSuccessfully") || "تم إلغاء الطلب بنجاح",
+        );
+
+        // إعادة تهيئة الحالات وإغلاق الـ Modals والتحديث
+        setShowCancelModal(false);
+        setSelectedOrderId(null);
+        setSelectedReasonId("");
+        refetchActive?.();
+        refetchHistory?.();
+      } else {
+        toast.error(t("failedToCancel")  );
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error(t("failedToCancel")  );
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // تحديد ما إذا كان مسموحاً للمخدم بالإلغاء بناءً على حالة الطلب الحالية
+  const isCancellationAllowed = (status: string) => {
+    const normalizedStatus = status?.toLowerCase();
+    const forbiddenStatuses = [
+      "accepted",
+      "delivered",
+      "completed",
+      "cancelled",
+      "cooking",
+      "on_the_way",
+    ];
+    return !forbiddenStatuses.includes(normalizedStatus);
+  };
 
   return (
     <div
@@ -360,22 +419,121 @@ export default function OrdersPage() {
                       </div>
 
                       {/* Fixed Status Ribbon Footer banner */}
-                      <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center gap-4 shadow-lg shadow-yellow-400/20">
-                        <div className="p-3 bg-white/20 rounded-2xl">
-                          <ReceiptText size={24} />
+                      <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center justify-between shadow-lg shadow-yellow-400/20">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-white/20 rounded-2xl">
+                            <ReceiptText size={24} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase font-black opacity-60">
+                              {t("orderStatus")}
+                            </p>
+                            <p className="text-lg font-black leading-none">
+                              {t(selectedOrder.status) || selectedOrder.status}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] uppercase font-black opacity-60">
-                            {t("orderStatus")}
-                          </p>
-                          <p className="text-lg font-black leading-none">
-                            {t(selectedOrder.status) || selectedOrder.status}
-                          </p>
-                        </div>
+
+                        {/* زر فتح مودال اختيار سبب الإلغاء */}
+                        {isCancellationAllowed(selectedOrder.status) && (
+                          <button
+                            onClick={() => setShowCancelModal(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-xs font-black text-white bg-red-600 rounded-2xl hover:bg-red-700 transition-colors shadow-md active:scale-95"
+                          >
+                            <Ban size={14} />
+                            {t("cancelOrder") || "إلغاء الطلب"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
                 )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 👈 نافذة اختيار سبب الإلغاء (Cancel Reason Modal) */}
+      <AnimatePresence>
+        {showCancelModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCancelModal(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-x-4 top-[25%] md:max-w-md md:mx-auto bg-white dark:bg-zinc-900 p-6 rounded-[2.5rem] z-[90] shadow-2xl border dark:border-zinc-800"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 text-red-500 rounded-2xl mb-4">
+                  <AlertTriangle size={28} />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                  {t("cancelOrderTitle")}
+                </h3>
+                <p className="text-xs text-gray-400 mt-1 mb-4">
+                  {t("cancelOrderDesc")}
+                </p>
+
+                {/* قائمة الأسباب المسترجعة ديناميكياً */}
+                <div className="w-full space-y-2 max-h-[200px] overflow-y-auto pr-1 mb-6">
+                  {cancelReasons.length > 0 ? (
+                    cancelReasons.map((reason: any) => (
+                      <label
+                        key={reason.id}
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                          selectedReasonId === reason.id
+                            ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                            : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                        }`}
+                      >
+                        <span className="text-sm text-gray-800 dark:text-zinc-200">
+                          {t(reason.name) || reason.name}
+                        </span>
+                        <input
+                          type="radio"
+                          name="cancelReason"
+                          value={reason.id}
+                          checked={selectedReasonId === reason.id}
+                          onChange={() => setSelectedReasonId(reason.id)}
+                          className="w-4 h-4 accent-red-500 cursor-pointer"
+                        />
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-400 py-4">
+                      {t("noReasonsAvailable")}
+                    </p>
+                  )}
+                </div>
+
+                {/* أزرار التحكم والـ Actions */}
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="flex-1 py-3 text-sm font-bold text-gray-500 bg-gray-100 dark:bg-zinc-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+                  >
+                    {t("back") || "تراجع"}
+                  </button>
+                  <button
+                    onClick={handleCancelOrderSubmit}
+                    disabled={updatingStatus || !selectedReasonId}
+                    className="flex-1 py-3 text-sm font-bold text-white bg-red-600 rounded-2xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-red-600/10 flex items-center justify-center gap-2"
+                  >
+                    {updatingStatus ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      t("confirmCancel") 
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </>

@@ -156,9 +156,14 @@ export default function Checkout() {
           : "This restaurant doesn't deliver to your area. Please choose a different address.",
       );
     }
-
+    const getOrderSource = () => {
+      if (typeof window !== "undefined") {
+        return localStorage.getItem("login_source") || "food_aggregator";
+      }
+      return "food_aggregator";
+    };
     const payload = {
-      orderSource: "food_aggregator",
+      orderSource: getOrderSource(),
       orderType,
       paymentMethod: selectedPayment,
       idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -477,6 +482,10 @@ export default function Checkout() {
 // AddAddressPopup Component
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// AddAddressPopup Component (المعدل بدعم الـ Alert Box الذكي)
+// ─────────────────────────────────────────────
+
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
@@ -517,6 +526,11 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   const [selectedCityId, setSelectedCityId] = useState("");
   const [isLocating, setIsLocating] = useState(false);
 
+  // 🚨 حالة جديدة لتحديد نوع الخطأ وإظهار الـ Alert Box المناسب (ios, android, or none)
+  const [locationErrorType, setLocationErrorType] = useState<
+    "ios" | "android" | "generic" | null
+  >(null);
+
   const [addressForm, setAddressForm] = useState({
     title: "",
     zoneId: "",
@@ -545,32 +559,96 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     }
 
     setIsLocating(true);
+    setLocationErrorType(null); // إعادة تعيين الخطأ عند المحاولة الجديدة
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setAddressForm((prev) => ({
-          ...prev,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }));
-        setIsLocating(false);
-        toast.success(
-          t("dir") === "rtl"
-            ? "تم تحديد موقعك الحالي بنجاح!"
-            : "Current location fetched successfully!",
-        );
-      },
-      (error) => {
-        setIsLocating(false);
-        console.error("Error getting location:", error);
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 0,
+    };
+
+    const successCallback = (position: GeolocationPosition) => {
+      setAddressForm((prev) => ({
+        ...prev,
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }));
+      setIsLocating(false);
+      toast.success(
+        t("dir") === "rtl"
+          ? "تم تحديد موقعك الحالي بنجاح!"
+          : "Current location fetched successfully!",
+      );
+    };
+
+    const errorCallback = (error: GeolocationPositionError) => {
+      setIsLocating(false);
+      console.error("Error getting location:", error);
+
+      if (error.code === error.PERMISSION_DENIED) {
+        // فحص نظام التشغيل لتحديد التوجيه الثابت للـ Alert Box
+        const userAgent =
+          navigator.userAgent || navigator.vendor || (window as any).opera;
+        const isiOS =
+          /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+        const isAndroid = /Android/i.test(userAgent);
+
+        if (isiOS) {
+          setLocationErrorType("ios");
+        } else if (isAndroid) {
+          setLocationErrorType("android");
+        } else {
+          setLocationErrorType("generic");
+        }
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
         toast.error(
           t("dir") === "rtl"
-            ? "فشل في تحديد الموقع. يرجى إعطاء الصلاحية للمتصفح."
-            : "Failed to get location. Please allow location access.",
+            ? "معلومات الموقع غير متوفرة. يرجى التأكد من تفعيل الـ GPS في هاتفك."
+            : "Location information is unavailable. Please ensure your device GPS is turned on.",
         );
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+      } else if (error.code === error.TIMEOUT) {
+        toast.error(
+          t("dir") === "rtl"
+            ? "انتهت مهلة طلب الموقع. يرجى المحاولة مرة أخرى."
+            : "Location request timed out. Please try again.",
+        );
+      }
+    };
+
+    // فحص صلاحيات المتصفح قبل الطلب الفعلي
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions
+        .query({ name: "geolocation" })
+        .then((permissionStatus) => {
+          if (permissionStatus.state === "denied") {
+            setIsLocating(false);
+            const userAgent =
+              navigator.userAgent || navigator.vendor || (window as any).opera;
+            const isiOS =
+              /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+            setLocationErrorType(isiOS ? "ios" : "android");
+          } else {
+            navigator.geolocation.getCurrentPosition(
+              successCallback,
+              errorCallback,
+              options,
+            );
+          }
+        })
+        .catch(() => {
+          navigator.geolocation.getCurrentPosition(
+            successCallback,
+            errorCallback,
+            options,
+          );
+        });
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        successCallback,
+        errorCallback,
+        options,
+      );
+    }
   };
 
   const handleInputChange = (
@@ -627,6 +705,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </button>
         </div>
 
+        {/* زر تحديد الموقع الحالي بالـ GPS */}
         <button
           type="button"
           onClick={handleGetCurrentLocation}
@@ -647,6 +726,44 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
               : "Use Current Location (GPS)"}
         </button>
 
+        {/* 🚨 الصندوق الإرشادي الثابت (Alert Box) في حال رفض الصلاحية */}
+        {locationErrorType && (
+          <div className="mb-4 p-4 rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300 animate-in slide-in-from-top-2 duration-300">
+            <div className="flex items-start gap-2.5">
+              <span className="text-lg mt-0.5">⚠️</span>
+              <div className="text-xs font-medium leading-relaxed">
+                <p className="font-bold text-sm mb-1">
+                  {t("dir") === "rtl"
+                    ? "صلاحية الموقع محجوبة"
+                    : "Location Access Blocked"}
+                </p>
+                {locationErrorType === "ios" && (
+                  <p>
+                    {t("dir") === "rtl"
+                      ? "لتفعيلها على iPhone: اضغط على زر عـا (aA) أو علامة القفل 🔒 الموجودة في شريط الرابط بالأعلى، ثم اختر 'إعدادات الموقع' واجعل الوصول إلى الموقع 'سماح' (Allow)."
+                      : "On iPhone: Tap the (aA) or 🔒 icon in the URL bar at the top, select 'Website Settings', and change Location access to 'Allow'."}
+                  </p>
+                )}
+                {locationErrorType === "android" && (
+                  <p>
+                    {t("dir") === "rtl"
+                      ? "لتفعيلها على Android: اضغط على علامة القفل 🔒 بجانب رابط الموقع في شريط العناوين بالأعلى، ثم ادخل على 'إعدادات الموقع' وفّعل خيار 'سماح' للموقع."
+                      : "On Android: Tap the 🔒 icon next to the website URL in the address bar above, go to 'Site Settings', and enable Location access by setting it to 'Allow'."}
+                  </p>
+                )}
+                {locationErrorType === "generic" && (
+                  <p>
+                    {t("dir") === "rtl"
+                      ? "يرجى الضغط على قفل الأمان 🔒 بجانب رابط الموقع في شريط العناوين بالأعلى وتفعيل صلاحية الموقع لتتمكن من استخدام الـ GPS."
+                      : "Please tap the lock icon 🔒 next to the URL bar above and enable location permission to use GPS features."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* نجاح التقاط الإحداثيات */}
         {addressForm.lat && addressForm.lng && (
           <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
             <CheckCircle2 size={16} />

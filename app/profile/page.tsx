@@ -294,7 +294,7 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Address Input (Disabled / ReadOnly) */}
-                  <div className="space-y-2">
+                  {/*   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
                       {t("address")}
                     </label>
@@ -310,7 +310,7 @@ export default function ProfilePage() {
                         className="w-full py-4 text-gray-400 border-2 border-transparent cursor-not-allowed bg-gray-100/30 dark:bg-zinc-800/20 rounded-2xl ps-11"
                       />
                     </div>
-                  </div>
+                  </div> */}
                 </div>
 
                 {/* Security Section */}

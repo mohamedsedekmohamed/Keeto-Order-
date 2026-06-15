@@ -24,8 +24,7 @@ import Link from "next/link";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
-import { useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
 export default function Cart() {
   const items = useAppSelector((state) => state.cart.items);
@@ -37,16 +36,7 @@ export default function Cart() {
   const basePath = `/home/restaurants/${restaurantName}`;
   const router = useRouter();
 
-  // 👈 1. جلب البيانات عند فتح الصفحة
-  const { data: cartData, loading: fetchingCart } =
-    useGet<any>("/api/user/cart");
-
-  useEffect(() => {
-    // التعديل هنا: استخراج الـ items بناءً على هيكل الريسبونس الجديد
-    if (cartData?.data?.data?.items) {
-      dispatch(setCartItems(cartData.data.data.items));
-    }
-  }, [cartData, dispatch]);
+  const CART_EXPIRY_KEY = "cart-expiry";
 
   // 👈 2. تهيئة الـ Hooks للتعديل والحذف
   const { putData } = usePut();
@@ -54,49 +44,77 @@ export default function Cart() {
   const { language } = useLanguage();
   const isRtl = language === "العربية";
 
-  // إدارة وقت انتهاء صلاحية السلة
+  // 👈 1. جلب البيانات عند فتح الصفحة
+  const {
+    data: cartData,
+    loading: fetchingCart,
+    refetch,
+  } = useGet<any>("/api/user/cart");
 
-  const CART_EXPIRY_KEY = "cart-expiry";
-
-  // ✅ Set expiry ONLY when cart goes from empty → has items (first add)
+  // فحص الصلاحية فوراً عند الدخول لمنع وميض البيانات المنتهية
   useEffect(() => {
-    if (items.length > 0) {
+    const expiry = localStorage.getItem(CART_EXPIRY_KEY);
+    if (expiry && Date.now() >= Number(expiry)) {
+      // إذا كانت منتهية، نظف الـ Local State فوراً ولا تنتظر الـ API
+      dispatch(clearCartLocal());
+      localStorage.removeItem(CART_EXPIRY_KEY);
+
+      // استدعاء الـ API لحذفها من السيرفر
+      fetch("/api/user/cart", { method: "DELETE" })
+        .then(() => toast.error(t("cartExpired")))
+        .catch((err) =>
+          console.error("Failed to clear expired cart backend", err),
+        );
+    }
+  }, [dispatch, t]);
+
+  useEffect(() => {
+    // تحديث البيانات فقط لو لم تكن منتهية الصلاحية في الـ localStorage
+    const expiry = localStorage.getItem(CART_EXPIRY_KEY);
+    const isExpired = expiry ? Date.now() >= Number(expiry) : false;
+
+    if (cartData?.data?.data?.items && !isExpired) {
+      dispatch(setCartItems(cartData.data.data.items));
+    }
+  }, [cartData, dispatch]);
+
+  // ✅ ضبط وقت الانتهاء بناءً على بيانات السيرفر الفعلية وليس الـ Local State المتقلب
+  useEffect(() => {
+    const serverItems = cartData?.data?.data?.items || [];
+    if (serverItems.length > 0) {
       const existingExpiry = localStorage.getItem(CART_EXPIRY_KEY);
       if (!existingExpiry) {
-        // Only set once, never extend
-        const expiryTime = Date.now() + 60 * 60 * 1000;
+        const expiryTime = Date.now() + 60 * 60 * 1000; // 60 دقيقة
         localStorage.setItem(CART_EXPIRY_KEY, expiryTime.toString());
       }
-    } else {
-      // ✅ Cart is empty, clean up expiry key
+    } else if (cartData && serverItems.length === 0) {
+      // السلة فارغة من السيرفر، امسح المفتاح
       localStorage.removeItem(CART_EXPIRY_KEY);
     }
-  }, [items.length]);
+  }, [cartData]);
 
-  // ✅ Check expiry on a separate interval, independent of items
+  // ✅ فحص دوري مستقل أثناء تواجد المستخدم في الصفحة
   useEffect(() => {
     const checkCartExpiry = async () => {
       const expiry = localStorage.getItem(CART_EXPIRY_KEY);
       if (!expiry) return;
 
-      const isExpired = Date.now() >= Number(expiry);
-      if (isExpired) {
+      if (Date.now() >= Number(expiry)) {
         try {
           await deleteData("/api/user/cart", t("cartCleared"));
           dispatch(clearCartLocal());
           localStorage.removeItem(CART_EXPIRY_KEY);
-          toast.error(t("cartExpired")); // ✅ notify user
+          toast.error(t("cartExpired"));
         } catch (error) {
           console.error("Failed to clear expired cart");
         }
       }
     };
 
-    checkCartExpiry(); // run on mount
-    const interval = setInterval(checkCartExpiry, 60 * 1000);
+    const interval = setInterval(checkCartExpiry, 30000); // فحص كل 30 ثانية
     return () => clearInterval(interval);
-  }, []); // ✅ no dependency on items — runs independently
-  // التعديل هنا: جلب الـ subtotal الجاهز من الباك إند مباشرة بدلاً من الـ reduce اليدوي
+  }, [deleteData, dispatch, t]);
+
   const totalPrice = Number(cartData?.data?.data?.totalSummary?.subtotal || 0);
 
   // دوال التعامل مع الـ API
@@ -130,7 +148,7 @@ export default function Cart() {
     try {
       await deleteData("/api/user/cart", t("cartCleared"));
       dispatch(clearCartLocal());
-       localStorage.removeItem(CART_EXPIRY_KEY);
+      localStorage.removeItem(CART_EXPIRY_KEY);
     } catch (error) {
       toast.error(t("failedClearCart"));
     }

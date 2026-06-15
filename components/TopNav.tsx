@@ -25,8 +25,15 @@ export default function TopNav() {
   const restaurantSlug = params?.slug as string;
   const handleClick = () => {
     if (typeof window !== "undefined" && router) {
-      if (!restaurantSlug) return;
-      router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+      if (!restaurantSlug) {
+        // مستخدم جاي من الموقع العام (Aggregator)
+        localStorage.setItem("login_source", "food_aggregator");
+        router.push(`/auth/sign-in`);
+      } else {
+        // مستخدم داخل من لينك مباشر للمطعم
+        localStorage.setItem("login_source", "online_order");
+        router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+      }
     }
   };
   /*   const userEmail =
