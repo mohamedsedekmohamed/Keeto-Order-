@@ -150,7 +150,8 @@ export default function WalletPage() {
     }
   };
 
-  if (!isReady || (isLoadingHistory && transactions.length === 0)) {
+  // حماية اللودينج لمنع التعليق اللانهائي في حالة غياب التوكن
+  if (!isReady || (isLoadingHistory && transactions.length === 0 && token)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-zinc-950">
         <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
@@ -358,7 +359,7 @@ export default function WalletPage() {
                   </label>
                   <select
                     required
-                    value={fundData.paymentMethodId} // 👈 ربط بالـ paymentMethodId
+                    value={fundData.paymentMethodId}
                     onChange={(e) =>
                       setFundData({
                         ...fundData,

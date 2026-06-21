@@ -13,36 +13,33 @@ type UseGetReturn<T> = {
   refetch: () => Promise<void>;
 };
 
-export default function useGet<T = any>(url: string): UseGetReturn<T> {
+// 1. Changed parameter type to string | null
+export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
   const [data, setData] = useState<T | null>(null);
-  // نجعل التحميل true في البداية حتى ينتهي من فحص التوكن
-  const [loading, setLoading] = useState<boolean>(true);
+  // Only set loading to true initially if we actually have a URL to fetch
+  const [loading, setLoading] = useState<boolean>(!!url);
   const [error, setError] = useState<string | null>(null);
 
   const hasFetched = useRef(false);
-  const { isReady } = useToken(); // نستورد isReady للتأكد من حالة التطبيق
+  const { isReady } = useToken();
 
   const fetchData = useCallback(async (): Promise<void> => {
+    if (!url) return; // 2. Guard clause to prevent fetching null URLs
+
     try {
       setLoading(true);
-
-      // لم نعد بحاجة لإضافة التوكن هنا، الـ Axios Interceptor سيقوم بذلك!
       const res = await api.get<T>(url);
-
       setData(res.data);
       setError(null);
     } catch (err) {
       const axiosError = err as AxiosError<any>;
 
-      // 1. Extract the raw error message using your existing fallback chain
       let errorMsg =
         axiosError.response?.data?.error?.message ||
         axiosError.response?.data?.message ||
         axiosError.message ||
         "Request failed";
 
-      // 2. Normalize and check for the "no token" error condition
-      // Using .toLowerCase() and .includes() makes the check safer against subtle backend API changes
       if (errorMsg.toLowerCase().includes("no token provided")) {
         errorMsg = "Login please";
       }
@@ -55,14 +52,13 @@ export default function useGet<T = any>(url: string): UseGetReturn<T> {
   }, [url]);
 
   useEffect(() => {
-    // 👈 لا تقم بأي طلب حتى يتأكد الـ Context من وجود أو عدم وجود توكن
-    if (!isReady) return;
+    if (!isReady || !url) return; // 3. Don't run if context isn't ready or url is null
 
     if (hasFetched.current) return;
     hasFetched.current = true;
 
     fetchData();
-  }, [fetchData, isReady]); // أضفنا isReady هنا
+  }, [fetchData, isReady, url]);
 
   return { data, loading, error, refetch: fetchData };
 }
