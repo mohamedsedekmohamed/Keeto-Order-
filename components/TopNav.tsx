@@ -7,22 +7,38 @@ import { MapPin, ChevronDown, Sun, Moon, User } from "lucide-react";
 import { useToken } from "@/context/TokenContext";
 import Link from "next/link";
 import ReactCountryFlag from "react-country-flag";
-import { usePathname, useParams } from "next/navigation";
+// 👈 استيراد useSearchParams لقط لقطة من الـ Query parameters
+import { usePathname, useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+
 type Language = "English" | "العربية";
+
 export default function TopNav() {
   const { setTheme, resolvedTheme } = useTheme();
   const { language, changeLanguage, t } = useLanguage();
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams(); // 👈 تهيئة الـ searchParams
+
+  // 👈 تعديل ذكي: جلب الـ slug سواء من الـ Path أو من الـ Query Parameter (callbackSlug)
+  const restaurantSlug =
+    (params?.slug as string) ||
+    (searchParams?.get("callbackSlug") as string) ||
+    "";
+
+  // استدعاءgetToken و isReady من الـ Context المحدث
+  const { getToken, isReady } = useToken();
+
+  // جلب التوكن الخاص بالمطعم الحالي ديناميكياً
+  const currentToken = getToken(restaurantSlug);
+
   const toggleLanguage = (lang: Language) => {
     changeLanguage(lang);
     setIsLangMenuOpen(false);
   };
-  const router = useRouter();
 
-  const params = useParams();
-  const restaurantSlug = params?.slug as string;
   const handleClick = () => {
     if (typeof window !== "undefined" && router) {
       if (!restaurantSlug) {
@@ -36,49 +52,28 @@ export default function TopNav() {
       }
     }
   };
-  /*   const userEmail =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("user") || "{}")?.email || ""
-      : "";
 
-  const userName = userEmail.slice(0, 6) || "";
-  const hideAuthSection = pathname.startsWith("/home/restaurants/"); */
-  const { token } = useToken();
+  // حماية لمنع حدوث تضارب أثناء الـ Hydration
+  if (!isReady) return null;
 
   return (
     <header className="w-full font-sans transition-all duration-500 shadow-sm dark:shadow-md dark:shadow-yellow-400/5 dark:border-b dark:border-gray-800">
       <div className="flex items-center justify-between px-6 py-2 bg-[#FCFDF2] dark:bg-gray-900 transition-colors duration-500 text-sm">
-        {/* قسم الموقع */}
-        {/* <div className="flex items-center gap-1 cursor-pointer group">
-          <MapPin className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-
-          <ReactCountryFlag
-            countryCode="EG"
-            svg
-            style={{
-              width: "1.5rem",
-              height: "1.5rem",
-            }}
-          />
-        </div>
-        
- */}
-        {token ? (
+        {/* فحص التوكن الخاص بالمطعم الحالي بدلاً من التوكن العام القديم */}
+        {currentToken ? (
           <Link
             href={
               restaurantSlug
                 ? `/profile?callbackSlug=${restaurantSlug}`
                 : "/profile"
             }
+            className="flex items-center gap-2" // ضفتلك تنسيق بسيط عشان الأيقونة والكلام يبقوا جنب بعض مظبوط
           >
             <User className="w-5 h-5" />
-
-            <span className=" sm:block text-sm font-medium">
-              {t("welcome")}
-            </span>
+            <span className="sm:block text-sm font-medium">{t("welcome")}</span>
           </Link>
         ) : (
-          <span className="cursor-pointer" onClick={handleClick}>
+          <span className="cursor-pointer font-medium" onClick={handleClick}>
             {t("signIn")}
           </span>
         )}
@@ -139,19 +134,6 @@ export default function TopNav() {
             )}
           </div>
 
-          {/* {!hideAuthSection &&
-            (token ? (
-              <Link href="/profile" className="transition hover:scale-110">
-                <User className="w-5 h-5" />
-              </Link>
-            ) : (
-              <Link
-                href={`/auth/sign-in`}
-                className="transition hover:text-yellow-500"
-              >
-                {t("signIn")}
-              </Link>
-            ))} */}
           <button
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")

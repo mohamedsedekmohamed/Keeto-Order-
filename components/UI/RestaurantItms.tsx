@@ -25,6 +25,7 @@ import {
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
+import { useToken } from "@/context/TokenContext"; // 👈 التعديل 1: استيراد الـ useToken
 
 interface AddonItem {
   id: string;
@@ -76,10 +77,9 @@ export default function RestaurantItms({
   const restaurantSlug = params?.slug as string;
 
   // ── Auth ──────────────────────────────────────────────────────────
-  const [token, setToken] = useState<string | null>(null);
-  useEffect(() => {
-    if (typeof window !== "undefined") setToken(localStorage.getItem("token"));
-  }, []);
+  // 👈 التعديل 2: حذف الـ local state والـ useEffect القديم وجلب التوكن ديناميكياً بناءً على الـ slug
+  const { getToken } = useToken();
+  const token = getToken(restaurantSlug);
 
   // ── Favorites ─────────────────────────────────────────────────────
   const [favoritesList, setFavoritesList] = useState<string[]>([]);

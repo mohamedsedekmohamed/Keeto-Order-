@@ -45,16 +45,14 @@ export default function SignIn() {
   };
 
   const handleSuccessAuth = (token: string) => {
-    setToken(token);
+    // حفظ التوكن مربوطاً بالـ slug الحالي ديناميكياً
+    setToken(token, callbackSlug);
 
     let redirectPath = "/";
 
-    // 1. الأولوية القصوى لـ callbackSlug القادم من الرابط لتفادي خسارة مسار المطعم الحالي
     if (callbackSlug) {
       redirectPath = `/home/restaurants/${callbackSlug}`;
-    }
-    // الحماية الاحتياطية (Fallback) من الـ localStorage
-    else {
+    } else {
       redirectPath = "/";
     }
 
@@ -66,7 +64,10 @@ export default function SignIn() {
     try {
       const response = await postData(formData, null, t("loginSuccess"));
       // تمرير الـ token من نموذج الـ Credentials التقليدي
-      handleSuccessAuth(response.data.data.token);
+      const token = response?.token || response?.data?.token || response?.data?.data?.token;
+      if (token) {
+        handleSuccessAuth(token);
+      }
     } catch {}
   };
 
@@ -185,14 +186,14 @@ export default function SignIn() {
               className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading || isGoogleLoading ? "opacity-70 cursor-not-allowed" : "hover:bg-yellow-500"}`}
             >
               <span className="flex items-center gap-2">
-                {loading ? (
+                {loading || isGoogleLoading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
                   <>
                     {t("SignInbtn")}
                     <ArrowRight
                       size={20}
-                      className="transition-transform group-hover:translate-x-1"
+                      className={`transition-transform ${isRtl ? "group-hover:-translate-x-1 rotate-180" : "group-hover:translate-x-1"}`}
                     />
                   </>
                 )}
@@ -221,11 +222,14 @@ export default function SignIn() {
                       t("loginSuccess"),
                     );
 
-                    // التأكد من جلب التوكن بدقة بناءً على تركيبة الرد من الـ API لديك لقوقل
-                    if (response?.token) {
-                      handleSuccessAuth(response.token);
-                    } else if (response?.data?.token) {
-                      handleSuccessAuth(response.data.token);
+                    // 👈 تم تعديل الفحص هنا ليكون شاملاً ويدعم كل مستويات الرد المتوقعة مثل الـ Sign Up بالضبط
+                    const token =
+                      response?.token ||
+                      response?.data?.token ||
+                      response?.data?.data?.token;
+
+                    if (token) {
+                      handleSuccessAuth(token);
                     }
                   }
                 } catch {}

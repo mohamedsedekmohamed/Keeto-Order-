@@ -1,46 +1,70 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-
+import { useParams, useSearchParams } from "next/navigation";
 type TokenContextType = {
-  token: string | null;
-  setToken: (token: string | null) => void;
-  logout: () => void;
-  isReady: boolean; // 👈 الجديد
+  getToken: (slug?: string | null) => string | null;
+  setToken: (token: string | null, slug?: string | null) => void;
+  logout: (slug?: string | null) => void;
+  isReady: boolean;
+  token: string | null; // 👈 رجعنا الخاصية هنا كـ Fallback لحماية الملفات القديمة من الـ Crash
 };
 
 const TokenContext = createContext<TokenContextType | undefined>(undefined);
 
 export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
-  const [token, setTokenState] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false); // 👈 الجديد
+  const [isReady, setIsReady] = useState(false);
+  const [, setTick] = useState(0);
+  const params = useParams();
+  const searchParams = useSearchParams(); // 👈 هيدر تفعيله هنا
+
+  // جلب الـ slug الحالي سواء من الـ path أو من الـ query parameter
+  const currentSlug =
+    (params?.slug as string) ||
+    (searchParams?.get("callbackSlug") as string) ||
+    undefined;
+
+  // جلب الـ slug الحالي تلقائياً من المسار إن وجد
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-
-    if (storedToken) {
-      setTokenState(storedToken);
-    }
-
-    setIsReady(true); // 👈 مهم جدًا
+    setIsReady(true);
   }, []);
 
-  const setToken = (newToken: string | null) => {
-    if (newToken) {
-      localStorage.setItem("token", newToken);
-    } else {
-      localStorage.removeItem("token");
-    }
-    setTokenState(newToken);
+  const getToken = (slug?: string | null) => {
+    if (typeof window === "undefined") return null;
+    const key = slug ? `token_${slug}` : "token";
+    return localStorage.getItem(key);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    setTokenState(null);
+  const setToken = (newToken: string | null, slug?: string | null) => {
+    const key = slug ? `token_${slug}` : "token";
+    if (newToken) {
+      localStorage.setItem(key, newToken);
+    } else {
+      localStorage.removeItem(key);
+    }
+    setTick((prev) => prev + 1);
   };
+
+  const logout = (slug?: string | null) => {
+    const key = slug ? `token_${slug}` : "token";
+    localStorage.removeItem(key);
+    setTick((prev) => prev + 1);
+  };
+
+  // 👈 هنا السحر: لو ملف قديم طلب الـ token كـ متغيراً عادياً، هنحسبهوله ديناميكياً بناء على المطعم المفتوح حالياً
+  const fallbackToken = getToken(currentSlug);
 
   return (
-    <TokenContext.Provider value={{ token, setToken, logout, isReady }}>
+    <TokenContext.Provider
+      value={{
+        getToken,
+        setToken,
+        logout,
+        isReady,
+        token: fallbackToken, // 👈 تمرير التوكن التلقائي لحماية الـ Destructuring القديم
+      }}
+    >
       {children}
     </TokenContext.Provider>
   );

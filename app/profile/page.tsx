@@ -10,7 +10,6 @@ import {
   Shield,
   Settings,
   Phone,
-  MapPin,
   Wallet,
   BadgeCheck,
   Loader2,
@@ -19,7 +18,7 @@ import {
 import { useLanguage } from "../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePut from "@/app/hooks/usePut";
-import { useRouter, useSearchParams } from "next/navigation"; // 1. استيراد useSearchParams لضمان استقرار مسار الخروج
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 
 // تعريف واجهات البيانات
@@ -53,11 +52,14 @@ interface ProfileApiResponse {
 
 export default function ProfilePage() {
   const { t } = useLanguage();
-  const { logout } = useToken();
+  const { logout } = useToken(); // 👈 استدعاء دالة الـ logout من الـ Context
   const router = useRouter();
-  const searchParams = useSearchParams(); // 2. تهيئة جلب القيم من الـ URL
+  const searchParams = useSearchParams();
 
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+
+  // جلب الـ callbackSlug الممرر في الرابط الحالي
+  const callbackSlug = searchParams.get("callbackSlug");
 
   // 1. جلب بيانات المستخدم
   const {
@@ -103,17 +105,15 @@ export default function ProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // إرسال الاسم ورقم الهاتف فقط حسب المطلوب
       await putData(
         {
           name: formData.name,
           phone: formData.phone,
         },
         null,
-        t("updateSuccess") || "تم تحديث البيانات بنجاح!", // رسالة النجاح
+        t("updateSuccess") || "تم تحديث البيانات بنجاح!",
       );
 
-      // إعادة جلب البيانات لتحديث واجهة المستخدم (الاسم والصورة الخ)
       if (refetch) refetch();
     } catch (error) {
       // الـ Hook سيعالج عرض رسالة الخطأ
@@ -172,7 +172,6 @@ export default function ProfilePage() {
             className="space-y-6 lg:col-span-1"
           >
             <div className="p-8 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl text-center">
-              {/* User Info & Verification */}
               <div className="flex items-center justify-center gap-2 mt-6">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                   {userData.name}
@@ -185,7 +184,6 @@ export default function ProfilePage() {
                 {userData.location?.city}, {userData.location?.country}
               </p>
 
-              {/* Wallet Balance Badge */}
               <div className="flex items-center justify-center gap-2 mt-4">
                 <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-yellow-700 bg-yellow-400/20 rounded-2xl dark:text-yellow-400">
                   <Wallet size={18} />
@@ -196,19 +194,17 @@ export default function ProfilePage() {
               <div className="pt-8 mt-8 space-y-3 border-t border-gray-100 dark:border-zinc-800">
                 <button
                   onClick={() => {
+                    // 1. 👈 مسح التوكن الخاص بالمطعم لتسجيل خروجه فعلياً
+                    logout(callbackSlug);
+                    // 2. 👈 إجراء احترازي لمسح التوكن العام إن وجد
                     logout();
 
-                    // 3. الأولوية القصوى لقراءة المطعم الحالي من الرابط مباشرة عند الخروج
-                    const callbackSlug = searchParams.get("callbackSlug");
+                    // 3. تحديد مسار التوجيه بدقة بناء على وجود المطعم
                     let redirectPath = "/";
-
                     if (callbackSlug) {
                       redirectPath = `/home/restaurants/${callbackSlug}`;
                     }
-                    // الحماية الاحتياطية (Fallback) من الـ localStorage
-                    else {
-                      redirectPath = "/";
-                    }
+
                     router.push(redirectPath);
                   }}
                   className="flex items-center justify-center w-full gap-2 py-3 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl"
@@ -229,7 +225,6 @@ export default function ProfilePage() {
             <div className="p-8 sm:p-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl">
               <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  {/* Name Input */}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
                       {t("fullName")}
@@ -252,7 +247,6 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* Email Input (Disabled) */}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
                       {t("email")}
@@ -270,7 +264,6 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* Phone Input */}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
                       {t("phone")}
@@ -292,28 +285,8 @@ export default function ProfilePage() {
                       />
                     </div>
                   </div>
-
-                  {/* Address Input (Disabled / ReadOnly) */}
-                  {/*   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                      {t("address")}
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                        <MapPin size={18} className="text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        name="address"
-                        disabled
-                        value={formData.address}
-                        className="w-full py-4 text-gray-400 border-2 border-transparent cursor-not-allowed bg-gray-100/30 dark:bg-zinc-800/20 rounded-2xl ps-11"
-                      />
-                    </div>
-                  </div> */}
                 </div>
 
-                {/* Security Section */}
                 <div className="pt-6 border-t border-gray-100 dark:border-zinc-800">
                   <h4 className="flex items-center gap-2 mb-4 font-bold text-gray-900 dark:text-white">
                     <Shield size={18} className="text-yellow-500" />
@@ -327,7 +300,6 @@ export default function ProfilePage() {
                   </button>
                 </div>
 
-                {/* Save Button */}
                 <div className="pt-4">
                   <motion.button
                     whileHover={{ scale: 1.01 }}

@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wallet,
   ArrowUpRight,
   ArrowDownLeft,
   Plus,
-  CreditCard,
   History,
   TrendingUp,
   Loader2,
@@ -16,11 +15,11 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
-// بافتراض وجود usePost لديك بناءً على نمط usePut
 import usePost from "@/app/hooks/usePost";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { useToken } from "@/context/TokenContext";
+import toast from "react-hot-toast";
 
-// 1. تعريف واجهات البيانات (Interfaces)
 interface Transaction {
   id: string;
   amount: string;
@@ -57,62 +56,101 @@ interface SelectResponse {
   };
 }
 
+interface ProfileApiResponse {
+  success: boolean;
+  data: {
+    data: {
+      walletBalance: string;
+    };
+  };
+}
+
 export default function WalletPage() {
   const { t } = useLanguage();
+  const params = useParams();
+  const searchParams = useSearchParams();
 
-  // حالة نافذة الشحن
+  // جلب الـ slug الصحيح سواء من المسار أو الكويري
+  const restaurantSlug =
+    (params?.slug as string) ||
+    (searchParams?.get("callbackSlug") as string) ||
+    "";
+
+  // استدعاء التوكن من الـ Context المطور
+  const { getToken, isReady } = useToken();
+  const token = getToken(restaurantSlug);
+
+  // حالة نافذة الشحن (Modal)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [fundData, setFundData] = useState({
     amount: "",
-    paymentMethod: "",
-    receiptImage: "", // في التطبيق الحقيقي قد تحتاج لرفع الصورة أولاً للحصول على الرابط
+    paymentMethodId: "", // 👈 تم تعديل الـ Key ليتطابق مع الـ API الفعلي
+    receiptImage: "",
   });
 
-  // 2. جلب بيانات سجل المحفظة
+  // 1. جلب بيانات سجل المحفظة من الـ API المذكور (/api/user/wallet/history)
   const {
     data: historyResponse,
     loading: isLoadingHistory,
-    refetch,
-  } = useGet<HistoryResponse>("/api/user/wallet/history");
-  const params = useParams<{ id: string }>();
-  const basePath = `/home/restaurants/${params.id}`;
+    refetch: refetchHistory,
+  } = useGet<HistoryResponse>(token ? "/api/user/wallet/history" : null);
 
+  // 2. جلب بيانات البروفايل لمعرفة الرصيد الحالي الفعلي
+  const {
+    data: profileResponse,
+    loading: isLoadingProfile,
+    refetch: refetchProfile,
+  } = useGet<ProfileApiResponse>(token ? "/api/user/profile" : null);
+
+  // 3. جلب طرق الدفع المتاحة للمطعم
   const { data: selectResponse, loading: isLoadingSelect } =
-    useGet<SelectResponse>("/api/user/order/select?restaurantId=" + params.id);
+    useGet<SelectResponse>(
+      token && restaurantSlug
+        ? `/api/user/order/select?restaurantId=${restaurantSlug}`
+        : null,
+    );
 
-  // 4. إعداد دالة الشحن
+  // 4. إعداد دالة الشحن على الـ API المذكور (/api/user/wallet/add-fund)
   const { postData, loading: isAddingFund } = usePost(
     "/api/user/wallet/add-fund",
   );
 
-  // استخراج البيانات
   const transactions = historyResponse?.data?.data || [];
   const paymentMethods = selectResponse?.data?.data?.paymentMethods || [];
+  const walletBalance = profileResponse?.data?.data?.walletBalance || "0.00";
 
-  // دالة التعامل مع فورم الشحن
+  useEffect(() => {
+    if (isReady && !token) {
+      toast.error("يرجى تسجيل الدخول أولاً");
+    }
+  }, [isReady, token]);
+
+  // دالة الشحن وإرسال الـ Body المطلوب بالظبط
   const handleAddFund = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await postData(
         {
-          amount: Number(fundData.amount),
-          paymentMethod: fundData.paymentMethod,
-          receiptImage: fundData.receiptImage || "https://img.com/receipt.jpg", // قيمة افتراضية للتجربة
+          amount: Number(fundData.amount), // 👈 عدد (500)
+          paymentMethodId: fundData.paymentMethodId, // 👈 مطابق للـ الـ Body المطلوب
+          receiptImage: fundData.receiptImage, // 👈 رابط الإيصال
         },
         null,
         t("fundSuccess") || "تم تقديم طلب الشحن بنجاح وفي انتظار الموافقة",
       );
 
-      // إغلاق النافذة وتحديث السجل
       setIsAddModalOpen(false);
-      setFundData({ amount: "", paymentMethod: "", receiptImage: "" });
-      if (refetch) refetch();
+      setFundData({ amount: "", paymentMethodId: "", receiptImage: "" });
+
+      // عمل ريفيتش لتحديث الرصيد والسجل فوراً بعد نجاح الطلب
+      if (refetchHistory) refetchHistory();
+      if (refetchProfile) refetchProfile();
     } catch (error) {
-      // الـ Hook سيعالج عرض رسالة الخطأ
+      // الـ Hook يعالج الأخطاء تلقائياً
     }
   };
 
-  if (isLoadingHistory && transactions.length === 0) {
+  if (!isReady || (isLoadingHistory && transactions.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-zinc-950">
         <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
@@ -122,7 +160,6 @@ export default function WalletPage() {
 
   return (
     <div className="relative min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      {/* Ambient Background */}
       <div className="absolute top-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-400/10 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="relative z-10 max-w-5xl mx-auto">
@@ -148,9 +185,11 @@ export default function WalletPage() {
                 <p className="text-sm font-bold tracking-wider uppercase text-zinc-400">
                   {t("totalBalance") || "إجمالي الرصيد"}
                 </p>
-                {/* الرصيد هنا ثابت مؤقتاً، يمكنك استبداله بقيمة من الـ Profile API إذا كانت متوفرة */}
                 <h2 className="flex items-center gap-2 mt-2 text-5xl font-black text-white sm:text-6xl">
-                  <span className="text-yellow-400">$</span>0.00
+                  {walletBalance}{" "}
+                  <span className="text-sm text-yellow-400 font-bold">
+                    {t("currency") || "E£"}
+                  </span>
                 </h2>
 
                 <div className="flex gap-4 mt-10">
@@ -176,7 +215,7 @@ export default function WalletPage() {
                     {t("income") || "الدخل"}
                   </p>
                   <p className="text-xl font-black text-gray-900 dark:text-white">
-                    +$0.00
+                    +{walletBalance}
                   </p>
                 </div>
               </div>
@@ -189,7 +228,7 @@ export default function WalletPage() {
                     {t("spending") || "المصاريف"}
                   </p>
                   <p className="text-xl font-black text-gray-900 dark:text-white">
-                    -$0.00
+                    -0.00
                   </p>
                 </div>
               </div>
@@ -209,9 +248,6 @@ export default function WalletPage() {
                   <History size={20} className="text-yellow-500" />
                   {t("recent") || "الأخيرة"}
                 </h3>
-                <button className="text-sm font-bold text-yellow-600 dark:text-yellow-400 hover:underline">
-                  {t("seeAll") || "الكل"}
-                </button>
               </div>
 
               <div className="space-y-6">
@@ -256,7 +292,8 @@ export default function WalletPage() {
                               : "text-gray-900 dark:text-white"
                           }`}
                         >
-                          {tx.type === "credit" ? "+" : "-"}${tx.amount}
+                          {tx.type === "credit" ? "+" : "-"}
+                          {tx.amount}
                         </span>
                         <span className="text-[10px] text-gray-400 capitalize">
                           {tx.status}
@@ -314,18 +351,18 @@ export default function WalletPage() {
                   />
                 </div>
 
-                {/* Payment Method */}
+                {/* Payment Method ID */}
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
                     {t("paymentMethod") || "طريقة الدفع"}
                   </label>
                   <select
                     required
-                    value={fundData.paymentMethod}
+                    value={fundData.paymentMethodId} // 👈 ربط بالـ paymentMethodId
                     onChange={(e) =>
                       setFundData({
                         ...fundData,
-                        paymentMethod: e.target.value,
+                        paymentMethodId: e.target.value,
                       })
                     }
                     className="w-full px-4 py-4 transition-all border-2 border-transparent outline-none appearance-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-2xl dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
@@ -333,15 +370,19 @@ export default function WalletPage() {
                     <option value="" disabled>
                       اختر طريقة الدفع
                     </option>
-                    {paymentMethods.map((method) => (
-                      <option key={method.id} value={method.id}>
-                        {method.name}
-                      </option>
-                    ))}
+                    {isLoadingSelect ? (
+                      <option disabled>جاري تحميل طرق الدفع...</option>
+                    ) : (
+                      paymentMethods.map((method) => (
+                        <option key={method.id} value={method.id}>
+                          {method.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
-                {/* Receipt URL (Simulated Upload) */}
+                {/* Receipt Image URL */}
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
                     {t("receiptImage") || "رابط الإيصال"}

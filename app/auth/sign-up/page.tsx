@@ -264,18 +264,17 @@ function SignUpForm() {
                     t("signupSuccess"),
                   );
 
-                  // فحص التوكن القادم من Google في الـ Sign Up
                   const token =
                     response?.token ||
                     response?.data?.token ||
                     response?.data?.data?.token;
 
                   if (token) {
-                    setToken(token);
+                    // 👈 التعديل الجوهري: إرسال الـ callbackSlug لكي يحفظ الـ Token تحت اسم المطعم المختار بدقة
+                    setToken(token, callbackSlug);
 
                     let redirectPath = "/";
 
-                    // الأولوية للـ callbackSlug الممرر بالرابط الحالي لمنع الفقدان
                     if (callbackSlug) {
                       redirectPath = `/home/restaurants/${callbackSlug}`;
                     } else if (typeof window !== "undefined") {
