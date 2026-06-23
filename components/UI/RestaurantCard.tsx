@@ -210,7 +210,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               <Clock className="w-6 h-6 text-yellow-400" />
               <span>
                 {restaurant?.minDeliveryTime}-{restaurant?.maxDeliveryTime}{" "}
-                {t("Minutes")}
+                {restaurant?.deliveryTimeUnit}
               </span>
             </div>
 
