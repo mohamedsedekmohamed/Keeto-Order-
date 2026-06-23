@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
 
-import { Bell, ShoppingCart, User,Heart } from "lucide-react";
+import { Bell, ShoppingCart, BadgePercent } from "lucide-react";
 import { StaticImageData } from "next/image";
 import { useRestaurant } from "@/context/RestaurantContext";
 import { useToken } from "@/context/TokenContext";
@@ -69,6 +69,12 @@ export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
                 className="relative text-gray-600 transition hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
               >
                 <img src="/heart.jpeg" className="w-5 h-5 rounded-lg" />
+              </Link>
+              <Link
+                href={`${basePath}/offer`}
+                className="relative text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-red-400"
+              >
+                <BadgePercent className="w-5 h-5" />
               </Link>
             </>
           )}
