@@ -19,11 +19,25 @@ import { useToken } from "@/context/TokenContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import Script from "next/script";
 import { useEffect } from "react";
+
+// تعريف أيقونة Apple مخصصة تبدو كأنها زر "أو سجل دخول عبر"
+const AppleIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 384 512"
+    className={className}
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 0 184.8 0 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+  </svg>
+);
+
 declare global {
   interface Window {
     AppleID: any;
   }
 }
+
 export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -39,6 +53,7 @@ export default function SignIn() {
     email: "",
     password: "",
   });
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== "undefined" && (window as any).AppleID) {
@@ -55,6 +70,7 @@ export default function SignIn() {
 
     return () => clearInterval(interval);
   }, []);
+
   // Hooks للمصادقة
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
@@ -198,7 +214,11 @@ export default function SignIn() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder={t("enterPassword")}
-                  className="w-full py-4.5 text-gray-900 transition-all bg-gray-100/50 border-2 border-transparent outline-none rounded-2xl ps-12 pe-12 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/10"
+                  className="w-full py-4.5 text-gray-900 dark:text-white bg-gray-100/50 dark:bg-zinc-800/40 border-2 border-transparent outline-none rounded-2xl ps-12 pe-12 placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/10 transition-all block"
+                  style={{
+                    color: "inherit", // يضمن وراثة اللون من العنصر الأب
+                    WebkitAppearance: "none", // مهم جداً لمستخدمي الآيفون
+                  }}
                 />
                 <button
                   type="button"
@@ -211,6 +231,8 @@ export default function SignIn() {
             </div>
 
             <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               disabled={loading || isGoogleLoading || isAppleLoading}
               className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
                 loading || isGoogleLoading || isAppleLoading
@@ -243,75 +265,77 @@ export default function SignIn() {
             <div className="flex-grow border-t border-gray-200 dark:border-zinc-800"></div>
           </div>
 
-          {/* Google Sign In Option */}
-          <div className="flex justify-center w-full transform scale-105">
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                try {
-                  if (credentialResponse.credential) {
-                    const response = await loginWithGoogle(
-                      { token: credentialResponse.credential },
-                      null,
-                      t("loginSuccess"),
-                    );
-
-                    // 👈 تم تعديل الفحص هنا ليكون شاملاً ويدعم كل مستويات الرد المتوقعة مثل الـ Sign Up بالضبط
-                    const token =
-                      response?.token ||
-                      response?.data?.token ||
-                      response?.data?.data?.token;
-
-                    if (token) {
-                      handleSuccessAuth(token);
+          {/* Social Sign In Options */}
+          <div className="flex gap-4">
+            {/* Google Sign In - كما هو */}
+            <div className="flex-1">
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  try {
+                    if (credentialResponse.credential) {
+                      const response = await loginWithGoogle(
+                        { token: credentialResponse.credential },
+                        null,
+                        t("loginSuccess"),
+                      );
+                      const token =
+                        response?.token ||
+                        response?.data?.token ||
+                        response?.data?.data?.token;
+                      if (token) handleSuccessAuth(token);
                     }
-                  }
-                } catch {}
-              }}
-              onError={() => console.error("Google authentication failed")}
-              shape="pill"
-              theme={
-                typeof window !== "undefined" &&
-                document.documentElement.classList.contains("dark")
-                  ? "filled_blue"
-                  : "outline"
-              }
-              width="100%"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const appleResponse = await window.AppleID.auth.signIn();
-
-                const idToken = appleResponse?.authorization?.id_token;
-
-                if (!idToken) return;
-
-                const response = await loginWithApple(
-                  { token: idToken },
-                  null,
-                  t("loginSuccess"),
-                );
-
-                const token =
-                  response?.token ||
-                  response?.data?.token ||
-                  response?.data?.data?.token;
-
-                if (token) {
-                  handleSuccessAuth(token);
+                  } catch {}
+                }}
+                onError={() => console.error("Google authentication failed")}
+                shape="pill"
+                theme={
+                  typeof window !== "undefined" &&
+                  document.documentElement.classList.contains("dark")
+                    ? "filled_blue"
+                    : "outline"
                 }
-              } catch (error) {
-                console.error("Apple Login Error", error);
-              }
-            }}
-            className="mt-4 w-full rounded-2xl border py-3"
-          >
-            Continue with Apple
-          </button>
+                width="100%"
+              />
+            </div>
 
-          <div className="mt-10 text-center space-y-3">
+            {/* Apple Sign In - بنفس تصميم جوجل */}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const appleResponse = await window.AppleID.auth.signIn();
+                  const idToken = appleResponse?.authorization?.id_token;
+                  if (!idToken) return;
+                  const response = await loginWithApple(
+                    { token: idToken },
+                    null,
+                    t("loginSuccess"),
+                  );
+                  const token =
+                    response?.token ||
+                    response?.data?.token ||
+                    response?.data?.data?.token;
+                  if (token) handleSuccessAuth(token);
+                } catch (error) {
+                  console.error("Apple Login Error", error);
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-2 rounded-full border border-gray-300 dark:border-zinc-700 bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <svg
+                className="w-5 h-5 dark:fill-white"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M17.05 20.28c-.98.98-2.08 1.72-3.32 1.72-1.34 0-1.74-.74-3.32-.74-1.58 0-2.02.72-3.32.72-1.24 0-2.34-.74-3.32-1.72-1.84-1.84-3.26-5.18-3.26-8.32 0-3.32 1.9-5.18 4.24-5.18 1.28 0 2.42.86 3.32.86.9 0 2.22-.86 3.76-.86 2.06 0 3.72 1.18 4.74 3.02-3.48 2.06-3.08 5.76-.5 7.56zM12.4 8.24c.48-1.1.72-2.58-.26-3.86-1.1 1.34-2.58 2.22-4.08 2.06.24 1.36.96 2.64 2.22 2.64.96 0 1.74-.54 2.12-.84z" />
+              </svg>
+              <span className="text-sm font-medium text-gray-700 dark:text-white">
+                Sign in with Apple
+              </span>
+            </button>
+          </div>
+
+          <div className="mt-12 text-center space-y-3">
             <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
               {t("noAccount")}{" "}
               <Link
