@@ -17,7 +17,13 @@ import usePost from "@/app/hooks/usePost";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
-
+import Script from "next/script";
+import { useEffect } from "react";
+declare global {
+  interface Window {
+    AppleID: any;
+  }
+}
 export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -33,11 +39,29 @@ export default function SignIn() {
     email: "",
     password: "",
   });
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined" && (window as any).AppleID) {
+        (window as any).AppleID.auth.init({
+          clientId: "org.keeto.orderfood.web",
+          scope: "name email",
+          usePopup: true,
+          redirectURI: `${window.location.origin}/auth/apple/callback`,
+        });
 
+        clearInterval(interval);
+      }
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, []);
   // Hooks للمصادقة
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
     "/api/user/auth/google",
+  );
+  const { postData: loginWithApple, loading: isAppleLoading } = usePost(
+    "/api/user/auth/apple",
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +88,8 @@ export default function SignIn() {
     try {
       const response = await postData(formData, null, t("loginSuccess"));
       // تمرير الـ token من نموذج الـ Credentials التقليدي
-      const token = response?.token || response?.data?.token || response?.data?.data?.token;
+      const token =
+        response?.token || response?.data?.token || response?.data?.data?.token;
       if (token) {
         handleSuccessAuth(token);
       }
@@ -76,6 +101,10 @@ export default function SignIn() {
       <div className="relative flex items-center justify-center min-h-screen px-4 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-yellow-400/20 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <Script
+          src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"
+          strategy="afterInteractive"
+        />
 
         <motion.div
           initial={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -182,11 +211,15 @@ export default function SignIn() {
             </div>
 
             <motion.button
-              disabled={loading || isGoogleLoading}
-              className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading || isGoogleLoading ? "opacity-70 cursor-not-allowed" : "hover:bg-yellow-500"}`}
+              disabled={loading || isGoogleLoading || isAppleLoading}
+              className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
+                loading || isGoogleLoading || isAppleLoading
+                  ? "opacity-70 cursor-not-allowed"
+                  : "hover:bg-yellow-500"
+              }`}
             >
               <span className="flex items-center gap-2">
-                {loading || isGoogleLoading ? (
+                {loading || isGoogleLoading || isAppleLoading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
                   <>
@@ -245,6 +278,38 @@ export default function SignIn() {
               width="100%"
             />
           </div>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const appleResponse = await window.AppleID.auth.signIn();
+
+                const idToken = appleResponse?.authorization?.id_token;
+
+                if (!idToken) return;
+
+                const response = await loginWithApple(
+                  { token: idToken },
+                  null,
+                  t("loginSuccess"),
+                );
+
+                const token =
+                  response?.token ||
+                  response?.data?.token ||
+                  response?.data?.data?.token;
+
+                if (token) {
+                  handleSuccessAuth(token);
+                }
+              } catch (error) {
+                console.error("Apple Login Error", error);
+              }
+            }}
+            className="mt-4 w-full rounded-2xl border py-3"
+          >
+            Continue with Apple
+          </button>
 
           <div className="mt-10 text-center space-y-3">
             <p className="text-sm font-semibold text-gray-500 dark:text-zinc-400">
