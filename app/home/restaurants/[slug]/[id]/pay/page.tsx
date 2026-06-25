@@ -740,22 +740,24 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                 {locationErrorType === "ios" && (
                   <p>
                     {t("dir") === "rtl"
-                      ? "لتفعيلها على iPhone: اضغط على زر عـا (aA) أو علامة القفل 🔒 الموجودة في شريط الرابط بالأعلى، ثم اختر 'إعدادات الموقع' واجعل الوصول إلى الموقع 'سماح' (Allow)."
-                      : "On iPhone: Tap the (aA) or 🔒 icon in the URL bar at the top, select 'Website Settings', and change Location access to 'Allow'."}
+                      ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمات الموقع (Location Services) والسماح لـ Safari بالوصول إلى موقعك. إذا كنت تستخدم واتساب أو فيسبوك، افتح الصفحة في Safari ثم أعد المحاولة."
+                      : "Unable to access your current location. Please make sure Location Services are enabled and Safari has permission to access your location. If you opened this page from WhatsApp or Facebook, open it in Safari and try again."}
                   </p>
                 )}
+
                 {locationErrorType === "android" && (
                   <p>
                     {t("dir") === "rtl"
-                      ? "لتفعيلها على Android: اضغط على علامة القفل 🔒 بجانب رابط الموقع في شريط العناوين بالأعلى، ثم ادخل على 'إعدادات الموقع' وفّعل خيار 'سماح' للموقع."
-                      : "On Android: Tap the 🔒 icon next to the website URL in the address bar above, go to 'Site Settings', and enable Location access by setting it to 'Allow'."}
+                      ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمة الموقع (GPS) والسماح للمتصفح بالوصول إلى موقعك. إذا كنت تستخدم واتساب أو فيسبوك، افتح الصفحة في Chrome ثم أعد المحاولة."
+                      : "Unable to access your current location. Please make sure Location (GPS) is enabled and your browser has permission to access your location. If you opened this page from WhatsApp or Facebook, open it in Chrome and try again."}
                   </p>
                 )}
+
                 {locationErrorType === "generic" && (
                   <p>
                     {t("dir") === "rtl"
-                      ? "يرجى الضغط على قفل الأمان 🔒 بجانب رابط الموقع في شريط العناوين بالأعلى وتفعيل صلاحية الموقع لتتمكن من استخدام الـ GPS."
-                      : "Please tap the lock icon 🔒 next to the URL bar above and enable location permission to use GPS features."}
+                      ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمة الموقع والسماح للمتصفح بالوصول إلى موقعك، ثم أعد المحاولة."
+                      : "Unable to access your current location. Please make sure location services are enabled and your browser has permission to access your location, then try again."}
                   </p>
                 )}
               </div>
