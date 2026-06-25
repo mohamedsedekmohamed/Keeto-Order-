@@ -46,7 +46,7 @@ export default function SignIn() {
           clientId: "org.keeto.orderfood.web",
           scope: "name email",
           usePopup: true,
-          redirectURI: `${window.location.origin}/auth/apple/callback`,
+          redirectURI: `https://orderfood.keeto.org/auth/apple/callback`,
         });
 
         clearInterval(interval);
