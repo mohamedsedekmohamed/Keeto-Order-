@@ -20,7 +20,7 @@ type SocialLink = {
   createdAt: string;
   updatedAt: string;
 };
-// Add this component above your Home() function
+
 function SocialLinks({ restaurantId }: { restaurantId: string }) {
   const { data: socialResponse, loading } = useGet<{
     success: boolean;
@@ -63,6 +63,7 @@ function SocialLinks({ restaurantId }: { restaurantId: string }) {
     </motion.div>
   );
 }
+
 export default function Home() {
   const { t } = useLanguage();
   const params = useParams();
@@ -77,40 +78,47 @@ export default function Home() {
 
   const { restaurant, isLoading, isError } = useRestaurant();
 
-  /* ---------------- SOCIAL LINKS ---------------- */
- 
-
   /* ---------------- RATING LOGIC ---------------- */
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
-/* 
-  useEffect(() => {
-    if (typeof window !== "undefined" && restaurantName) {
-      localStorage.setItem(
-        `lastRestaurantPath-${restaurantName}`,
-        window.location.pathname,
-      );
-      localStorage.setItem("lastActiveRestaurantSlug", restaurantName);
-    }
-  }, [restaurantName]); */
+
+  // Only fetch history when user is logged in AND restaurant is loaded
+  // Response shape: { data: { data: [ { orderId, status, ... } ] } }
+  const { data: historyRes } = useGet<any>(
+    token && restaurant?.id
+      ? `/api/user/order/history?restaurantId=${restaurant.id}`
+      : null,
+  );
+
+  const historyOrders: any[] = historyRes?.data?.data || [];
+
+  // Find the most recent delivered order
+  const deliveredOrder = historyOrders.find(
+    (order) => order.status?.toLowerCase() === "delivered",
+  );
 
   useEffect(() => {
-    if (!token || !restaurant?.id) return;
+    // No token = not logged in, no modal
+    // No restaurant = page not ready
+    // No delivered order = nothing to rate
+    if (!token || !restaurant?.id || !deliveredOrder) return;
 
-    const sessionKey = `rating_modal_seen_${restaurant.id}`;
+    // Per-order session key using orderId from the API response
+    // So every new delivered order shows the modal exactly once per session
+    const sessionKey = `rating_modal_seen_order_${deliveredOrder.orderId}`;
     const hasSeen = sessionStorage.getItem(sessionKey);
     if (hasSeen) return;
 
     const timer = setTimeout(() => {
       setShowRating(true);
       sessionStorage.setItem(sessionKey, "true");
-    }, 2000);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [restaurant?.id, token]);
+  }, [restaurant?.id, token, deliveredOrder?.orderId]);
 
   const handleSubmitRating = async () => {
     if (rating === 0) return;
@@ -233,6 +241,7 @@ export default function Home() {
 
       {/* SOCIAL LINKS */}
       {restaurant?.id && <SocialLinks restaurantId={restaurant.id} />}
+
       {/* APP BUTTONS */}
       <div className="grid grid-cols-2 gap-4 mt-6 w-full max-w-md px-6 mb-10">
         <div className="flex items-center justify-center gap-2 py-4 text-white bg-black rounded-2xl shadow-lg cursor-pointer">

@@ -47,10 +47,19 @@ export default function Checkout() {
   const [orderType, setOrderType] = useState<
     "delivery" | "takeaway" | "dine_in"
   >("delivery");
+
   const [selectedAddress, setSelectedAddress] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedPayment, setSelectedPayment] = useState("");
   const [showAddressPopup, setShowAddressPopup] = useState(false);
+
+  // جلب جدول المطعم وحالة التوصيل والاستلام
+  const { data: scheduleRes, loading: isLoadingSchedule } = useGet<any>(
+    `/api/user/restaurants/resturant-schedules/${params.id}`,
+  );
+  const scheduleData = scheduleRes?.data?.data;
+  const canDeliveryNow: boolean = scheduleData?.canDeliveryNow ?? true;
+  const canTakeawayNow: boolean = scheduleData?.canTakeawayNow ?? true;
 
   // 1. جلب خيارات الدفع والعناوين والفروع
   const {
@@ -91,14 +100,28 @@ export default function Checkout() {
     return data?.addresses?.find((addr: any) => addr.id === selectedAddress);
   }, [data?.addresses, selectedAddress]);
 
+  // ✅ حساب الأنواع المتاحة أولاً — plain const بدون useMemo لأنها تعتمد على قيم بسيطة
+  const availableOrderTypes = useMemo(() => {
+    const types: ("delivery" | "takeaway" | "dine_in")[] = [];
+    if (canDeliveryNow) types.push("delivery");
+    if (canTakeawayNow) types.push("takeaway");
+    types.push("dine_in");
+    return types;
+  }, [canDeliveryNow, canTakeawayNow]);
+
+  // ✅ activeOrderType — مشتق مباشرة بدون useEffect أو setState
+  const activeOrderType: "delivery" | "takeaway" | "dine_in" =
+    availableOrderTypes.includes(orderType)
+      ? orderType
+      : availableOrderTypes[0];
+
   // ✅ حساب رسوم التوصيل من zones API مباشرة
   const deliveryFee = useMemo(() => {
-    if (orderType !== "delivery" || !currentAddress) return 0;
+    if (activeOrderType !== "delivery" || !currentAddress) return 0;
 
     const zoneId = currentAddress.zoneId;
     if (!zoneId) return Number(data?.deliveryFee) || 0;
 
-    // البحث في allZones القادمة من /api/user/address/zone
     const zone = allZones.find((z) => z.id === zoneId);
     if (!zone) return Number(data?.deliveryFee) || 0;
 
@@ -109,19 +132,19 @@ export default function Checkout() {
     if (feeEntry) return Number(feeEntry.deliveryFee) || 0;
 
     return Number(data?.deliveryFee) || 0;
-  }, [orderType, currentAddress, allZones, data, params.id]);
+  }, [activeOrderType, currentAddress, allZones, data, params.id]);
 
   // ✅ هل المطعم يوصل للزون المختار؟
   const canDeliverToSelectedZone = useMemo(() => {
-    if (orderType !== "delivery" || !currentAddress) return true;
+    if (activeOrderType !== "delivery" || !currentAddress) return true;
     const zoneId = currentAddress.zoneId;
     if (!zoneId) return true;
     const zone = allZones.find((z) => z.id === zoneId);
-    if (!zone) return true; // لا نعرف، نسمح بالمتابعة
+    if (!zone) return true;
     return !!zone.deliveryFees?.find(
       (f) => f.restaurantId === params.id && f.status === "active",
     );
-  }, [orderType, currentAddress, allZones, params.id]);
+  }, [activeOrderType, currentAddress, allZones, params.id]);
 
   const serviceFee = 5;
 
@@ -143,33 +166,35 @@ export default function Checkout() {
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
-    if (orderType === "delivery" && !selectedAddress)
+    if (activeOrderType === "delivery" && !selectedAddress)
       return toast.error(t("selectAddressError"));
-    if (orderType !== "delivery" && !selectedBranch)
+    if (activeOrderType !== "delivery" && !selectedBranch)
       return toast.error(t("selectBranchError"));
 
     // ✅ منع الطلب لو المطعم مش بيوصل للمنطقة
-    if (orderType === "delivery" && !canDeliverToSelectedZone) {
+    if (activeOrderType === "delivery" && !canDeliverToSelectedZone) {
       return toast.error(
         t("dir") === "rtl"
           ? "هذا المطعم لا يوصل لمنطقتك، يرجى اختيار عنوان آخر"
           : "This restaurant doesn't deliver to your area. Please choose a different address.",
       );
     }
+
     const getOrderSource = () => {
       if (typeof window !== "undefined") {
         return localStorage.getItem("login_source") || "food_aggregator";
       }
       return "food_aggregator";
     };
+
     const payload = {
       orderSource: getOrderSource(),
-      orderType,
+      orderType: activeOrderType,
       paymentMethod: selectedPayment,
       idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      addressId: orderType === "delivery" ? selectedAddress : null,
+      addressId: activeOrderType === "delivery" ? selectedAddress : null,
       branchId:
-        orderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
+        activeOrderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
       note: orderNote,
     };
 
@@ -182,7 +207,7 @@ export default function Checkout() {
     }
   };
 
-  if (isLoadingCheckout || isLoadingCart)
+  if (isLoadingCheckout || isLoadingCart || isLoadingSchedule)
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
@@ -215,25 +240,27 @@ export default function Checkout() {
             { id: "delivery", label: t("delivery"), icon: Truck },
             { id: "takeaway", label: t("takeaway"), icon: Store },
             { id: "dine_in", label: t("dineIn"), icon: CheckCircle2 },
-          ].map((type) => (
-            <button
-              key={type.id}
-              onClick={() => setOrderType(type.id as any)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                orderType === type.id
-                  ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
-                  : "border-gray-100 dark:border-zinc-800 text-gray-500"
-              }`}
-            >
-              <type.icon size={24} />
-              <span className="text-xs font-bold">{type.label}</span>
-            </button>
-          ))}
+          ]
+            .filter((type) => availableOrderTypes.includes(type.id as any))
+            .map((type) => (
+              <button
+                key={type.id}
+                onClick={() => setOrderType(type.id as any)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                  activeOrderType === type.id
+                    ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+                    : "border-gray-100 dark:border-zinc-800 text-gray-500"
+                }`}
+              >
+                <type.icon size={24} />
+                <span className="text-xs font-bold">{type.label}</span>
+              </button>
+            ))}
         </div>
       </section>
 
       {/* 2. Delivery Address */}
-      {orderType === "delivery" && (
+      {activeOrderType === "delivery" && (
         <section className="mb-8 animate-in slide-in-from-top-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="flex items-center gap-2 text-lg font-bold">
@@ -305,7 +332,7 @@ export default function Checkout() {
       )}
 
       {/* 3. Branch */}
-      {orderType !== "delivery" && (
+      {activeOrderType !== "delivery" && (
         <section className="mb-8 animate-in slide-in-from-top-2">
           <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
             <Store size={20} className="text-yellow-500" /> {t("selectBranch")}
@@ -400,7 +427,7 @@ export default function Checkout() {
           </div>
 
           {/* ✅ عرض رسوم التوصيل مع تحذير لو المطعم مش بيوصل */}
-          {orderType === "delivery" && (
+          {activeOrderType === "delivery" && (
             <div className="flex justify-between items-center">
               <span>{t("deliveryFee")}</span>
               {currentAddress && !canDeliverToSelectedZone ? (
@@ -482,10 +509,6 @@ export default function Checkout() {
 // AddAddressPopup Component
 // ─────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-// AddAddressPopup Component (المعدل بدعم الـ Alert Box الذكي)
-// ─────────────────────────────────────────────
-
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
@@ -526,7 +549,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   const [selectedCityId, setSelectedCityId] = useState("");
   const [isLocating, setIsLocating] = useState(false);
 
-  // 🚨 حالة جديدة لتحديد نوع الخطأ وإظهار الـ Alert Box المناسب (ios, android, or none)
   const [locationErrorType, setLocationErrorType] = useState<
     "ios" | "android" | "generic" | null
   >(null);
@@ -559,7 +581,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     }
 
     setIsLocating(true);
-    setLocationErrorType(null); // إعادة تعيين الخطأ عند المحاولة الجديدة
+    setLocationErrorType(null);
 
     const options = {
       enableHighAccuracy: true,
@@ -586,7 +608,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       console.error("Error getting location:", error);
 
       if (error.code === error.PERMISSION_DENIED) {
-        // فحص نظام التشغيل لتحديد التوجيه الثابت للـ Alert Box
         const userAgent =
           navigator.userAgent || navigator.vendor || (window as any).opera;
         const isiOS =
@@ -615,7 +636,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       }
     };
 
-    // فحص صلاحيات المتصفح قبل الطلب الفعلي
     if (navigator.permissions && navigator.permissions.query) {
       navigator.permissions
         .query({ name: "geolocation" })
@@ -744,7 +764,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                       : "Unable to access your current location. Please make sure Location Services are enabled and Safari has permission to access your location. If you opened this page from WhatsApp or Facebook, open it in Safari and try again."}
                   </p>
                 )}
-
                 {locationErrorType === "android" && (
                   <p>
                     {t("dir") === "rtl"
@@ -752,7 +771,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                       : "Unable to access your current location. Please make sure Location (GPS) is enabled and your browser has permission to access your location. If you opened this page from WhatsApp or Facebook, open it in Chrome and try again."}
                   </p>
                 )}
-
                 {locationErrorType === "generic" && (
                   <p>
                     {t("dir") === "rtl"

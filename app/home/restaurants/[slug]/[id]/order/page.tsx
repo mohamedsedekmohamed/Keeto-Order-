@@ -35,7 +35,12 @@ export default function Cart() {
   const [showConfirm, setShowConfirm] = useState(false);
   const basePath = `/home/restaurants/${restaurantName}`;
   const router = useRouter();
-
+  const restaurantId = params?.id as string;
+  const { data } = useGet<any>(
+    `/api/user/restaurants/resturant-schedules/${restaurantId}`,
+  );
+  const schedule = data?.data?.data;
+  const isOpen = schedule?.isOpenNow ?? false;
   const CART_EXPIRY_KEY = "cart-expiry";
 
   // 👈 2. تهيئة الـ Hooks للتعديل والحذف
@@ -316,9 +321,19 @@ export default function Cart() {
 
         <Link
           href={`${basePath}/pay`}
-          className="flex items-center justify-center w-full gap-2 py-4 text-lg font-bold text-gray-900 transition-all duration-300 bg-yellow-400 shadow-sm hover:bg-yellow-500 rounded-2xl shadow-yellow-400/10 active:scale-95"
+          onClick={(e) => {
+            if (!isOpen) {
+              e.preventDefault(); // يمنع التنقل
+              alert(t("Restaurant is currently closed"));
+            }
+          }}
+          className={`flex items-center justify-center gap-2 py-3 mt-6 text-base font-bold text-gray-900 rounded-xl transition-colors ${
+            isOpen
+              ? "bg-yellow-400 hover:bg-yellow-500"
+              : "bg-gray-300 cursor-not-allowed opacity-50 pointer-events-none"
+          }`}
         >
-          <span>{t("checkoutNow")}</span>
+          <span>{isOpen ? t("checkoutNow") : t("closed")}</span>
           <ArrowLeft
             size={20}
             className={t("dir") === "ltr" ? "rotate-180" : ""}
