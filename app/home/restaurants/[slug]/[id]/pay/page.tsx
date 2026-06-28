@@ -757,25 +757,56 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                     ? "صلاحية الموقع محجوبة"
                     : "Location Access Blocked"}
                 </p>
-                {locationErrorType === "ios" && (
+
+                {/* توضيح لمستخدمي فيسبوك */}
+                {navigator.userAgent.includes("FBAN") ||
+                navigator.userAgent.includes("FBAV") ? (
+                  <div className="space-y-3">
+                    <p>
+                      {t("dir") === "rtl"
+                        ? "متصفح فيسبوك لا يدعم تحديد الموقع. يرجى الضغط على القائمة ( "
+                        : "The Facebook browser does not support location access. Please tap the menu ( "}
+                      <span className="font-bold text-lg px-1">⋮</span>
+                      {t("dir") === "rtl"
+                        ? " ) بالأعلى واختر 'فتح في المتصفح' (Open in Browser)."
+                        : " ) at the top and select 'Open in Browser'."}
+                    </p>
+
+                    {/* زر نسخ الرابط */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        toast.success(
+                          t("dir") === "rtl"
+                            ? "تم نسخ الرابط!"
+                            : "Link copied!",
+                        );
+                      }}
+                      className="w-full py-2 bg-amber-200 dark:bg-amber-800 rounded-lg font-bold hover:bg-amber-300 transition-colors"
+                    >
+                      {t("dir") === "rtl" ? "نسخ الرابط" : "Copy Link"}
+                    </button>
+                  </div>
+                ) : (
+                  /* باقي منطق رسائل الخطأ العادية للـ iOS/Android */
                   <p>
-                    {t("dir") === "rtl"
-                      ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمات الموقع (Location Services) والسماح لـ Safari بالوصول إلى موقعك. إذا كنت تستخدم واتساب أو فيسبوك، افتح الصفحة في Safari ثم أعد المحاولة."
-                      : "Unable to access your current location. Please make sure Location Services are enabled and Safari has permission to access your location. If you opened this page from WhatsApp or Facebook, open it in Safari and try again."}
-                  </p>
-                )}
-                {locationErrorType === "android" && (
-                  <p>
-                    {t("dir") === "rtl"
-                      ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمة الموقع (GPS) والسماح للمتصفح بالوصول إلى موقعك. إذا كنت تستخدم واتساب أو فيسبوك، افتح الصفحة في Chrome ثم أعد المحاولة."
-                      : "Unable to access your current location. Please make sure Location (GPS) is enabled and your browser has permission to access your location. If you opened this page from WhatsApp or Facebook, open it in Chrome and try again."}
-                  </p>
-                )}
-                {locationErrorType === "generic" && (
-                  <p>
-                    {t("dir") === "rtl"
-                      ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمة الموقع والسماح للمتصفح بالوصول إلى موقعك، ثم أعد المحاولة."
-                      : "Unable to access your current location. Please make sure location services are enabled and your browser has permission to access your location, then try again."}
+                    {locationErrorType === "ios" &&
+                      (t("dir") === "rtl"
+                        ? "يرجى تفعيل خدمات الموقع والسماح لـ Safari بالوصول إلى موقعك."
+                        : "Please enable Location Services and allow Safari to access your location.")}
+                    {locationErrorType === "android" &&
+                      (t("dir") === "rtl"
+                        ? "يرجى تفعيل خدمة الموقع (GPS) والسماح للمتصفح بالوصول إلى موقعك."
+                        : "Please enable GPS and allow your browser to access your location.")}
+
+                    {locationErrorType === "generic" && (
+                      <p>
+                        {t("dir") === "rtl"
+                          ? "تعذر الوصول إلى موقعك الحالي. يرجى التأكد من تفعيل خدمة الموقع والسماح للمتصفح بالوصول إلى موقعك، ثم أعد المحاولة."
+                          : "Unable to access your current location. Please make sure location services are enabled and your browser has permission to access your location, then try again."}
+                      </p>
+                    )}
                   </p>
                 )}
               </div>
