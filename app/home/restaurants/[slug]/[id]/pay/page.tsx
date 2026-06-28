@@ -572,6 +572,15 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
 
   const handleGetCurrentLocation = () => {
+    const isFacebookBrowser =
+      navigator.userAgent.includes("FBAN") ||
+      navigator.userAgent.includes("FBAV");
+    // 1. فحص استباقي لمتصفح فيسبوك
+    if (isFacebookBrowser) {
+      setLocationErrorType("ios"); // تعيينه لإظهار رسالة الفيسبوك الخاصة بك
+      return; // إيقاف التنفيذ ومنع محاولة طلب الموقع
+    }
+
     if (!navigator.geolocation) {
       return toast.error(
         t("dir") === "rtl"
