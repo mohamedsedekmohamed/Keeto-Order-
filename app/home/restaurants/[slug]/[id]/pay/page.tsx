@@ -773,29 +773,29 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                   <div className="space-y-3">
                     <p>
                       {t("dir") === "rtl"
-                        ? "متصفح فيسبوك لا يدعم تحديد الموقع. يرجى الضغط على القائمة ( "
-                        : "The Facebook browser does not support location access. Please tap the menu ( "}
-                      <span className="font-bold text-lg px-1">⋮</span>
-                      {t("dir") === "rtl"
-                        ? " ) بالأعلى واختر 'فتح في المتصفح' (Open in Browser)."
-                        : " ) at the top and select 'Open in Browser'."}
+                        ? "متصفح فيسبوك قد لا يدعم تحديد الموقع بشكل صحيح."
+                        : "The Facebook browser may not fully support location access."}
                     </p>
 
-                    {/* زر نسخ الرابط */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.href);
-                        toast.success(
-                          t("dir") === "rtl"
-                            ? "تم نسخ الرابط!"
-                            : "Link copied!",
-                        );
-                      }}
-                      className="w-full py-2 bg-amber-200 dark:bg-amber-800 rounded-lg font-bold hover:bg-amber-300 transition-colors"
-                    >
-                      {t("dir") === "rtl" ? "نسخ الرابط" : "Copy Link"}
-                    </button>
+                    <ol className="list-decimal ps-5 space-y-1">
+                      <li>
+                        {t("dir") === "rtl"
+                          ? "اضغط على القائمة (⋮) بالأعلى."
+                          : "Tap the menu (⋮) at the top."}
+                      </li>
+
+                      <li>
+                        {t("dir") === "rtl"
+                          ? "اختر «فتح في المتصفح» (Open in Browser)."
+                          : "Select 'Open in Browser'."}
+                      </li>
+
+                      <li>
+                        {t("dir") === "rtl"
+                          ? "إذا طُلب منك، فعِّل «مشاركة الموقع» (Share Location) أو اسمح بالوصول إلى الموقع من إعدادات جهازك."
+                          : "If prompted, enable 'Share Location' or allow location access from your device settings."}
+                      </li>
+                    </ol>
                   </div>
                 ) : (
                   /* باقي منطق رسائل الخطأ العادية للـ iOS/Android */
