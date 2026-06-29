@@ -11,6 +11,8 @@ import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
+import { useToken } from "@/context/TokenContext";
+
 import api from "@/api/api";
 import LogoNav from "@/components/LogoNav";
 import NewKeetaLogo from "@/public/PicWhite.jpeg";
@@ -18,15 +20,14 @@ export default function Restaurant() {
   const params = useParams();
   const { t } = useLanguage();
   const dispatch = useAppDispatch();
-
+  const restaurantName = params.slug as string;
+  const basePath = `/home/restaurants/${restaurantName}`;
+  const { getToken, isReady } = useToken();
+  const token = getToken(restaurantName);
   const cartItems = useAppSelector((state) => state.cart.items);
 
   // Local state to track dynamic cart animation burst
   const [isAnimate, setIsAnimate] = useState(false);
-
-  // ✅ جلب الكارت فقط لو فيه token
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const fetchCart = async () => {
     try {
@@ -40,9 +41,11 @@ export default function Restaurant() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
+    const token = getToken(restaurantName);
     if (!token) return;
     fetchCart();
-  }, []);
+  }, [isReady]);
 
   // ✅ حساب عدد العناصر
   const totalItems = Array.isArray(cartItems)
@@ -64,10 +67,8 @@ export default function Restaurant() {
   const { menu, isLoading: menuLoading } = useMenu();
 
   //const restaurantId = (params?.id as string) || restaurant?.id;
-  const restaurantName = params.slug as string;
-  const basePath = `/home/restaurants/${restaurantName}`;
 
-  if (restaurantLoading || menuLoading) {
+  if (restaurantLoading || menuLoading || !isReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-yellow-500 bg-white dark:bg-black">
         {t("loading")}
