@@ -86,7 +86,7 @@ export interface MenuItem {
   variations: Variation[];
   // Embedded refs from the API response
   category?: FoodCategoryRef | null;
-  subcategory?: FoodSubCategoryRef | null;  // null when food has no sub-category
+  subcategory?: FoodSubCategoryRef | null; // null when food has no sub-category
   addon?: any | null;
 }
 
@@ -98,7 +98,7 @@ export interface MenuCategory {
   name: string;
   nameAr: string;
   nameFr?: string;
-  foods: MenuItem[];          // flat list — group by food.subcategory client-side
+  foods: MenuItem[]; // flat list — group by food.subcategory client-side
 }
 
 export type Menu = MenuCategory[];
@@ -127,6 +127,8 @@ export const useMenu = () => useContext(MenuContext);
 // ==========================================
 // 4. الـ Provider الموحد
 // ==========================================
+import { useEffect } from "react";
+
 export default function RestaurantAndMenuProvider({
   children,
 }: {
@@ -141,6 +143,12 @@ export default function RestaurantAndMenuProvider({
 
   const restaurant: Restaurant | null = data?.data?.data?.restaurant || null;
   const menu: Menu | null = data?.data?.data?.menu || null;
+
+  useEffect(() => {
+    if (restaurant?.id && typeof window !== "undefined") {
+      sessionStorage.setItem("restaurantId", restaurant.id);
+    }
+  }, [restaurant?.id]);
 
   return (
     <RestaurantContext.Provider
