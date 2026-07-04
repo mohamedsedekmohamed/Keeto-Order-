@@ -81,6 +81,11 @@ export interface MenuItem {
   descriptionAr: string;
   descriptionFr?: string;
   price: string;
+  // ── Discount fields (as returned by the API on each food) ──
+  discountType?: "percentage" | "fixed" | string | null;
+  discountValue?: number | string | null;
+  discountPrice?: number | string | null;
+  discountNote?: string | null;
   image: string;
   isFavorite?: boolean;
   variations: Variation[];

@@ -454,9 +454,36 @@ export default function RestaurantItms({
     );
   };
 
+  // ── Discount helpers ────────────────────────────────────────────
+  // The backend already decides if/how much a food is discounted.
+  // We just check whether it sent a discountValue — no price math here.
+  const hasDiscount = (item: any) => {
+    return (
+      !!item &&
+      item.discountValue !== null &&
+      item.discountValue !== undefined &&
+      item.discountValue !== ""
+    );
+  };
+
+  // The price to actually charge/display — straight from the backend
+  const getEffectivePrice = (item: any) => {
+    return parseFloat(
+      hasDiscount(item) ? item.discountPrice : (item?.price ?? "0"),
+    );
+  };
+
+  // Badge label straight from the backend's discountValue/discountType
+  const getDiscountBadge = (item: any) => {
+    if (!hasDiscount(item)) return null;
+    return item.discountType === "percentage"
+      ? `-${item.discountValue}%`
+      : `-${item.discountValue} E£`;
+  };
+
   const calculateTotalPrice = () => {
     if (!selectedItem) return 0;
-    let total = parseFloat(selectedItem.price || "0");
+    let total = getEffectivePrice(selectedItem);
 
     Object.entries(selectedOptions).forEach(([vId, optIds]) => {
       const v = selectedItem.variations?.find((x: any) => x.id === vId);
@@ -636,7 +663,25 @@ export default function RestaurantItms({
             </button>
           </div>
           <div className="flex items-center justify-between mt-3">
-            <span className="font-bold text-yellow-500">{item.price} E£</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {hasDiscount(item) ? (
+                <>
+                  <span className="font-bold text-yellow-500">
+                    {item.discountPrice} E£
+                  </span>
+                  <span className="text-xs text-gray-400 line-through dark:text-zinc-500">
+                    {item.price} E£
+                  </span>
+                  <span className="px-1.5 py-0.5 text-[10px] font-black text-white bg-red-500 rounded-md">
+                    {getDiscountBadge(item)}
+                  </span>
+                </>
+              ) : (
+                <span className="font-bold text-yellow-500">
+                  {item.price} E£
+                </span>
+              )}
+            </div>
             <div
               onClick={(e) => {
                 e.stopPropagation();
@@ -892,12 +937,35 @@ export default function RestaurantItms({
                       {isRtl ? selectedItem.nameAr : selectedItem.name}
                     </h2>
                     <div className="text-left shrink-0 bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-2xl border border-zinc-100 dark:border-zinc-800/40">
-                      <span className="text-2xl font-black text-yellow-500">
-                        {selectedItem.price}
-                      </span>
-                      <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 mr-1">
-                        E£
-                      </span>
+                      {hasDiscount(selectedItem) ? (
+                        <div className="flex flex-col items-end">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-black text-yellow-500">
+                              {selectedItem.discountPrice}
+                            </span>
+                            <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500">
+                              E£
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-zinc-400 line-through dark:text-zinc-500">
+                              {selectedItem.price} E£
+                            </span>
+                            <span className="px-1.5 py-0.5 text-[10px] font-black text-white bg-red-500 rounded-md">
+                              {getDiscountBadge(selectedItem)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-black text-yellow-500">
+                            {selectedItem.price}
+                          </span>
+                          <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 mr-1">
+                            E£
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   {selectedItem.description && (
