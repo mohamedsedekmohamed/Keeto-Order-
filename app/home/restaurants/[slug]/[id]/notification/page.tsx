@@ -77,14 +77,15 @@ export default function OrdersPage() {
     historyData?.data?.data ||
     historyData?.data ||
     []
-  ).filter((order: any) => {
-    if (order.restaurantId && restaurantId) {
-      return String(order.restaurantId) === String(restaurantId);
-    }
-    return (
-      normalizeText(order?.restaurantName) === normalizeText(restaurantName)
-    );
-  });
+  )
+  // .filter((order: any) => {
+  //   if (order.restaurantId && restaurantId) {
+  //     return String(order.restaurantId) === String(restaurantId);
+  //   }
+  //   return (
+  //     normalizeText(order?.restaurantName) === normalizeText(restaurantName)
+  //   );
+  // });
 
   const currentOrders = activeTab === "active" ? activeOrders : historyOrders;
   const isLoadingList = activeTab === "active" ? loadingActive : loadingHistory;

@@ -218,8 +218,8 @@ const AddressPage = () => {
       street: address.street,
       number: address.number,
       floor: address.floor,
-      lat: address.lat || null,
-      lng: address.lng || null,
+      lat: address.lat !== null ? Number(address.lat) : null,
+      lng: address.lng !== null ? Number(address.lng) : null,
     });
 
     if (associatedZone) {
@@ -248,6 +248,11 @@ const AddressPage = () => {
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white";
   const isLoading = posting || putting;
+
+  const hasLocation =
+    form.lat !== null && form.lng !== null && !Number.isNaN(Number(form.lat)) && !Number.isNaN(Number(form.lng));
+  const latDisplay = hasLocation ? Number(form.lat).toFixed(4) : "";
+  const lngDisplay = hasLocation ? Number(form.lng).toFixed(4) : "";
 
   useEffect(() => {
     if (!isReady) return;
@@ -325,13 +330,13 @@ const AddressPage = () => {
             </button>
 
             {/* فيدباك بصري لليوزر إن الإحداثيات لُقطت بنجاح */}
-            {form.lat && form.lng && (
+            {hasLocation && (
               <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
                 <CheckCircle2 size={16} className="shrink-0" />
                 <span>
                   {isArabic
-                    ? `تم التقاط الموقع: (${form.lat.toFixed(4)}, ${form.lng.toFixed(4)})`
-                    : `Location captured: (${form.lat.toFixed(4)}, ${form.lng.toFixed(4)})`}
+                    ? `تم التقاط الموقع: (${latDisplay}, ${lngDisplay})`
+                    : `Location captured: (${latDisplay}, ${lngDisplay})`}
                 </span>
               </div>
             )}
