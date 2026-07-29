@@ -250,7 +250,10 @@ const AddressPage = () => {
   const isLoading = posting || putting;
 
   const hasLocation =
-    form.lat !== null && form.lng !== null && !Number.isNaN(Number(form.lat)) && !Number.isNaN(Number(form.lng));
+    form.lat !== null &&
+    form.lng !== null &&
+    !Number.isNaN(Number(form.lat)) &&
+    !Number.isNaN(Number(form.lng));
   const latDisplay = hasLocation ? Number(form.lat).toFixed(4) : "";
   const lngDisplay = hasLocation ? Number(form.lng).toFixed(4) : "";
 
