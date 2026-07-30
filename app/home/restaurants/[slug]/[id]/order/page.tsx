@@ -25,6 +25,7 @@ import { useLanguage } from "../../../../../../context/LanguageContext";
 import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 
 export default function Cart() {
   const items = useAppSelector((state) => state.cart.items);
@@ -55,6 +56,10 @@ export default function Cart() {
     loading: fetchingCart,
     refetch,
   } = useGet<any>("/api/user/cart");
+
+  useEffect(() => {
+    refetch();
+  }, []);
 
   // فحص الصلاحية فوراً عند الدخول لمنع وميض البيانات المنتهية
   useEffect(() => {
@@ -135,6 +140,8 @@ export default function Cart() {
       await putData({ quantity: newQuantity }, `/api/user/cart/${cartId}`);
       toast.success(t("quantityUpdated"));
       dispatch(updateQuantityLocal({ cartId, quantity: newQuantity }));
+
+      await refetch();
     } catch (error) {
       toast.error(t("failedUpdateQuantity"));
     }
@@ -228,10 +235,13 @@ export default function Cart() {
               <div className="flex items-center gap-4">
                 <div className="relative flex-shrink-0 w-20 h-20 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
                   {item.image ? (
-                    <img
-                      src={item.image || "/placeholder.jpg"}
-                      alt={item.name || "image"}
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      sizes="96px"
                       className="object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="flex items-center justify-center w-full h-full text-2xl font-bold text-yellow-600 bg-yellow-50">

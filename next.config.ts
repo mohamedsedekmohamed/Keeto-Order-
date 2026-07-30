@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        protocol: "https",
+        hostname: "restbcknd.keeto.org.keeto.org",
+        pathname: "/uploads/**",
+      },
+      {
         protocol: "http",
         hostname: "keetobcknd.keeto.org",
         pathname: "/uploads/**",
