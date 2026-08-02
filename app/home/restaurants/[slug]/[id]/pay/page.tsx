@@ -62,11 +62,18 @@ export default function Checkout() {
   const canTakeawayNow: boolean = scheduleData?.canTakeawayNow ?? true;
 
   // 1. جلب خيارات الدفع والعناوين والفروع
+  
+      const getOrderSource = () => {
+        if (typeof window !== "undefined") {
+          return localStorage.getItem("login_source") || "food_aggregator";
+        }
+        return "food_aggregator";
+      };
   const {
     data: checkoutData,
     loading: isLoadingCheckout,
     refetch,
-  } = useGet<any>(`/api/user/order/select?restaurantId=${params.id}`);
+  } = useGet<any>(`/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`);
 
   // 2. جلب بيانات السلة
   const { data: cartRes, loading: isLoadingCart } =
@@ -146,7 +153,7 @@ export default function Checkout() {
     );
   }, [activeOrderType, currentAddress, allZones, params.id]);
 
-  const serviceFee = 5;
+  const serviceFee = checkoutData?.data?.data?.serviceFee;
 
   const total = useMemo(() => {
     return subtotal + deliveryFee + serviceFee;
@@ -179,13 +186,6 @@ export default function Checkout() {
           : "This restaurant doesn't deliver to your area. Please choose a different address.",
       );
     }
-
-    const getOrderSource = () => {
-      if (typeof window !== "undefined") {
-        return localStorage.getItem("login_source") || "food_aggregator";
-      }
-      return "food_aggregator";
-    };
 
     const payload = {
       orderSource: getOrderSource(),
