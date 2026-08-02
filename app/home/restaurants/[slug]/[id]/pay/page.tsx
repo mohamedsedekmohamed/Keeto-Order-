@@ -153,7 +153,7 @@ export default function Checkout() {
     );
   }, [activeOrderType, currentAddress, allZones, params.id]);
 
-  const serviceFee = checkoutData?.data?.data?.serviceFee;
+  const serviceFee = Number(checkoutData?.data?.data?.serviceFee) || 0;
 
   const total = useMemo(() => {
     return subtotal + deliveryFee + serviceFee;
