@@ -8,7 +8,7 @@ import {
   Heart,
   LayoutGrid,
   AlertTriangle,
-  FileText, // تم إضافة الأيقونة هنا لشكل أفضل
+  FileText,
 } from "lucide-react";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
@@ -25,7 +25,7 @@ import {
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
-import { useToken } from "@/context/TokenContext"; // 👈 التعديل 1: استيراد الـ useToken
+import { useToken } from "@/context/TokenContext";
 
 interface AddonItem {
   id: string;
@@ -77,7 +77,6 @@ export default function RestaurantItms({
   const restaurantSlug = params?.slug as string;
 
   // ── Auth ──────────────────────────────────────────────────────────
-  // 👈 التعديل 2: حذف الـ local state والـ useEffect القديم وجلب التوكن ديناميكياً بناءً على الـ slug
   const { getToken } = useToken();
   const token = getToken(restaurantSlug);
 
@@ -125,7 +124,6 @@ export default function RestaurantItms({
   const isManualClick = useRef(false);
   const manualClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // لحفظ القسم والـ sub الحالي الفعلي لمنع التكرار العشوائي
   const currentActiveSectionRef = useRef<string>("");
   const lastActiveIdRef = useRef<string>("");
 
@@ -140,7 +138,7 @@ export default function RestaurantItms({
     Record<string, string[]>
   >({});
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [note, setNote] = useState(""); // 💡 الـ State الجديدة للملاحظات
+  const [note, setNote] = useState("");
 
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [pendingCartPayload, setPendingCartPayload] = useState<any | null>(
@@ -280,7 +278,6 @@ export default function RestaurantItms({
     }
   };
 
-  // ── ✅ تعديل الـ Scroll-spy لإصلاح مشكلة الارتداد في الفيديو ──────────────────────────
   useEffect(() => {
     if (
       searchQuery ||
@@ -403,7 +400,7 @@ export default function RestaurantItms({
     setSelectedItem(item);
     setQuantity(1);
     setSelectedAddons([]);
-    setNote(""); // 💡 تصفير الملاحظة عند فتح أي وجبة جديدة
+    setNote("");
     const init: Record<string, string[]> = {};
     (item.variations || []).forEach((v) => {
       init[v.id] =
@@ -455,8 +452,6 @@ export default function RestaurantItms({
   };
 
   // ── Discount helpers ────────────────────────────────────────────
-  // The backend already decides if/how much a food is discounted.
-  // We just check whether it sent a discountValue — no price math here.
   const hasDiscount = (item: any) => {
     return (
       !!item &&
@@ -466,14 +461,12 @@ export default function RestaurantItms({
     );
   };
 
-  // The price to actually charge/display — straight from the backend
   const getEffectivePrice = (item: any) => {
     return parseFloat(
       hasDiscount(item) ? item.discountPrice : (item?.price ?? "0"),
     );
   };
 
-  // Badge label straight from the backend's discountValue/discountType
   const getDiscountBadge = (item: any) => {
     if (!hasDiscount(item)) return null;
     return item.discountType === "percentage"
@@ -563,7 +556,7 @@ export default function RestaurantItms({
       quantity,
       variations,
       addons: selectedAddons,
-      note, // 💡 تم ربط الـ state هنا ليُرسل النص المدخل فعلياً
+      note,
     };
 
     try {
@@ -642,10 +635,18 @@ export default function RestaurantItms({
             className="object-cover w-full h-full transition-transform group-hover:scale-110"
           />
         </div>
-        <div className="flex flex-col justify-between flex-1 h-full mr-4">
+        <div
+          className={`flex flex-col justify-between flex-1 h-full ${
+            isRtl ? "mr-4" : "ml-4"
+          }`}
+        >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h3 className="ml-6 font-bold text-gray-900 dark:text-zinc-100 line-clamp-1">
+              <h3
+                className={`font-bold text-gray-900 dark:text-zinc-100 line-clamp-1 ${
+                  isRtl ? "ml-6" : "mr-6"
+                }`}
+              >
                 {isRtl ? item.nameAr : item.name}
               </h3>
               <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
@@ -654,11 +655,17 @@ export default function RestaurantItms({
             </div>
             <button
               onClick={(e) => handleToggleFavorite(e, item.id)}
-              className="absolute top-3 left-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10"
+              className={`absolute top-3 p-1.5 transition-colors bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full z-10 ${
+                isRtl ? "left-3" : "right-3"
+              }`}
             >
               <Heart
                 size={18}
-                className={`transition-colors ${isFav ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-zinc-500"}`}
+                className={`transition-colors ${
+                  isFav
+                    ? "fill-red-500 text-red-500"
+                    : "text-gray-400 dark:text-zinc-500"
+                }`}
               />
             </button>
           </div>
@@ -731,15 +738,24 @@ export default function RestaurantItms({
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      <div className="px-4 py-6 mx-3 text-right" dir="rtl">
+      <div
+        className={`px-4 py-6 mx-3 ${isRtl ? "text-right" : "text-left"}`}
+        dir={isRtl ? "rtl" : "ltr"}
+      >
         {/* ── Search Bar ── */}
         <div className="relative mb-6">
-          <div className="absolute inset-y-0 flex items-center pointer-events-none right-3">
+          <div
+            className={`absolute inset-y-0 flex items-center pointer-events-none ${
+              isRtl ? "right-3" : "left-3"
+            }`}
+          >
             <Search className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
           </div>
           <input
             type="text"
-            className="block w-full py-3 pl-4 pr-10 text-gray-900 transition-all bg-white border border-gray-200 outline-none dark:border-zinc-800 rounded-xl dark:bg-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-yellow-400"
+            className={`block w-full py-3 ${
+              isRtl ? "pl-4 pr-10" : "pr-4 pl-10"
+            } text-gray-900 transition-all bg-white border border-gray-200 outline-none dark:border-zinc-800 rounded-xl dark:bg-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-yellow-400`}
             placeholder={t("Search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -800,7 +816,7 @@ export default function RestaurantItms({
             <>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-zinc-100">
-                  نتائج البحث
+                  {isRtl ? "نتائج البحث" : "Search Results"}
                 </h2>
                 <span className="text-sm text-gray-400 dark:text-zinc-500">
                   ({searchResults.length}) {t("Item")}
@@ -961,7 +977,11 @@ export default function RestaurantItms({
                           <span className="text-2xl font-black text-yellow-500">
                             {selectedItem.price}
                           </span>
-                          <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 mr-1">
+                          <span
+                            className={`text-xs font-bold text-zinc-400 dark:text-zinc-500 ${
+                              isRtl ? "mr-1" : "ml-1"
+                            }`}
+                          >
                             E£
                           </span>
                         </>
@@ -993,16 +1013,22 @@ export default function RestaurantItms({
                               </h4>
                               {variation.isRequired && (
                                 <span className="px-2 py-0.5 text-[10px] font-black text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-100/40 dark:border-red-900/30">
-                                  مطلوب
+                                  {isRtl ? "مطلوب" : "Required"}
                                 </span>
                               )}
                             </div>
                             <span className="text-xs font-bold px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200/10">
                               {variation.selectionType === "single"
-                                ? "اختر واحد"
+                                ? isRtl
+                                  ? "اختر واحد"
+                                  : "Select One"
                                 : variation.max
-                                  ? `حد أقصى ${variation.max}`
-                                  : "اختياري"}
+                                  ? isRtl
+                                    ? `حد أقصى ${variation.max}`
+                                    : `Max ${variation.max}`
+                                  : isRtl
+                                    ? "اختياري"
+                                    : "Optional"}
                             </span>
                           </div>
                           <div className="grid grid-cols-1 gap-2.5">
@@ -1037,14 +1063,22 @@ export default function RestaurantItms({
                                         className="w-5 h-5 accent-yellow-400 rounded-full border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
                                       />
                                       <span
-                                        className={`text-sm transition-all duration-200 ${isSelected ? "font-black text-zinc-950 dark:text-zinc-50" : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"}`}
+                                        className={`text-sm transition-all duration-200 ${
+                                          isSelected
+                                            ? "font-black text-zinc-950 dark:text-zinc-50"
+                                            : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
+                                        }`}
                                       >
                                         {isRtl ? option.nameAr : option.name}
                                       </span>
                                     </div>
                                     {parseFloat(option.additionalPrice) > 0 && (
                                       <span
-                                        className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"}`}
+                                        className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${
+                                          isSelected
+                                            ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105"
+                                            : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"
+                                        }`}
                                       >
                                         + {option.additionalPrice} E£
                                       </span>
@@ -1093,14 +1127,22 @@ export default function RestaurantItms({
                                   className="w-5 h-5 accent-yellow-400 rounded-lg border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
                                 />
                                 <span
-                                  className={`text-sm transition-all duration-200 ${isAddonSelected ? "font-black text-zinc-950 dark:text-zinc-50" : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"}`}
+                                  className={`text-sm transition-all duration-200 ${
+                                    isAddonSelected
+                                      ? "font-black text-zinc-950 dark:text-zinc-50"
+                                      : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
+                                  }`}
                                 >
                                   {isRtl ? addon.nameAr : addon.name}
                                 </span>
                               </div>
                               {parseFloat(addon.price) > 0 && (
                                 <span
-                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isAddonSelected ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105" : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"}`}
+                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${
+                                    isAddonSelected
+                                      ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105"
+                                      : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"
+                                  }`}
                                 >
                                   + {addon.price} E£
                                 </span>
@@ -1112,7 +1154,7 @@ export default function RestaurantItms({
                     </div>
                   )}
 
-                {/* ── 💡 ORDER NOTES SECTION (تمت الإضافة هنا) ── */}
+                {/* ── ORDER NOTES SECTION ── */}
                 <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
                   <div className="flex items-center gap-2 mb-3">
                     <FileText
@@ -1141,13 +1183,17 @@ export default function RestaurantItms({
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
-                      الإجمالي النهائي
+                      {isRtl ? "الإجمالي النهائي" : "Total Price"}
                     </span>
                     <div className="flex items-baseline gap-0.5">
                       <span className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight transition-all duration-300 transform">
                         {calculateTotalPrice().toFixed(2)}
                       </span>
-                      <span className="text-xs font-bold text-yellow-500 ml-1">
+                      <span
+                        className={`text-xs font-bold text-yellow-500 ${
+                          isRtl ? "mr-1" : "ml-1"
+                        }`}
+                      >
                         E£
                       </span>
                     </div>
