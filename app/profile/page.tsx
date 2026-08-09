@@ -34,6 +34,7 @@ interface UserProfile {
   name: string;
   email: string;
   phone: string;
+  alternatePhone: string;
   photo: string | null;
   location: UserLocation;
   isVerified: boolean;
@@ -80,6 +81,7 @@ export default function ProfilePage() {
     name: "",
     email: "",
     phone: "",
+    alternatePhone: "",
     address: "",
   });
 
@@ -90,6 +92,7 @@ export default function ProfilePage() {
         name: userData.name || "",
         email: userData.email || "",
         phone: userData.phone || "",
+        alternatePhone: userData.alternatePhone || "",
         address: userData.location?.address || "",
       });
     }
@@ -109,6 +112,7 @@ export default function ProfilePage() {
         {
           name: formData.name,
           phone: formData.phone,
+          alternatePhone: formData.alternatePhone,
         },
         null,
         t("updateSuccess") || "تم تحديث البيانات بنجاح!",
@@ -280,6 +284,27 @@ export default function ProfilePage() {
                         name="phone"
                         required
                         value={formData.phone}
+                        onChange={handleChange}
+                        className="w-full py-4 transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-2xl ps-11 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
+                      {t("alternatePhone")}
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
+                        <Phone
+                          size={18}
+                          className="text-gray-400 group-focus-within:text-yellow-500"
+                        />
+                      </div>
+                      <input
+                        type="tel"
+                        name="alternatePhone"
+                        value={formData.alternatePhone}
                         onChange={handleChange}
                         className="w-full py-4 transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-2xl ps-11 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
                       />

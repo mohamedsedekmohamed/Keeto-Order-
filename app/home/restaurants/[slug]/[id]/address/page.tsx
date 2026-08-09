@@ -17,6 +17,11 @@ type Zone = {
   name: string;
   nameAr: string;
   cityId: string;
+  city?: {
+    id: string;
+    name: string;
+    nameAr: string;
+  };
 };
 
 type Address = {
@@ -25,6 +30,7 @@ type Address = {
   street: string;
   number: string;
   floor: string;
+  landmark: string;
   type: "home" | "work" | "other";
   zoneId: string;
   lat: number | null;
@@ -79,11 +85,17 @@ const AddressPage = () => {
     street: "",
     number: "",
     floor: "",
+    landmark: "",
     lat: null as number | null,
     lng: null as number | null,
   });
 
-  // Extract unique cities from the zones response data dynamically
+  // Extract unique cities from the zones response data dynamically.
+  // Each zone from /api/user/address/zone already includes a nested
+  // `city` object ({ id, name, nameAr, ... }) - use that directly
+  // instead of guessing the name from a hardcoded cityId map, which
+  // only covered 3 cities and silently mislabeled every other city
+  // (Asyut, Faiyum, Damanhour, etc.) as "Suez".
   const cities = useMemo(() => {
     const uniqueCitiesMap = new Map<
       string,
@@ -91,26 +103,19 @@ const AddressPage = () => {
     >();
 
     zones.forEach((zone: any) => {
-      if (zone.cityId && !uniqueCitiesMap.has(zone.cityId)) {
-        uniqueCitiesMap.set(zone.cityId, {
-          id: zone.cityId,
-          name:
-            zone.cityId === "2cf2d384-9467-4d79-a269-d9527cdc66e2"
-              ? "Alexandria"
-              : zone.cityId === "ed19b748-8c20-4f65-bd89-769ab845dff6"
-                ? "Cairo"
-                : "Suez",
-          nameAr:
-            zone.cityId === "2cf2d384-9467-4d79-a269-d9527cdc66e2"
-              ? "الإسكندرية"
-              : zone.cityId === "ed19b748-8c20-4f65-bd89-769ab845dff6"
-                ? "القاهرة"
-                : "السويس",
-        });
-      }
+      const cityId = zone.city?.id ?? zone.cityId;
+      if (!cityId || uniqueCitiesMap.has(cityId)) return;
+
+      uniqueCitiesMap.set(cityId, {
+        id: cityId,
+        name: zone.city?.name ?? "Unknown",
+        nameAr: zone.city?.nameAr ?? "غير معروف",
+      });
     });
 
-    return Array.from(uniqueCitiesMap.values());
+    return Array.from(uniqueCitiesMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }, [zones]);
 
   // Filter zones matching the chosen city
@@ -201,6 +206,7 @@ const AddressPage = () => {
       street: "",
       number: "",
       floor: "",
+      landmark: "",
       lat: null,
       lng: null,
     });
@@ -218,6 +224,7 @@ const AddressPage = () => {
       street: address.street,
       number: address.number,
       floor: address.floor,
+      landmark: address.landmark || "",
       lat: address.lat !== null ? Number(address.lat) : null,
       lng: address.lng !== null ? Number(address.lng) : null,
     });
@@ -426,6 +433,13 @@ const AddressPage = () => {
                 className={inputClass}
                 required
               />
+              <input
+                name="landmark"
+                placeholder={t("landmark")}
+                value={form.landmark}
+                onChange={handleChange}
+                className={`col-span-2 ${inputClass}`}
+              />
             </div>
           </div>
 
@@ -503,6 +517,11 @@ const AddressPage = () => {
                     <p className="flex items-center gap-2">
                       <span className="text-zinc-400">📍</span> {a.street}
                     </p>
+                    {a.landmark && (
+                      <p className="flex items-center gap-2">
+                        <span className="text-zinc-400">🏷️</span> {a.landmark}
+                      </p>
+                    )}
                     <div className="flex gap-4">
                       <p className="flex items-center gap-1">
                         <span className="text-zinc-400">#</span> {t("number")}{" "}

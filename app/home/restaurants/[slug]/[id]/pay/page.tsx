@@ -27,6 +27,11 @@ type Zone = {
   name: string;
   nameAr?: string;
   cityId: string;
+  city?: {
+    id: string;
+    name: string;
+    nameAr: string;
+  };
   deliveryFees?: {
     restaurantId: string;
     deliveryFee: string;
@@ -62,18 +67,20 @@ export default function Checkout() {
   const canTakeawayNow: boolean = scheduleData?.canTakeawayNow ?? true;
 
   // 1. جلب خيارات الدفع والعناوين والفروع
-  
-      const getOrderSource = () => {
-        if (typeof window !== "undefined") {
-          return localStorage.getItem("login_source") || "food_aggregator";
-        }
-        return "food_aggregator";
-      };
+
+  const getOrderSource = () => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("login_source") || "food_aggregator";
+    }
+    return "food_aggregator";
+  };
   const {
     data: checkoutData,
     loading: isLoadingCheckout,
     refetch,
-  } = useGet<any>(`/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`);
+  } = useGet<any>(
+    `/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`,
+  );
 
   // 2. جلب بيانات السلة
   const { data: cartRes, loading: isLoadingCart } =
@@ -524,27 +531,35 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   );
   const allZones: Zone[] = zonesRes?.data?.data || [];
 
-  const uniqueCityIds = Array.from(
-    new Set(allZones.map((z) => z.cityId).filter(Boolean)),
-  );
+  // Each zone from /api/user/address/zone already includes a nested
+  // `city` object ({ id, name, nameAr }) - use that directly instead
+  // of guessing the name from a hardcoded cityId switch, which only
+  // covered 3 cities and silently hid every other city (Asyut,
+  // Faiyum, Damanhour, etc.) behind "Other City".
+  const citiesList = useMemo(() => {
+    const uniqueCitiesMap = new Map<
+      string,
+      { id: string; name: string; nameAr: string }
+    >();
 
-  const getCityDetails = (cityId: string) => {
-    switch (cityId) {
-      case "2cf2d384-9467-4d79-a269-d9527cdc66e2":
-        return { en: "Alexandria", ar: "الإسكندرية" };
-      case "ed19b748-8c20-4f65-bd89-769ab845dff6":
-        return { en: "Cairo", ar: "القاهرة" };
-      case "b7b476d1-d376-4515-b4be-1d5839e1be60":
-        return { en: "Suez", ar: "السويس" };
-      default:
-        return { en: "Other City", ar: "مدينة أخرى" };
-    }
-  };
+    allZones.forEach((zone: any) => {
+      const cityId = zone.city?.id ?? zone.cityId;
+      if (!cityId || uniqueCitiesMap.has(cityId)) return;
 
-  const citiesList = uniqueCityIds.map((id) => ({
-    id,
-    name: t("dir") === "rtl" ? getCityDetails(id).ar : getCityDetails(id).en,
-  }));
+      uniqueCitiesMap.set(cityId, {
+        id: cityId,
+        name: zone.city?.name ?? "Unknown",
+        nameAr: zone.city?.nameAr ?? "غير معروف",
+      });
+    });
+
+    return Array.from(uniqueCitiesMap.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((city) => ({
+        id: city.id,
+        name: t("dir") === "rtl" ? city.nameAr : city.name,
+      }));
+  }, [allZones, t]);
 
   const [selectedCityId, setSelectedCityId] = useState("");
   const [isLocating, setIsLocating] = useState(false);
@@ -560,6 +575,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     street: "",
     number: "",
     floor: "",
+    landmark: "",
     lat: null as number | null,
     lng: null as number | null,
   });
@@ -924,6 +940,14 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
               required
             />
           </div>
+
+          <input
+            name="landmark"
+            placeholder={t("landmark")}
+            value={addressForm.landmark}
+            onChange={handleInputChange}
+            className={inputClass}
+          />
 
           <div className="flex gap-3 pt-2">
             <button
