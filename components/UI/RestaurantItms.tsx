@@ -551,11 +551,19 @@ export default function RestaurantItms({
         optIds.map((oId) => ({ variationId: vId, optionId: oId })),
     );
 
+    const addons = (selectedItem.addons || [])
+      .filter((addon: AddonItem) => selectedAddons.includes(addon.id))
+      .map((addon: AddonItem) => ({
+        addonId: addon.id,
+        name: addon.name,
+        price: addon.price,
+      }));
+
     const payload = {
       foodId: selectedItem.id,
       quantity,
       variations,
-      addons: selectedAddons,
+      addons,
       note,
     };
 
