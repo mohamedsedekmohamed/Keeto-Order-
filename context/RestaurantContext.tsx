@@ -28,6 +28,8 @@ export interface Restaurant {
   isFavorite?: boolean;
   lat?: string | null;
   lng?: string | null;
+  iosApp?: string | null;
+  androidApp?: string | null;
 }
 
 export interface VariationOption {
