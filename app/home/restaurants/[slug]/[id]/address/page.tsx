@@ -35,6 +35,7 @@ type Address = {
   zoneId: string;
   lat: number | null;
   lng: number | null;
+  location?: string;
 };
 
 const AddressPage = () => {
@@ -254,6 +255,7 @@ const AddressPage = () => {
       landmark: address.landmark || "",
       lat: address.lat !== null ? Number(address.lat) : null,
       lng: address.lng !== null ? Number(address.lng) : null,
+      location: address.location || "",
     });
 
     if (associatedZone) {
