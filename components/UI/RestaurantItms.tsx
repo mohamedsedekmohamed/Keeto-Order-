@@ -261,25 +261,32 @@ export default function RestaurantItms({
     const subTab = document.getElementById(targetId);
     if (subTab && subCategoryMenuRef.current) {
       const container = subCategoryMenuRef.current;
-      const tabWidth = subTab.offsetWidth;
-      const tabOffsetLeft = subTab.offsetLeft;
-      const containerWidth = container.offsetWidth;
 
-      if (isRtl) {
-        const targetScrollRight =
-          container.scrollWidth - tabOffsetLeft - tabWidth;
-        const centerPos = targetScrollRight - containerWidth / 2 + tabWidth / 2;
-        container.scrollTo({
-          left: -(container.scrollWidth - containerWidth - centerPos),
-          behavior: "smooth",
-        });
-      } else {
-        const centerPos = tabOffsetLeft - containerWidth / 2 + tabWidth / 2;
-        container.scrollTo({
-          left: centerPos,
-          behavior: "smooth",
-        });
-      }
+      // Use getBoundingClientRect() instead of offsetLeft/offsetParent.
+      // offsetLeft is measured against the nearest POSITIONED ancestor —
+      // here that's the sticky header wrapper (position: sticky counts
+      // as positioned), NOT the scroll container itself. That mismatch
+      // made the centering math wrong (especially once the responsive
+      // layout changed widths), so the bar could refuse to scroll right.
+      // getBoundingClientRect gives real viewport coordinates, so this
+      // works correctly regardless of what sits in between, and also
+      // works for RTL without special-casing (modern browsers all use
+      // spec-compliant negative scrollLeft in RTL, and since we derive
+      // the absolute offset from the CURRENT scrollLeft, the formula
+      // stays self-consistent in either direction).
+      const tabRect = subTab.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const containerWidth = container.offsetWidth;
+      const tabWidth = subTab.offsetWidth;
+
+      const tabOffsetLeft =
+        tabRect.left - containerRect.left + container.scrollLeft;
+      const centerPos = tabOffsetLeft - containerWidth / 2 + tabWidth / 2;
+
+      container.scrollTo({
+        left: centerPos,
+        behavior: "smooth",
+      });
     }
   };
 
