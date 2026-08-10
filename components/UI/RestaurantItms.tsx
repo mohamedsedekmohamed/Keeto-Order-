@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   FileText,
 } from "lucide-react";
+import { FaApple, FaGooglePlay } from "react-icons/fa";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -22,6 +23,7 @@ import {
   Variation,
   VariationOption,
   MenuCategory,
+  useRestaurant,
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
@@ -75,6 +77,9 @@ export default function RestaurantItms({
   const dispatch = useAppDispatch();
   const params = useParams();
   const restaurantSlug = params?.slug as string;
+
+  // ── Restaurant context ────────────────────────────────────────────
+  const { restaurant } = useRestaurant();
 
   // ── Auth ──────────────────────────────────────────────────────────
   const { getToken } = useToken();
@@ -906,6 +911,42 @@ export default function RestaurantItms({
                 </div>
               )}
             </>
+          )}
+
+          {/* ── APP DOWNLOAD BUTTONS (UNDER ALL PRODUCTS) ── */}
+          {(restaurant?.iosApp || restaurant?.androidApp) && (
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-12 pt-8 border-t border-gray-200 dark:border-zinc-800">
+              {restaurant?.iosApp && (
+                <a
+                  href={restaurant.iosApp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-6 py-3.5 text-white bg-black rounded-2xl shadow-md hover:bg-zinc-800 transition-colors"
+                >
+                  <FaApple className="w-6 h-6" />
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[10px] opacity-70">Download on</span>
+                    <span className="text-sm font-bold">{t("appStore")}</span>
+                  </div>
+                </a>
+              )}
+              {restaurant?.androidApp && (
+                <a
+                  href={restaurant.androidApp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-6 py-3.5 bg-white border border-gray-200 rounded-2xl dark:bg-zinc-900 dark:border-zinc-800 shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <FaGooglePlay className="w-5 h-5 text-green-500" />
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[10px] text-gray-500">Get it on</span>
+                    <span className="text-sm font-bold dark:text-zinc-300">
+                      {t("googlePlay")}
+                    </span>
+                  </div>
+                </a>
+              )}
+            </div>
           )}
         </div>
 

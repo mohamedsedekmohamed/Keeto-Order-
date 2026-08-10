@@ -88,6 +88,7 @@ const AddressPage = () => {
     landmark: "",
     lat: null as number | null,
     lng: null as number | null,
+    location: "" as string,
   });
 
   // Extract unique cities from the zones response data dynamically.
@@ -150,11 +151,36 @@ const AddressPage = () => {
     setIsLocating(true);
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        // نجيب اسم/عنوان المكان (title) من خلال Reverse Geocoding
+        // باستخدام OpenStreetMap Nominatim (مجاني وبدون API key)
+        let extractedTitle = "";
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+          );
+          const data = await res.json();
+          const address = data?.address || {};
+
+          // بنحاول ناخد أقرب اسم مكان منطقي (شارع / حي / مدينة) كـ title
+          extractedTitle =
+            address.road ||
+            address.neighbourhood ||
+            address.suburb ||
+            address.city ||
+            data?.display_name ||
+            "";
+        } catch (geoError) {
+          console.error("Error reverse geocoding location:", geoError);
+        }
+
         setForm((prev) => ({
           ...prev,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+          lat: latitude,
+          lng: longitude,
+          location: extractedTitle,
         }));
         setIsLocating(false);
       },
@@ -209,6 +235,7 @@ const AddressPage = () => {
       landmark: "",
       lat: null,
       lng: null,
+      location: "",
     });
     setSelectedCityId("");
     setEditingId(null);
@@ -341,13 +368,16 @@ const AddressPage = () => {
 
             {/* فيدباك بصري لليوزر إن الإحداثيات لُقطت بنجاح */}
             {hasLocation && (
-              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
-                <CheckCircle2 size={16} className="shrink-0" />
-                <span>
-                  {isArabic
-                    ? `تم التقاط الموقع: (${latDisplay}, ${lngDisplay})`
-                    : `Location captured: (${latDisplay}, ${lngDisplay})`}
-                </span>
+              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
+                <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-0.5">
+                  {form.location && <span>{form.location}</span>}
+                  <span>
+                    {isArabic
+                      ? `تم التقاط الموقع: (${latDisplay}, ${lngDisplay})`
+                      : `Location captured: (${latDisplay}, ${lngDisplay})`}
+                  </span>
+                </div>
               </div>
             )}
 

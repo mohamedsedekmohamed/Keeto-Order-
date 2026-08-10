@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, UtensilsCrossed, ShoppingCart, Star, X } from "lucide-react";
+import {
+  FileText,
+  UtensilsCrossed,
+  ShoppingCart,
+  Star,
+  X,
+  Lock,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLanguage } from "../../../../../context/LanguageContext";
@@ -86,7 +93,6 @@ export default function Home() {
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
 
   // Only fetch history when user is logged in AND restaurant is loaded
-  // Response shape: { data: { data: [ { orderId, status, ... } ] } }
   const { data: historyRes } = useGet<any>(
     token && restaurant?.id
       ? `/api/user/order/history?restaurantId=${restaurant.id}`
@@ -101,13 +107,8 @@ export default function Home() {
   );
 
   useEffect(() => {
-    // No token = not logged in, no modal
-    // No restaurant = page not ready
-    // No delivered order = nothing to rate
     if (!token || !restaurant?.id || !deliveredOrder) return;
 
-    // Per-order session key using orderId from the API response
-    // So every new delivered order shows the modal exactly once per session
     const sessionKey = `rating_modal_seen_order_${deliveredOrder.orderId}`;
     const hasSeen = sessionStorage.getItem(sessionKey);
     if (hasSeen) return;
@@ -244,22 +245,57 @@ export default function Home() {
 
       {/* APP BUTTONS */}
       <div className="grid grid-cols-2 gap-4 mt-6 w-full max-w-md px-6 mb-10">
-        <div className="flex items-center justify-center gap-2 py-4 text-white bg-black rounded-2xl shadow-lg cursor-pointer">
-          <FaApple className="w-6 h-6" />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="text-[10px] opacity-70">Download on</span>
-            <span className="text-sm font-bold">{t("appStore")}</span>
+        {/* iOS App Store Button */}
+        {restaurant?.iosApp ? (
+          <a
+            href={restaurant.iosApp}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-4 text-white bg-black rounded-2xl shadow-lg cursor-pointer hover:bg-zinc-800 transition-colors"
+          >
+            <FaApple className="w-6 h-6" />
+            <div className="flex flex-col items-start leading-tight">
+              <span className="text-[10px] opacity-70">Download on</span>
+              <span className="text-sm font-bold">{t("appStore")}</span>
+            </div>
+          </a>
+        ) : (
+          <div className="relative flex items-center justify-center gap-2 py-4 text-gray-400 bg-gray-100 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800/50 rounded-2xl opacity-60 cursor-not-allowed select-none">
+            <FaApple className="w-6 h-6 opacity-40" />
+            <div className="flex flex-col items-start leading-tight">
+              <span className="text-[10px] opacity-70">Download on</span>
+              <span className="text-sm font-bold">{t("appStore")}</span>
+            </div>
+            <Lock className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
           </div>
-        </div>
-        <div className="flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 rounded-2xl dark:bg-zinc-900 dark:border-zinc-800 shadow-sm cursor-pointer">
-          <FaGooglePlay className="w-5 h-5 text-green-500" />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="text-[10px] text-gray-500">Get it on</span>
-            <span className="text-sm font-bold dark:text-zinc-300">
-              {t("googlePlay")}
-            </span>
+        )}
+
+        {/* Android Google Play Button */}
+        {restaurant?.androidApp ? (
+          <a
+            href={restaurant.androidApp}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 rounded-2xl dark:bg-zinc-900 dark:border-zinc-800 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+          >
+            <FaGooglePlay className="w-5 h-5 text-green-500" />
+            <div className="flex flex-col items-start leading-tight">
+              <span className="text-[10px] text-gray-500">Get it on</span>
+              <span className="text-sm font-bold dark:text-zinc-300">
+                {t("googlePlay")}
+              </span>
+            </div>
+          </a>
+        ) : (
+          <div className="relative flex items-center justify-center gap-2 py-4 bg-gray-100 border border-gray-200 dark:bg-zinc-800/40 dark:border-zinc-800/50 rounded-2xl opacity-60 cursor-not-allowed select-none text-gray-400 dark:text-zinc-500">
+            <FaGooglePlay className="w-5 h-5 grayscale opacity-40" />
+            <div className="flex flex-col items-start leading-tight">
+              <span className="text-[10px] opacity-70">Get it on</span>
+              <span className="text-sm font-bold">{t("googlePlay")}</span>
+            </div>
+            <Lock className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
           </div>
-        </div>
+        )}
       </div>
 
       {/* RATING MODAL */}

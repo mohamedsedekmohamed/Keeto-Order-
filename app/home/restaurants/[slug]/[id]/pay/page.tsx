@@ -578,6 +578,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     landmark: "",
     lat: null as number | null,
     lng: null as number | null,
+    location: "" as string,
   });
 
   const filteredZones = allZones.filter(
@@ -614,11 +615,35 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       maximumAge: 0,
     };
 
-    const successCallback = (position: GeolocationPosition) => {
+    const successCallback = async (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+
+      // نجيب اسم/عنوان المكان (title) من خلال Reverse Geocoding
+      // باستخدام OpenStreetMap Nominatim (مجاني وبدون API key)
+      let extractedTitle = "";
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        );
+        const geoData = await res.json();
+        const address = geoData?.address || {};
+
+        extractedTitle =
+          address.road ||
+          address.neighbourhood ||
+          address.suburb ||
+          address.city ||
+          geoData?.display_name ||
+          "";
+      } catch (geoError) {
+        console.error("Error reverse geocoding location:", geoError);
+      }
+
       setAddressForm((prev) => ({
         ...prev,
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
+        lat: latitude,
+        lng: longitude,
+        location: extractedTitle,
       }));
       setIsLocating(false);
       toast.success(
@@ -841,13 +866,16 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
         {/* نجاح التقاط الإحداثيات */}
         {addressForm.lat && addressForm.lng && (
-          <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-center gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
-            <CheckCircle2 size={16} />
-            <span>
-              {t("dir") === "rtl"
-                ? `تم التقاط الموقع: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`
-                : `Location captured: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`}
-            </span>
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
+            <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-0.5">
+              {addressForm.location && <span>{addressForm.location}</span>}
+              <span>
+                {t("dir") === "rtl"
+                  ? `تم التقاط الموقع: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`
+                  : `Location captured: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`}
+              </span>
+            </div>
           </div>
         )}
 
