@@ -65,6 +65,7 @@ export default function Checkout() {
   const scheduleData = scheduleRes?.data?.data;
   const canDeliveryNow: boolean = scheduleData?.canDeliveryNow ?? true;
   const canTakeawayNow: boolean = scheduleData?.canTakeawayNow ?? true;
+  const canDineInNow: boolean = scheduleData?.canDineInNow ?? true;
 
   // 1. جلب خيارات الدفع والعناوين والفروع
 
@@ -119,9 +120,9 @@ export default function Checkout() {
     const types: ("delivery" | "takeaway" | "dine_in")[] = [];
     if (canDeliveryNow) types.push("delivery");
     if (canTakeawayNow) types.push("takeaway");
-    types.push("dine_in");
+    if (canDineInNow) types.push("dine_in");
     return types;
-  }, [canDeliveryNow, canTakeawayNow]);
+  }, [canDeliveryNow, canTakeawayNow, canDineInNow]);
 
   // ✅ activeOrderType — مشتق مباشرة بدون useEffect أو setState
   const activeOrderType: "delivery" | "takeaway" | "dine_in" =
