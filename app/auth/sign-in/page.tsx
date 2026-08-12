@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
   Lock,
@@ -10,10 +10,14 @@ import {
   EyeOff,
   ArrowRight,
   Loader2,
+  User,
+  Phone,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
+import usePut from "@/app/hooks/usePut";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
@@ -51,6 +55,19 @@ export default function SignIn() {
     password: "",
   });
 
+  // --- Complete profile popup (shown when isProfileComplete === false) ---
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState({
+    username: "",
+    phone: "",
+  });
+  const [profileErrors, setProfileErrors] = useState<{
+    username?: string;
+    phone?: string;
+  }>({});
+  const [isCompletingProfile, setIsCompletingProfile] = useState(false);
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== "undefined" && (window as any).AppleID) {
@@ -75,6 +92,8 @@ export default function SignIn() {
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
   );
+  // Same endpoint used on the profile page: PUT /api/user/profile → { name, phone, alternatePhone }
+  const { putData: updateProfile } = usePut("/api/user/profile");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -82,20 +101,99 @@ export default function SignIn() {
 
   const handleSuccessAuth = (token: string) => {
     setToken(token, callbackSlug);
-   const redirectPath = callbackSlug ? `/home/restaurants/${callbackSlug}` : "/";
+    const redirectPath = callbackSlug
+      ? `/home/restaurants/${callbackSlug}`
+      : "/";
     router.push(redirectPath);
+  };
+
+  // Pulls { token, user } out of the various response shapes the API can return
+  const extractAuthPayload = (response: any) => {
+    const token =
+      response?.token || response?.data?.token || response?.data?.data?.token;
+    const user =
+      response?.user || response?.data?.user || response?.data?.data?.user;
+    return { token, user };
+  };
+
+  // Central place all 3 login methods funnel through once they have a token/user
+  const handleAuthResponse = (response: any) => {
+    const { token, user } = extractAuthPayload(response);
+    if (!token) return;
+
+    if (user && user.isProfileComplete === false) {
+      // Don't log the user in yet — hold the token and ask them to complete their profile first
+      setPendingToken(token);
+      setProfileForm({ username: user.name || "", phone: "" });
+      setProfileErrors({});
+      setShowCompleteProfile(true);
+      return;
+    }
+
+    handleSuccessAuth(token);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const response = await postData(formData, null, t("loginSuccess"));
-      const token =
-        response?.token || response?.data?.token || response?.data?.data?.token;
-      if (token) {
-        handleSuccessAuth(token);
-      }
+      handleAuthResponse(response);
     } catch {}
+  };
+
+  const handleProfileFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
+    setProfileErrors({ ...profileErrors, [e.target.name]: undefined });
+  };
+
+  const validateProfileForm = () => {
+    const errors: { username?: string; phone?: string } = {};
+
+    if (
+      !profileForm.username.trim() ||
+      profileForm.username.trim().length < 3
+    ) {
+      errors.username =
+        t("usernameInvalid") || "Username must be at least 3 characters";
+    }
+
+    // Basic phone validation — accepts optional leading + and 8-15 digits
+    const phoneRegex = /^\+?[0-9]{8,15}$/;
+    if (!phoneRegex.test(profileForm.phone.trim())) {
+      errors.phone = t("phoneInvalid") || "Please enter a valid phone number";
+    }
+
+    setProfileErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCompleteProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateProfileForm() || !pendingToken) return;
+
+    setIsCompletingProfile(true);
+    try {
+      // PUT /api/user/profile needs an authenticated request, so set the token
+      // in context first (this is what usePut reads to attach the auth header).
+      setToken(pendingToken, callbackSlug);
+
+      await updateProfile(
+        {
+          name: profileForm.username,
+          phone: profileForm.phone,
+        },
+        null,
+        t("updateSuccess") || "Profile updated successfully!",
+      );
+
+      setShowCompleteProfile(false);
+      handleSuccessAuth(pendingToken);
+    } catch {
+      // Request failed — keep the popup open so the user can retry.
+      // (usePut's own hook handles surfacing the error toast/message.)
+    } finally {
+      setIsCompletingProfile(false);
+    }
   };
 
   return (
@@ -256,11 +354,7 @@ export default function SignIn() {
                         null,
                         t("loginSuccess"),
                       );
-                      const token =
-                        response?.token ||
-                        response?.data?.token ||
-                        response?.data?.data?.token;
-                      if (token) handleSuccessAuth(token);
+                      handleAuthResponse(response);
                     }
                   } catch {}
                 }}
@@ -317,11 +411,7 @@ export default function SignIn() {
                     null,
                     t("loginSuccess"),
                   );
-                  const token =
-                    response?.token ||
-                    response?.data?.token ||
-                    response?.data?.data?.token;
-                  if (token) handleSuccessAuth(token);
+                  handleAuthResponse(response);
                 } catch (error) {
                   console.error("Apple Login Error", error);
                 }
@@ -351,6 +441,136 @@ export default function SignIn() {
             </p>
           </div>
         </motion.div>
+
+        {/* Complete Profile Popup — shown when isProfileComplete === false */}
+        <AnimatePresence>
+          {showCompleteProfile && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.96 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="relative w-full max-w-md p-8 bg-white shadow-2xl dark:bg-zinc-900 rounded-[2rem] border border-white dark:border-zinc-800/50"
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowCompleteProfile(false)}
+                  className="absolute p-2 text-gray-400 transition-colors rounded-full end-4 top-4 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800"
+                >
+                  <X size={18} />
+                </button>
+
+                <div className="mb-6 text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 mb-4 text-yellow-600 bg-yellow-400/20 rounded-2xl dark:text-yellow-400 dark:bg-yellow-400/10">
+                    <User size={28} strokeWidth={2.5} />
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+                    {t("completeProfile") || "Complete your profile"}
+                  </h3>
+                  <p className="mt-2 text-sm font-medium text-gray-500 dark:text-zinc-400">
+                    {t("completeProfileDesc") ||
+                      "Please add a username and a valid phone number to continue."}
+                  </p>
+                </div>
+
+                <form
+                  className="space-y-5"
+                  onSubmit={handleCompleteProfileSubmit}
+                >
+                  <div>
+                    <label className="block mb-2 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
+                      {t("username") || "Username"}
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
+                        <User
+                          size={20}
+                          className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                        />
+                      </div>
+                      <input
+                        name="username"
+                        type="text"
+                        required
+                        value={profileForm.username}
+                        onChange={handleProfileFormChange}
+                        placeholder={
+                          t("enterUsername") || "Enter your username"
+                        }
+                        className={`w-full py-4 text-gray-900 transition-all bg-gray-100/50 border-2 outline-none rounded-2xl ps-12 pe-4 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:ring-4 focus:ring-yellow-400/10 ${
+                          profileErrors.username
+                            ? "border-red-400 focus:border-red-400"
+                            : "border-transparent focus:border-yellow-400"
+                        }`}
+                      />
+                    </div>
+                    {profileErrors.username && (
+                      <p className="mt-1.5 text-xs font-semibold text-red-500 ms-1">
+                        {profileErrors.username}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
+                      {t("phoneNumber") || "Phone number"}
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
+                        <Phone
+                          size={20}
+                          className="text-gray-400 transition-colors group-focus-within:text-yellow-500"
+                        />
+                      </div>
+                      <input
+                        name="phone"
+                        type="tel"
+                        required
+                        value={profileForm.phone}
+                        onChange={handleProfileFormChange}
+                        placeholder={t("enterPhone") || "e.g. +201234567890"}
+                        className={`w-full py-4 text-gray-900 transition-all bg-gray-100/50 border-2 outline-none rounded-2xl ps-12 pe-4 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:ring-4 focus:ring-yellow-400/10 ${
+                          profileErrors.phone
+                            ? "border-red-400 focus:border-red-400"
+                            : "border-transparent focus:border-yellow-400"
+                        }`}
+                      />
+                    </div>
+                    {profileErrors.phone && (
+                      <p className="mt-1.5 text-xs font-semibold text-red-500 ms-1">
+                        {profileErrors.phone}
+                      </p>
+                    )}
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    disabled={isCompletingProfile}
+                    type="submit"
+                    className={`relative flex items-center justify-center w-full py-4 mt-2 font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 ${
+                      isCompletingProfile
+                        ? "opacity-70 cursor-not-allowed"
+                        : "hover:bg-yellow-500"
+                    }`}
+                  >
+                    {isCompletingProfile ? (
+                      <Loader2 className="animate-spin" size={20} />
+                    ) : (
+                      t("saveAndContinue") || "Save & Continue"
+                    )}
+                  </motion.button>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </GoogleOAuthProvider>
   );
