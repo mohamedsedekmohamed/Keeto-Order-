@@ -39,6 +39,7 @@ interface Address {
   floor: string | number;
   landmark: string | null;
   location: string | null;
+  apartment:string;
 }
 
 interface UserProfile {
