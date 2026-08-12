@@ -562,6 +562,19 @@ export default function ProfilePage() {
                                       className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
                                     />
                                   </div>
+                                                                    <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
+                                      {t("ApartmentNumber") || "رقم المبنى"}
+                                    </label>
+                                    <input
+                                      type="apartment"
+                                      name="apartment"
+                                      value={editAddressData.apartment || ""}
+                                      onChange={handleAddressChange}
+                                      required
+                                      className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
+                                    />
+                                  </div>
 
                                   <div className="space-y-1.5">
                                     <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">

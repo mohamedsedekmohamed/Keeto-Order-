@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
@@ -12,18 +12,6 @@ import { useRestaurant } from "@/context/RestaurantContext";
 import Loading from "@/components/Loading";
 import { ChevronLeft, Navigation, Loader2, CheckCircle2 } from "lucide-react";
 
-type Zone = {
-  id: string;
-  name: string;
-  nameAr: string;
-  cityId: string;
-  city?: {
-    id: string;
-    name: string;
-    nameAr: string;
-  };
-};
-
 type Address = {
   id: string;
   title: string;
@@ -31,8 +19,10 @@ type Address = {
   number: string;
   floor: string;
   landmark: string;
-  type: "home" | "work" | "other";
-  zoneId: string;
+  apartment: string;
+  city?: string;
+  zone?: string;
+  fulladdress?: string;
   lat: number | null;
   lng: number | null;
   location?: string;
@@ -46,7 +36,7 @@ const AddressPage = () => {
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isLocating, setIsLocating] = useState(false); // حالة تحميل جلب الـ GPS
+  const [isLocating, setIsLocating] = useState(false);
 
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
@@ -63,82 +53,39 @@ const AddressPage = () => {
     error: errorAddresses,
     refetch,
   } = useGet<any>("/api/user/address");
-  const {
-    data: zonesRes,
-    loading: loadingZones,
-    error: errorZones,
-  } = useGet<any>("/api/user/address/zone");
 
   const { postData, loading: posting } = usePost("/api/user/address");
   const { putData, loading: putting } = usePut();
   const { deleteData, loading: deleting } = useDelete("");
 
   const addresses: Address[] = addressesRes?.data?.data || [];
-  const zones: Zone[] = zonesRes?.data?.data || [];
 
   // State
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedCityId, setSelectedCityId] = useState<string>("");
   const [form, setForm] = useState({
     title: "",
-    zoneId: "",
-    type: "home",
+  
+    city: "",
+    zone: "",
     street: "",
+    fulladdress: "",
     number: "",
     floor: "",
+    apartment: "",
     landmark: "",
     lat: null as number | null,
     lng: null as number | null,
     location: "" as string,
   });
 
-  // Extract unique cities from the zones response data dynamically.
-  // Each zone from /api/user/address/zone already includes a nested
-  // `city` object ({ id, name, nameAr, ... }) - use that directly
-  // instead of guessing the name from a hardcoded cityId map, which
-  // only covered 3 cities and silently mislabeled every other city
-  // (Asyut, Faiyum, Damanhour, etc.) as "Suez".
-  const cities = useMemo(() => {
-    const uniqueCitiesMap = new Map<
-      string,
-      { id: string; name: string; nameAr: string }
-    >();
-
-    zones.forEach((zone: any) => {
-      const cityId = zone.city?.id ?? zone.cityId;
-      if (!cityId || uniqueCitiesMap.has(cityId)) return;
-
-      uniqueCitiesMap.set(cityId, {
-        id: cityId,
-        name: zone.city?.name ?? "Unknown",
-        nameAr: zone.city?.nameAr ?? "غير معروف",
-      });
-    });
-
-    return Array.from(uniqueCitiesMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-  }, [zones]);
-
-  // Filter zones matching the chosen city
-  const filteredZones = useMemo(() => {
-    if (!selectedCityId) return [];
-    return zones.filter((z) => z.cityId === selectedCityId);
-  }, [selectedCityId, zones]);
-
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Handle city selection switch
-  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCityId(e.target.value);
-    setForm({ ...form, zoneId: "" }); // Reset zone when city alterations occur
-  };
-
-  // دالة جلب الموقع الحالي بالـ GPS لليوزر
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert(
@@ -155,9 +102,12 @@ const AddressPage = () => {
       async (position) => {
         const { latitude, longitude } = position.coords;
 
-        // نجيب اسم/عنوان المكان (title) من خلال Reverse Geocoding
-        // باستخدام OpenStreetMap Nominatim (مجاني وبدون API key)
         let extractedTitle = "";
+        let extractedCity = "";
+        let extractedZone = "";
+        let extractedStreet = "";
+        let extractedfulladdress = "";
+
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
@@ -165,7 +115,6 @@ const AddressPage = () => {
           const data = await res.json();
           const address = data?.address || {};
 
-          // بنحاول ناخد أقرب اسم مكان منطقي (شارع / حي / مدينة) كـ title
           extractedTitle =
             address.road ||
             address.neighbourhood ||
@@ -173,6 +122,21 @@ const AddressPage = () => {
             address.city ||
             data?.display_name ||
             "";
+
+          // Extract granular details for auto-fill
+          extractedCity =
+            address.city ||
+            address.town ||
+            address.village ||
+            address.county ||
+            "";
+          extractedZone =
+            address.suburb ||
+            address.neighbourhood ||
+            address.state_district ||
+            "";
+          extractedStreet = address.road || address.pedestrian || "";
+          extractedfulladdress = data?.display_name || "";
         } catch (geoError) {
           console.error("Error reverse geocoding location:", geoError);
         }
@@ -182,7 +146,12 @@ const AddressPage = () => {
           lat: latitude,
           lng: longitude,
           location: extractedTitle,
+          city: extractedCity,
+          zone: extractedZone,
+          street: extractedStreet,
+          fulladdress: extractedfulladdress,
         }));
+
         setIsLocating(false);
       },
       (error) => {
@@ -201,7 +170,6 @@ const AddressPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // تأكيد تحويل الداتا لأرقام حقيقية Numeric لضمان توافق الباك إند
     const payload = {
       ...form,
       number: Number(form.number) || 0,
@@ -228,39 +196,38 @@ const AddressPage = () => {
   const resetForm = () => {
     setForm({
       title: "",
-      zoneId: "",
-      type: "home",
+    
+      city: "",
+      zone: "",
       street: "",
+      fulladdress: "",
       number: "",
       floor: "",
       landmark: "",
       lat: null,
       lng: null,
       location: "",
+      apartment:"",
     });
-    setSelectedCityId("");
     setEditingId(null);
   };
 
   const handleEditClick = (address: Address) => {
-    const associatedZone = zones.find((z) => z.id === address.zoneId);
-
     setForm({
-      title: address.title,
-      zoneId: address.zoneId,
-      type: address.type,
-      street: address.street,
-      number: address.number,
-      floor: address.floor,
+      title: address.title || "",
+   
+      city: address.city || "",
+      zone: address.zone || "",
+      street: address.street || "",
+      fulladdress: address.fulladdress || "",
+      number: address.number?.toString() || "",
+      floor: address.floor?.toString() || "",
       landmark: address.landmark || "",
       lat: address.lat !== null ? Number(address.lat) : null,
       lng: address.lng !== null ? Number(address.lng) : null,
       location: address.location || "",
+      apartment: address.apartment || "",
     });
-
-    if (associatedZone) {
-      setSelectedCityId(associatedZone.cityId);
-    }
 
     setEditingId(address.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -298,9 +265,9 @@ const AddressPage = () => {
     if (!token) {
       router.replace(basePath);
     }
-  }, [token, isReady]);
+  }, [token, isReady, basePath, router]);
 
-  if (loadingAddresses || loadingZones) {
+  if (loadingAddresses) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loading />
@@ -308,7 +275,7 @@ const AddressPage = () => {
     );
   }
 
-  if (errorAddresses || errorZones) {
+  if (errorAddresses) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-red-500 font-medium">
         {t("error-fetching-data")}
@@ -316,7 +283,6 @@ const AddressPage = () => {
     );
   }
 
-  // Safe lowercased string check for the Language Context Type definition mismatch
   const isArabic = String(language).toLowerCase() === "ar";
 
   return (
@@ -344,7 +310,6 @@ const AddressPage = () => {
           </div>
 
           <div className="space-y-4">
-            {/* زرار جلب الموقع الحالي بالـ GPS */}
             <button
               type="button"
               onClick={handleGetCurrentLocation}
@@ -368,8 +333,7 @@ const AddressPage = () => {
                   : "Use Current Location (GPS)"}
             </button>
 
-            {/* فيدباك بصري لليوزر إن الإحداثيات لُقطت بنجاح */}
-            {hasLocation && (
+            {hasLocation ? (
               <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
                 <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
                 <div className="flex flex-col gap-0.5">
@@ -381,6 +345,12 @@ const AddressPage = () => {
                   </span>
                 </div>
               </div>
+            ) : (
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-500">
+                {isArabic
+                  ? "اضغط على الزر أعلاه لتحديد موقعك تلقائيًا قبل الحفظ."
+                  : "Tap the button above to auto-detect your location before saving."}
+              </p>
             )}
 
             <input
@@ -392,55 +362,24 @@ const AddressPage = () => {
               required
             />
 
-            {/* CITY SELECT */}
-            <select
-              name="cityId"
-              value={selectedCityId}
-              onChange={handleCityChange}
-              className={inputClass}
-              required
-            >
-              <option value="" disabled>
-                {t("select-city") || "Select City / اختر المدينة"}
-              </option>
-              {cities.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {isArabic ? c.nameAr : c.name}
-                </option>
-              ))}
-            </select>
-
-            {/* ZONE SELECT (Filtered based on City) */}
-            <select
-              name="zoneId"
-              value={form.zoneId}
-              onChange={handleChange}
-              className={inputClass}
-              disabled={!selectedCityId}
-              required
-            >
-              <option value="" disabled>
-                {t("select-zone")}
-              </option>
-              {filteredZones.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {isArabic ? z.nameAr : z.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              name="type"
-              value={form.type}
-              onChange={handleChange}
-              className={inputClass}
-            >
-              <option value="home">{t("home")}</option>
-              <option value="work">{t("work")}</option>
-              <option value="other">{t("other")}</option>
-            </select>
-
             <div className="grid grid-cols-2 gap-4">
+              <input
+                name="city"
+                placeholder={t("city") || "City"}
+                value={form.city}
+                onChange={handleChange}
+                className={inputClass}
+                required
+              />
+              <input
+                name="zone"
+                placeholder={t("zone") || "Zone"}
+                value={form.zone}
+                onChange={handleChange}
+                className={inputClass}
+                required
+              />
+
               <input
                 name="street"
                 placeholder={t("street")}
@@ -449,6 +388,17 @@ const AddressPage = () => {
                 className={`col-span-2 ${inputClass}`}
                 required
               />
+
+              <textarea
+                name="fulladdress"
+                placeholder={t("address") || "Full Address"}
+                value={form.fulladdress}
+                onChange={handleChange}
+                className={`col-span-2 ${inputClass} resize-none`}
+                rows={2}
+                required
+              />
+
               <input
                 name="number"
                 placeholder={t("number")}
@@ -461,6 +411,14 @@ const AddressPage = () => {
                 name="floor"
                 placeholder={t("floor")}
                 value={form.floor}
+                onChange={handleChange}
+                className={inputClass}
+                required
+              />
+               <input
+                name="apartment"
+                placeholder={t("apartment")}
+                value={form.apartment}
                 onChange={handleChange}
                 className={inputClass}
                 required
@@ -478,7 +436,7 @@ const AddressPage = () => {
           <div className="flex flex-col gap-3 pt-4">
             <button
               type="submit"
-              disabled={isLoading || isLocating}
+              disabled={isLoading || isLocating || !hasLocation}
               className="w-full px-6 py-3.5 font-bold transition-all transform active:scale-[0.98] bg-yellow-400 text-zinc-900 rounded-xl hover:bg-yellow-500 disabled:opacity-70 disabled:active:scale-100 shadow-sm"
             >
               {isLoading
@@ -539,16 +497,26 @@ const AddressPage = () => {
                           📍 GPS
                         </span>
                       )}
-                      <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
-                        {t(a.type)}
-                      </span>
+                     
                     </div>
                   </div>
 
                   <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+                    {a.city && a.zone && (
+                      <p className="flex items-center gap-2">
+                        <span className="text-zinc-400">🏙️</span> {a.city},{" "}
+                        {a.zone}
+                      </p>
+                    )}
                     <p className="flex items-center gap-2">
                       <span className="text-zinc-400">📍</span> {a.street}
                     </p>
+                    {a.fulladdress && (
+                      <p className="flex items-center gap-2">
+                        <span className="text-zinc-400">📝</span>{" "}
+                        {a.fulladdress}
+                      </p>
+                    )}
                     {a.landmark && (
                       <p className="flex items-center gap-2">
                         <span className="text-zinc-400">🏷️</span> {a.landmark}
@@ -562,6 +530,10 @@ const AddressPage = () => {
                       <p className="flex items-center gap-1">
                         <span className="text-zinc-400">🏢</span> {t("floor")}{" "}
                         {a.floor}
+                      </p>
+                      <p className="flex items-center gap-1">
+                        <span className="text-zinc-400">🏠</span>{" "}
+                        {t("apartment")} {a.apartment}
                       </p>
                     </div>
                   </div>

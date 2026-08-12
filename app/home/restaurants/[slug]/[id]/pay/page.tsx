@@ -17,27 +17,10 @@ import {
   Plus,
   X,
   FileText,
+  AlertCircle,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-
-// ✅ Zone type now includes deliveryFees
-type Zone = {
-  id: string;
-  name: string;
-  nameAr?: string;
-  cityId: string;
-  city?: {
-    id: string;
-    name: string;
-    nameAr: string;
-  };
-  deliveryFees?: {
-    restaurantId: string;
-    deliveryFee: string;
-    status: string;
-  }[];
-};
 
 type CartItem = { totalPrice: string | number; [key: string]: any };
 
@@ -58,7 +41,6 @@ export default function Checkout() {
   const [selectedPayment, setSelectedPayment] = useState("");
   const [showAddressPopup, setShowAddressPopup] = useState(false);
 
-  // جلب جدول المطعم وحالة التوصيل والاستلام
   const { data: scheduleRes, loading: isLoadingSchedule } = useGet<any>(
     `/api/user/restaurants/resturant-schedules/${params.id}`,
   );
@@ -67,14 +49,13 @@ export default function Checkout() {
   const canTakeawayNow: boolean = scheduleData?.canTakeawayNow ?? true;
   const canDineInNow: boolean = scheduleData?.canDineInNow ?? true;
 
-  // 1. جلب خيارات الدفع والعناوين والفروع
-
   const getOrderSource = () => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("login_source") || "food_aggregator";
     }
     return "food_aggregator";
   };
+
   const {
     data: checkoutData,
     loading: isLoadingCheckout,
@@ -83,13 +64,8 @@ export default function Checkout() {
     `/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`,
   );
 
-  // 2. جلب بيانات السلة
   const { data: cartRes, loading: isLoadingCart } =
     useGet<any>("/api/user/cart");
-
-  // ✅ 3. جلب الزونات مع deliveryFees في المكون الرئيسي
-  const { data: zonesRes } = useGet<any>("/api/user/address/zone");
-  const allZones: Zone[] = zonesRes?.data?.data || [];
 
   const { postData, loading: isSubmitting } = usePost();
 
@@ -115,7 +91,6 @@ export default function Checkout() {
     return data?.addresses?.find((addr: any) => addr.id === selectedAddress);
   }, [data?.addresses, selectedAddress]);
 
-  // ✅ حساب الأنواع المتاحة أولاً — plain const بدون useMemo لأنها تعتمد على قيم بسيطة
   const availableOrderTypes = useMemo(() => {
     const types: ("delivery" | "takeaway" | "dine_in")[] = [];
     if (canDeliveryNow) types.push("delivery");
@@ -124,44 +99,24 @@ export default function Checkout() {
     return types;
   }, [canDeliveryNow, canTakeawayNow, canDineInNow]);
 
-  // ✅ activeOrderType — مشتق مباشرة بدون useEffect أو setState
   const activeOrderType: "delivery" | "takeaway" | "dine_in" =
     availableOrderTypes.includes(orderType)
       ? orderType
       : availableOrderTypes[0];
 
-  // ✅ حساب رسوم التوصيل من zones API مباشرة
+  // Modified: Extract delivery fee from the currently selected address
   const deliveryFee = useMemo(() => {
-    if (activeOrderType !== "delivery" || !currentAddress) return 0;
+    if (
+      activeOrderType !== "delivery" ||
+      !currentAddress ||
+      !currentAddress.isDeliverable
+    )
+      return 0;
+    return Number(currentAddress.deliveryFee) || 0;
+  }, [activeOrderType, currentAddress]);
 
-    const zoneId = currentAddress.zoneId;
-    if (!zoneId) return Number(data?.deliveryFee) || 0;
-
-    const zone = allZones.find((z) => z.id === zoneId);
-    if (!zone) return Number(data?.deliveryFee) || 0;
-
-    const feeEntry = zone.deliveryFees?.find(
-      (fee) => fee.restaurantId === params.id && fee.status === "active",
-    );
-
-    if (feeEntry) return Number(feeEntry.deliveryFee) || 0;
-
-    return Number(data?.deliveryFee) || 0;
-  }, [activeOrderType, currentAddress, allZones, data, params.id]);
-
-  // ✅ هل المطعم يوصل للزون المختار؟
-  const canDeliverToSelectedZone = useMemo(() => {
-    if (activeOrderType !== "delivery" || !currentAddress) return true;
-    const zoneId = currentAddress.zoneId;
-    if (!zoneId) return true;
-    const zone = allZones.find((z) => z.id === zoneId);
-    if (!zone) return true;
-    return !!zone.deliveryFees?.find(
-      (f) => f.restaurantId === params.id && f.status === "active",
-    );
-  }, [activeOrderType, currentAddress, allZones, params.id]);
-
-  const serviceFee = Number(checkoutData?.data?.data?.serviceFee) || 0;
+  // Modified: Extract service fee from the root data object
+  const serviceFee = Number(data?.serviceFee) || 0;
 
   const total = useMemo(() => {
     return subtotal + deliveryFee + serviceFee;
@@ -181,19 +136,20 @@ export default function Checkout() {
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
-    if (activeOrderType === "delivery" && !selectedAddress)
-      return toast.error(t("selectAddressError"));
+
+    if (activeOrderType === "delivery") {
+      if (!selectedAddress) return toast.error(t("selectAddressError"));
+      if (currentAddress && !currentAddress.isDeliverable) {
+        return toast.error(
+          t("dir") === "rtl"
+            ? "لا يمكن التوصيل للعنوان المحدد"
+            : "Cannot deliver to selected address",
+        );
+      }
+    }
+
     if (activeOrderType !== "delivery" && !selectedBranch)
       return toast.error(t("selectBranchError"));
-
-    // ✅ منع الطلب لو المطعم مش بيوصل للمنطقة
-    if (activeOrderType === "delivery" && !canDeliverToSelectedZone) {
-      return toast.error(
-        t("dir") === "rtl"
-          ? "هذا المطعم لا يوصل لمنطقتك، يرجى اختيار عنوان آخر"
-          : "This restaurant doesn't deliver to your area. Please choose a different address.",
-      );
-    }
 
     const payload = {
       orderSource: getOrderSource(),
@@ -222,6 +178,11 @@ export default function Checkout() {
         <p className="font-bold text-gray-500">{t("loadingOptions")}</p>
       </div>
     );
+
+  const isOrderBlocked =
+    activeOrderType === "delivery" &&
+    currentAddress &&
+    !currentAddress.isDeliverable;
 
   return (
     <div
@@ -290,27 +251,20 @@ export default function Checkout() {
               </div>
             ) : (
               data?.addresses?.map((addr: any) => {
-                // ✅ هل المطعم بيوصل لزون هذا العنوان؟
-                const addrZone = allZones.find((z) => z.id === addr.zoneId);
-                const addrCanDeliver = addrZone
-                  ? !!addrZone.deliveryFees?.find(
-                      (f) =>
-                        f.restaurantId === params.id && f.status === "active",
-                    )
-                  : true;
-
                 return (
                   <div
                     key={addr.id}
                     onClick={() => setSelectedAddress(addr.id)}
                     className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
                       selectedAddress === addr.id
-                        ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                        ? addr.isDeliverable
+                          ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                          : "border-red-400 bg-red-50 dark:bg-red-950/20"
                         : "border-gray-100 dark:border-zinc-800"
-                    }`}
+                    } ${!addr.isDeliverable && "opacity-80"}`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl mt-1">
                         <MapPin size={18} />
                       </div>
                       <div>
@@ -318,17 +272,21 @@ export default function Checkout() {
                         <p className="text-sm text-gray-500">
                           {addr.street}, {addr.number}
                         </p>
-                        {/* ✅ تحذير لو المطعم مش بيوصل لهذا العنوان */}
-                        {!addrCanDeliver && (
-                          <p className="text-xs text-red-500 font-semibold mt-0.5">
-                            {t("dir") === "rtl"
-                              ? "المطعم لا يوصل لهذه المنطقة"
-                              : "Restaurant doesn't deliver here"}
-                          </p>
+
+                        {/* Modified: Deliverability feedback */}
+                        {!addr.isDeliverable && (
+                          <div className="flex items-center gap-1 mt-2 text-red-500">
+                            <AlertCircle size={14} />
+                            <p className="text-xs font-bold">
+                              {t("dir") === "rtl"
+                                ? "المطعم لا يوصل لهذا العنوان"
+                                : "Delivery unavailable for this address"}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
-                    {selectedAddress === addr.id && (
+                    {selectedAddress === addr.id && addr.isDeliverable && (
                       <CheckCircle2 size={20} className="text-yellow-500" />
                     )}
                   </div>
@@ -434,25 +392,20 @@ export default function Checkout() {
             </span>
           </div>
 
-          {/* ✅ عرض رسوم التوصيل مع تحذير لو المطعم مش بيوصل */}
           {activeOrderType === "delivery" && (
             <div className="flex justify-between items-center">
               <span>{t("deliveryFee")}</span>
-              {currentAddress && !canDeliverToSelectedZone ? (
-                <span className="text-red-500 text-xs font-bold">
-                  {t("dir") === "rtl"
-                    ? "لا يوصل لمنطقتك"
-                    : "Doesn't deliver here"}
-                </span>
-              ) : (
-                <span className="text-gray-900 dark:text-white font-bold">
-                  {deliveryFee === 0
+              <span
+                className={`font-bold ${!currentAddress?.isDeliverable ? "text-red-500" : "text-gray-900 dark:text-white"}`}
+              >
+                {!currentAddress?.isDeliverable
+                  ? "-"
+                  : deliveryFee === 0
                     ? t("dir") === "rtl"
                       ? "مجاني"
                       : "Free"
                     : `${deliveryFee} ${t("egp")}`}
-                </span>
-              )}
+              </span>
             </div>
           )}
 
@@ -476,7 +429,7 @@ export default function Checkout() {
 
       {/* Confirm Button */}
       <button
-        disabled={isSubmitting}
+        disabled={isSubmitting || isOrderBlocked}
         onClick={handleConfirmOrder}
         className="relative flex items-center justify-center w-full max-w-2xl gap-3 px-6 py-4 overflow-hidden font-bold text-gray-900 transition-all duration-300 shadow-lg group bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl shadow-yellow-400/30 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-xl hover:shadow-yellow-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -527,64 +480,25 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   const { postData: postAddress, loading: postingAddress } =
     usePost("/api/user/address");
 
-  const { data: zonesRes, loading: loadingZones } = useGet<any>(
-    "/api/user/address/zone",
-  );
-  const allZones: Zone[] = zonesRes?.data?.data || [];
-
-  // Each zone from /api/user/address/zone already includes a nested
-  // `city` object ({ id, name, nameAr }) - use that directly instead
-  // of guessing the name from a hardcoded cityId switch, which only
-  // covered 3 cities and silently hid every other city (Asyut,
-  // Faiyum, Damanhour, etc.) behind "Other City".
-  const citiesList = useMemo(() => {
-    const uniqueCitiesMap = new Map<
-      string,
-      { id: string; name: string; nameAr: string }
-    >();
-
-    allZones.forEach((zone: any) => {
-      const cityId = zone.city?.id ?? zone.cityId;
-      if (!cityId || uniqueCitiesMap.has(cityId)) return;
-
-      uniqueCitiesMap.set(cityId, {
-        id: cityId,
-        name: zone.city?.name ?? "Unknown",
-        nameAr: zone.city?.nameAr ?? "غير معروف",
-      });
-    });
-
-    return Array.from(uniqueCitiesMap.values())
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((city) => ({
-        id: city.id,
-        name: t("dir") === "rtl" ? city.nameAr : city.name,
-      }));
-  }, [allZones, t]);
-
-  const [selectedCityId, setSelectedCityId] = useState("");
   const [isLocating, setIsLocating] = useState(false);
-
   const [locationErrorType, setLocationErrorType] = useState<
     "ios" | "android" | "generic" | null
   >(null);
 
   const [addressForm, setAddressForm] = useState({
     title: "",
-    zoneId: "",
-    type: "home" as "home" | "work" | "other",
+    city: "",
+    zone: "",
     street: "",
+    fulladdress: "",
     number: "",
     floor: "",
+    apartment: "",
     landmark: "",
     lat: null as number | null,
     lng: null as number | null,
     location: "" as string,
   });
-
-  const filteredZones = allZones.filter(
-    (zone) => zone.cityId === selectedCityId,
-  );
 
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
@@ -593,10 +507,9 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     const isFacebookBrowser =
       navigator.userAgent.includes("FBAN") ||
       navigator.userAgent.includes("FBAV");
-    // 1. فحص استباقي لمتصفح فيسبوك
     if (isFacebookBrowser) {
-      setLocationErrorType("ios"); // تعيينه لإظهار رسالة الفيسبوك الخاصة بك
-      return; // إيقاف التنفيذ ومنع محاولة طلب الموقع
+      setLocationErrorType("ios");
+      return;
     }
 
     if (!navigator.geolocation) {
@@ -619,9 +532,12 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     const successCallback = async (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
 
-      // نجيب اسم/عنوان المكان (title) من خلال Reverse Geocoding
-      // باستخدام OpenStreetMap Nominatim (مجاني وبدون API key)
       let extractedTitle = "";
+      let extractedCity = "";
+      let extractedZone = "";
+      let extractedStreet = "";
+      let extractedfulladdress = "";
+
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
@@ -636,6 +552,20 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           address.city ||
           geoData?.display_name ||
           "";
+
+        extractedCity =
+          address.city ||
+          address.town ||
+          address.village ||
+          address.county ||
+          "";
+        extractedZone =
+          address.suburb ||
+          address.neighbourhood ||
+          address.state_district ||
+          "";
+        extractedStreet = address.road || address.pedestrian || "";
+        extractedfulladdress = geoData?.display_name || "";
       } catch (geoError) {
         console.error("Error reverse geocoding location:", geoError);
       }
@@ -645,7 +575,12 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
         lat: latitude,
         lng: longitude,
         location: extractedTitle,
+        city: extractedCity,
+        zone: extractedZone,
+        street: extractedStreet,
+        fulladdress: extractedfulladdress,
       }));
+
       setIsLocating(false);
       toast.success(
         t("dir") === "rtl"
@@ -723,14 +658,11 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     setAddressForm({ ...addressForm, [e.target.name]: e.target.value });
-  };
-
-  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCityId(e.target.value);
-    setAddressForm((prev) => ({ ...prev, zoneId: "" }));
   };
 
   const handleAddressSubmit = async (e: React.FormEvent) => {
@@ -776,7 +708,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </button>
         </div>
 
-        {/* زر تحديد الموقع الحالي بالـ GPS */}
+        {/* GPS Location Button */}
         <button
           type="button"
           onClick={handleGetCurrentLocation}
@@ -797,7 +729,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
               : "Use Current Location (GPS)"}
         </button>
 
-        {/* 🚨 الصندوق الإرشادي الثابت (Alert Box) في حال رفض الصلاحية */}
+        {/* Alert box when permission is denied */}
         {locationErrorType && (
           <div className="mb-4 p-4 rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300 animate-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-2.5">
@@ -809,7 +741,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                     : "Location Access Blocked"}
                 </p>
 
-                {/* توضيح لمستخدمي فيسبوك */}
                 {navigator.userAgent.includes("FBAN") ||
                 navigator.userAgent.includes("FBAV") ? (
                   <div className="space-y-3">
@@ -840,7 +771,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                     </ol>
                   </div>
                 ) : (
-                  /* باقي منطق رسائل الخطأ العادية للـ iOS/Android */
                   <p>
                     {locationErrorType === "ios" &&
                       (t("dir") === "rtl"
@@ -865,7 +795,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </div>
         )}
 
-        {/* نجاح التقاط الإحداثيات */}
+        {/* Captured Coordinates Feedback */}
         {addressForm.lat && addressForm.lng && (
           <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
             <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
@@ -890,69 +820,45 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             required
           />
 
-          <select
-            name="cityId"
-            value={selectedCityId}
-            onChange={handleCityChange}
-            className={inputClass}
-            required
-          >
-            <option value="" disabled>
-              {loadingZones ? t("loading") : t("select-city") || "Select City"}
-            </option>
-            {citiesList.map((city) => (
-              <option key={city.id} value={city.id}>
-                {city.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            name="zoneId"
-            value={addressForm.zoneId}
-            onChange={handleInputChange}
-            className={inputClass}
-            disabled={!selectedCityId || loadingZones}
-            required
-          >
-            <option value="" disabled>
-              {loadingZones
-                ? t("loading")
-                : !selectedCityId
-                  ? t("select-city-first") || "Please select a city first"
-                  : t("select-zone")}
-            </option>
-            {filteredZones.map((z) => (
-              <option key={z.id} value={z.id}>
-                {t("dir") === "rtl" && z.nameAr ? z.nameAr : z.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            name="type"
-            value={addressForm.type}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            <option value="home">{t("home")}</option>
-            <option value="work">{t("work")}</option>
-            <option value="other">{t("other")}</option>
-          </select>
-
-          <input
-            name="street"
-            placeholder={t("street")}
-            value={addressForm.street}
-            onChange={handleInputChange}
-            className={inputClass}
-            required
-          />
-
           <div className="grid grid-cols-2 gap-3">
             <input
+              name="city"
+              placeholder={t("city") || "City"}
+              value={addressForm.city}
+              onChange={handleInputChange}
+              className={inputClass}
+              required
+            />
+            <input
+              name="zone"
+              placeholder={t("zone") || "Zone"}
+              value={addressForm.zone}
+              onChange={handleInputChange}
+              className={inputClass}
+              required
+            />
+
+            <input
+              name="street"
+              placeholder={t("street")}
+              value={addressForm.street}
+              onChange={handleInputChange}
+              className={`col-span-2 ${inputClass}`}
+              required
+            />
+
+            <textarea
+              name="fulladdress"
+              placeholder={t("address") || "Full Address"}
+              value={addressForm.fulladdress}
+              onChange={handleInputChange}
+              className={`col-span-2 ${inputClass} resize-none`}
+              rows={2}
+              required
+            />
+
+            <input
               name="number"
-              type="number"
               placeholder={t("number")}
               value={addressForm.number}
               onChange={handleInputChange}
@@ -961,22 +867,28 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             />
             <input
               name="floor"
-              type="number"
               placeholder={t("floor")}
               value={addressForm.floor}
               onChange={handleInputChange}
               className={inputClass}
               required
             />
+            <input
+              name="apartment"
+              placeholder={t("apartment")}
+              value={addressForm.apartment}
+              onChange={handleInputChange}
+              className={inputClass}
+              required
+            />
+            <input
+              name="landmark"
+              placeholder={t("landmark")}
+              value={addressForm.landmark}
+              onChange={handleInputChange}
+              className={`col-span-2 ${inputClass}`}
+            />
           </div>
-
-          <input
-            name="landmark"
-            placeholder={t("landmark")}
-            value={addressForm.landmark}
-            onChange={handleInputChange}
-            className={inputClass}
-          />
 
           <div className="flex gap-3 pt-2">
             <button
