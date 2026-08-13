@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
@@ -21,6 +21,28 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix default marker icon URLs — Next.js/Webpack breaks Leaflet's default
+// icon path resolution, so we point them at the CDN assets instead.
+if (typeof window !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl:
+      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  });
+}
 
 type CartItem = { totalPrice: string | number; [key: string]: any };
 
@@ -470,6 +492,79 @@ export default function Checkout() {
 // AddAddressPopup Component
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// LocationPicker Component (draggable map pin)
+// ─────────────────────────────────────────────
+
+function MapClickHandler({
+  onChange,
+}: {
+  onChange: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onChange(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+function RecenterOnChange({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng]);
+  return null;
+}
+
+function LocationPicker({
+  lat,
+  lng,
+  onChange,
+}: {
+  lat: number;
+  lng: number;
+  onChange: (lat: number, lng: number) => void;
+}) {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker) {
+          const pos = marker.getLatLng();
+          onChange(pos.lat, pos.lng);
+        }
+      },
+    }),
+    [onChange],
+  );
+
+  return (
+    <MapContainer
+      center={[lat, lng]}
+      zoom={16}
+      scrollWheelZoom={true}
+      style={{ height: "220px", width: "100%" }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <Marker
+        position={[lat, lng]}
+        draggable={true}
+        eventHandlers={eventHandlers}
+        ref={markerRef}
+      />
+      <MapClickHandler onChange={onChange} />
+      <RecenterOnChange lat={lat} lng={lng} />
+    </MapContainer>
+  );
+}
+
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
@@ -485,9 +580,18 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     "ios" | "android" | "generic" | null
   >(null);
 
+  // Leaflet needs the DOM, so we only render the map after mounting on the client.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fallback map center (Cairo, Egypt) used until we have a real location.
+  const DEFAULT_MAP_CENTER: [number, number] = [30.0444, 31.2357];
+
   const [addressForm, setAddressForm] = useState({
     title: "",
-  
+
     street: "",
     fulladdress: "",
     number: "",
@@ -501,6 +605,48 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
+
+  // Reverse-geocodes a coordinate and stores it (+ derived address fields)
+  // in the form. Shared by the GPS button and the draggable map pin.
+  const applyLocation = async (latitude: number, longitude: number) => {
+    let extractedTitle = "";
+    let extractedStreet = "";
+    let extractedfulladdress = "";
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+      );
+      const geoData = await res.json();
+      const address = geoData?.address || {};
+
+      extractedTitle =
+        address.road ||
+        address.neighbourhood ||
+        address.suburb ||
+        geoData?.display_name ||
+        "";
+
+      extractedStreet = address.road || address.pedestrian || "";
+      extractedfulladdress = geoData?.display_name || "";
+    } catch (geoError) {
+      console.error("Error reverse geocoding location:", geoError);
+    }
+
+    setAddressForm((prev) => ({
+      ...prev,
+      lat: latitude,
+      lng: longitude,
+      location: extractedTitle,
+      street: extractedStreet,
+      fulladdress: extractedfulladdress,
+    }));
+  };
+
+  // Called when the user drags the pin or taps elsewhere on the map.
+  const handleMapLocationChange = (lat: number, lng: number) => {
+    applyLocation(lat, lng);
+  };
 
   const handleGetCurrentLocation = () => {
     const isFacebookBrowser =
@@ -531,42 +677,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     const successCallback = async (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
 
-      let extractedTitle = "";
-      
-      let extractedStreet = "";
-      let extractedfulladdress = "";
-
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-        );
-        const geoData = await res.json();
-        const address = geoData?.address || {};
-
-        extractedTitle =
-          address.road ||
-          address.neighbourhood ||
-          address.suburb ||
-       
-          geoData?.display_name ||
-          "";
-
-      
-        extractedStreet = address.road || address.pedestrian || "";
-        extractedfulladdress = geoData?.display_name || "";
-      } catch (geoError) {
-        console.error("Error reverse geocoding location:", geoError);
-      }
-
-      setAddressForm((prev) => ({
-        ...prev,
-        lat: latitude,
-        lng: longitude,
-        location: extractedTitle,
-     
-        street: extractedStreet,
-        fulladdress: extractedfulladdress,
-      }));
+      await applyLocation(latitude, longitude);
 
       setIsLocating(false);
       toast.success(
@@ -782,6 +893,24 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </div>
         )}
 
+        {/* Interactive Map - drag the pin or tap the map to fine-tune the location */}
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            {t("dir") === "rtl"
+              ? "اسحب الدبوس لتحديد موقعك بدقة"
+              : "Drag the pin to fine-tune your exact location"}
+          </p>
+          {mounted && (
+            <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
+              <LocationPicker
+                lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
+                lng={addressForm.lng ?? DEFAULT_MAP_CENTER[1]}
+                onChange={handleMapLocationChange}
+              />
+            </div>
+          )}
+        </div>
+
         {/* Captured Coordinates Feedback */}
         {addressForm.lat && addressForm.lng && (
           <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
@@ -808,8 +937,6 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           />
 
           <div className="grid grid-cols-2 gap-3">
-         
-
             <input
               name="street"
               placeholder={t("street")}

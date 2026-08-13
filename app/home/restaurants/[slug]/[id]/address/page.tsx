@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
@@ -11,6 +11,101 @@ import { useParams, useRouter } from "next/navigation";
 import { useRestaurant } from "@/context/RestaurantContext";
 import Loading from "@/components/Loading";
 import { ChevronLeft, Navigation, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix default marker icon URLs — Next.js/Webpack breaks Leaflet's default
+// icon path resolution, so we point them at the CDN assets instead.
+if (typeof window !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl:
+      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  });
+}
+
+// ─────────────────────────────────────────────
+// LocationPicker Component (draggable map pin)
+// ─────────────────────────────────────────────
+
+function MapClickHandler({
+  onChange,
+}: {
+  onChange: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onChange(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+function RecenterOnChange({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng]);
+  return null;
+}
+
+function LocationPicker({
+  lat,
+  lng,
+  onChange,
+}: {
+  lat: number;
+  lng: number;
+  onChange: (lat: number, lng: number) => void;
+}) {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker) {
+          const pos = marker.getLatLng();
+          onChange(pos.lat, pos.lng);
+        }
+      },
+    }),
+    [onChange],
+  );
+
+  return (
+    <MapContainer
+      center={[lat, lng]}
+      zoom={16}
+      scrollWheelZoom={true}
+      style={{ height: "220px", width: "100%" }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <Marker
+        position={[lat, lng]}
+        draggable={true}
+        eventHandlers={eventHandlers}
+        ref={markerRef}
+      />
+      <MapClickHandler onChange={onChange} />
+      <RecenterOnChange lat={lat} lng={lng} />
+    </MapContainer>
+  );
+}
 
 type Address = {
   id: string;
@@ -20,7 +115,7 @@ type Address = {
   floor: string;
   landmark: string;
   apartment: string;
- 
+
   fulladdress?: string;
   lat: number | null;
   lng: number | null;
@@ -36,6 +131,15 @@ const AddressPage = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+
+  // Leaflet needs the DOM, so we only render the map after mounting on the client.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fallback map center (Cairo, Egypt) used until we have a real location.
+  const DEFAULT_MAP_CENTER: [number, number] = [30.0444, 31.2357];
 
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
@@ -63,7 +167,7 @@ const AddressPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
-  
+
     street: "",
     fulladdress: "",
     number: "",
@@ -83,6 +187,48 @@ const AddressPage = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // Reverse-geocodes a coordinate and stores it (+ derived address fields)
+  // in the form. Shared by the GPS button and the draggable map pin.
+  const applyLocation = async (latitude: number, longitude: number) => {
+    let extractedTitle = "";
+    let extractedStreet = "";
+    let extractedfulladdress = "";
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+      );
+      const data = await res.json();
+      const address = data?.address || {};
+
+      extractedTitle =
+        address.road ||
+        address.neighbourhood ||
+        address.suburb ||
+        data?.display_name ||
+        "";
+
+      extractedStreet = address.road || address.pedestrian || "";
+      extractedfulladdress = data?.display_name || "";
+    } catch (geoError) {
+      console.error("Error reverse geocoding location:", geoError);
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      lat: latitude,
+      lng: longitude,
+      location: extractedTitle,
+      street: extractedStreet,
+      fulladdress: extractedfulladdress,
+    }));
+  };
+
+  // Called when the user drags the pin or taps elsewhere on the map.
+  const handleMapLocationChange = (lat: number, lng: number) => {
+    applyLocation(lat, lng);
+  };
+
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert(
@@ -98,45 +244,7 @@ const AddressPage = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-
-        let extractedTitle = "";
-      
-        let extractedStreet = "";
-        let extractedfulladdress = "";
-
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-          );
-          const data = await res.json();
-          const address = data?.address || {};
-
-          extractedTitle =
-            address.road ||
-            address.neighbourhood ||
-            address.suburb ||
-         
-            data?.display_name ||
-            "";
-
-          // Extract granular details for auto-fill
-        
-          extractedStreet = address.road || address.pedestrian || "";
-          extractedfulladdress = data?.display_name || "";
-        } catch (geoError) {
-          console.error("Error reverse geocoding location:", geoError);
-        }
-
-        setForm((prev) => ({
-          ...prev,
-          lat: latitude,
-          lng: longitude,
-          location: extractedTitle,
-        
-          street: extractedStreet,
-          fulladdress: extractedfulladdress,
-        }));
-
+        await applyLocation(latitude, longitude);
         setIsLocating(false);
       },
       (error) => {
@@ -181,7 +289,7 @@ const AddressPage = () => {
   const resetForm = () => {
     setForm({
       title: "",
-   
+
       street: "",
       fulladdress: "",
       number: "",
@@ -190,7 +298,7 @@ const AddressPage = () => {
       lat: null,
       lng: null,
       location: "",
-      apartment:"",
+      apartment: "",
     });
     setEditingId(null);
   };
@@ -198,7 +306,7 @@ const AddressPage = () => {
   const handleEditClick = (address: Address) => {
     setForm({
       title: address.title || "",
-   
+
       street: address.street || "",
       fulladdress: address.fulladdress || "",
       number: address.number?.toString() || "",
@@ -314,6 +422,24 @@ const AddressPage = () => {
                   : "Use Current Location (GPS)"}
             </button>
 
+            {/* Interactive Map - drag the pin or tap the map to fine-tune the location */}
+            <div>
+              <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                {isArabic
+                  ? "اسحب الدبوس لتحديد موقعك بدقة"
+                  : "Drag the pin to fine-tune your exact location"}
+              </p>
+              {mounted && (
+                <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
+                  <LocationPicker
+                    lat={form.lat ?? DEFAULT_MAP_CENTER[0]}
+                    lng={form.lng ?? DEFAULT_MAP_CENTER[1]}
+                    onChange={handleMapLocationChange}
+                  />
+                </div>
+              )}
+            </div>
+
             {hasLocation ? (
               <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
                 <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
@@ -344,9 +470,6 @@ const AddressPage = () => {
             />
 
             <div className="grid grid-cols-2 gap-4">
-            
-             
-
               <input
                 name="street"
                 placeholder={t("street")}
@@ -382,7 +505,7 @@ const AddressPage = () => {
                 className={inputClass}
                 required
               />
-               <input
+              <input
                 name="apartment"
                 placeholder={t("apartment")}
                 value={form.apartment}
@@ -464,12 +587,10 @@ const AddressPage = () => {
                           📍 GPS
                         </span>
                       )}
-                     
                     </div>
                   </div>
 
                   <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    
                     <p className="flex items-center gap-2">
                       <span className="text-zinc-400">📍</span> {a.street}
                     </p>

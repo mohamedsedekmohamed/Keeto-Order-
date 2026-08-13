@@ -47,7 +47,7 @@ export default function TopNav() {
         router.push(`/auth/sign-in`);
       } else {
         // مستخدم داخل من لينك مباشر للمطعم
-        localStorage.setItem("login_source", "online_order");
+        localStorage.setItem("login_source", "online_order_web");
         router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
       }
     }

@@ -51,15 +51,20 @@ export default function Cart() {
   const isRtl = language === "العربية";
 
   // 👈 1. جلب البيانات عند فتح الصفحة
+  // بنبعت restaurantId مع الريكوست عشان السيرفر يرجع سلة المطعم ده
+  // بالظبط، مش أي سلة تانية مرتبطة بالتوكن بس
   const {
     data: cartData,
     loading: fetchingCart,
     refetch,
-  } = useGet<any>("/api/user/cart");
+  } = useGet<any>(
+    restaurantId ? `/api/user/cart?restaurantId=${restaurantId}` : null,
+  );
 
   useEffect(() => {
+    if (!restaurantId) return;
     refetch();
-  }, []);
+  }, [restaurantId]);
 
   // فحص الصلاحية فوراً عند الدخول لمنع وميض البيانات المنتهية
   useEffect(() => {
@@ -70,7 +75,12 @@ export default function Cart() {
       localStorage.removeItem(CART_EXPIRY_KEY);
 
       // استدعاء الـ API لحذفها من السيرفر
-      fetch("/api/user/cart", { method: "DELETE" })
+      fetch(
+        restaurantId
+          ? `/api/user/cart?restaurantId=${restaurantId}`
+          : "/api/user/cart",
+        { method: "DELETE" },
+      )
         .then(() => toast.error(t("cartExpired")))
         .catch((err) =>
           console.error("Failed to clear expired cart backend", err),
@@ -111,7 +121,12 @@ export default function Cart() {
 
       if (Date.now() >= Number(expiry)) {
         try {
-          await deleteData("/api/user/cart", t("cartCleared"));
+          await deleteData(
+            restaurantId
+              ? `/api/user/cart?restaurantId=${restaurantId}`
+              : "/api/user/cart",
+            t("cartCleared"),
+          );
           dispatch(clearCartLocal());
           localStorage.removeItem(CART_EXPIRY_KEY);
           toast.error(t("cartExpired"));
@@ -123,7 +138,7 @@ export default function Cart() {
 
     const interval = setInterval(checkCartExpiry, 30000); // فحص كل 30 ثانية
     return () => clearInterval(interval);
-  }, [deleteData, dispatch, t]);
+  }, [deleteData, dispatch, t, restaurantId]);
 
   const totalPrice = Number(cartData?.data?.data?.totalSummary?.subtotal || 0);
 
@@ -151,6 +166,7 @@ export default function Cart() {
     try {
       await deleteData(`/api/user/cart/${cartId}`, t("itemRemoved"));
       dispatch(removeFromCartLocal(cartId));
+      await refetch();
     } catch (error) {
       toast.error(t("failedRemoveItem"));
     }
@@ -158,9 +174,15 @@ export default function Cart() {
 
   const handleClearCart = async () => {
     try {
-      await deleteData("/api/user/cart", t("cartCleared"));
+      await deleteData(
+        restaurantId
+          ? `/api/user/cart?restaurantId=${restaurantId}`
+          : "/api/user/cart",
+        t("cartCleared"),
+      );
       dispatch(clearCartLocal());
       localStorage.removeItem(CART_EXPIRY_KEY);
+      await refetch();
     } catch (error) {
       toast.error(t("failedClearCart"));
     }

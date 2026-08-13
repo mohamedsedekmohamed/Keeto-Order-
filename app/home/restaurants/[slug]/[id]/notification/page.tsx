@@ -53,10 +53,16 @@ export default function OrdersPage() {
     loading: loadingHistory,
     refetch: refetchHistory,
   } = useGet<any>("/api/user/order/history?restaurantId=" + restaurantId);
+  const getOrderSource = () => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("login_source") || "food_aggregator";
+    }
+    return "food_aggregator";
+  };
 
   // 👈 جلب أسباب الإلغاء والبيانات المساعدة بناءً على الـ Endpoint المطلوب
   const { data: selectOptionsData } = useGet<any>(
-    `/api/user/order/select?restaurantId=${restaurantId}`,
+    `/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`,
   );
 
   // استخراج مصفوفة الأسباب المتاحة من الـ Response المُرسل
@@ -73,11 +79,7 @@ export default function OrdersPage() {
   const activeOrders = activeData?.data?.data || activeData?.data || [];
 
   // ✅ FILTER HISTORY ORDERS
-  const historyOrders = (
-    historyData?.data?.data ||
-    historyData?.data ||
-    []
-  )
+  const historyOrders = historyData?.data?.data || historyData?.data || [];
   // .filter((order: any) => {
   //   if (order.restaurantId && restaurantId) {
   //     return String(order.restaurantId) === String(restaurantId);
@@ -150,11 +152,11 @@ export default function OrdersPage() {
         refetchActive?.();
         refetchHistory?.();
       } else {
-        toast.error(t("failedToCancel")  );
+        toast.error(t("failedToCancel"));
       }
     } catch (error) {
       console.error("Error cancelling order:", error);
-      toast.error(t("failedToCancel")  );
+      toast.error(t("failedToCancel"));
     } finally {
       setUpdatingStatus(false);
     }
@@ -267,6 +269,22 @@ export default function OrdersPage() {
                     {order.itemsCount || order.items?.length || 0} {t("items")}
                   </span>
                 </div>
+
+                {/* Delivery man info — only shown while the order is out for delivery */}
+                {order.status === "out_for_delivery" && order.deliveryMan && (
+                  <div className="flex items-center justify-between mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-400/10 rounded-xl">
+                    <span className="text-[11px] font-bold text-gray-700 dark:text-yellow-300">
+                      {order.deliveryMan.name}
+                    </span>
+                    <a
+                      href={`tel:${order.deliveryMan.phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] font-bold text-yellow-600 dark:text-yellow-400"
+                    >
+                      {order.deliveryMan.phone}
+                    </a>
+                  </div>
+                )}
               </div>
               <div className="text-gray-300">
                 {t("dir") === "rtl" ? (
@@ -531,7 +549,7 @@ export default function OrdersPage() {
                     {updatingStatus ? (
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      t("confirmCancel") 
+                      t("confirmCancel")
                     )}
                   </button>
                 </div>
