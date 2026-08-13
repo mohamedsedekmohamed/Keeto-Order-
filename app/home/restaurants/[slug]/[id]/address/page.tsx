@@ -20,8 +20,7 @@ type Address = {
   floor: string;
   landmark: string;
   apartment: string;
-  city?: string;
-  zone?: string;
+ 
   fulladdress?: string;
   lat: number | null;
   lng: number | null;
@@ -65,8 +64,6 @@ const AddressPage = () => {
   const [form, setForm] = useState({
     title: "",
   
-    city: "",
-    zone: "",
     street: "",
     fulladdress: "",
     number: "",
@@ -103,8 +100,7 @@ const AddressPage = () => {
         const { latitude, longitude } = position.coords;
 
         let extractedTitle = "";
-        let extractedCity = "";
-        let extractedZone = "";
+      
         let extractedStreet = "";
         let extractedfulladdress = "";
 
@@ -119,22 +115,12 @@ const AddressPage = () => {
             address.road ||
             address.neighbourhood ||
             address.suburb ||
-            address.city ||
+         
             data?.display_name ||
             "";
 
           // Extract granular details for auto-fill
-          extractedCity =
-            address.city ||
-            address.town ||
-            address.village ||
-            address.county ||
-            "";
-          extractedZone =
-            address.suburb ||
-            address.neighbourhood ||
-            address.state_district ||
-            "";
+        
           extractedStreet = address.road || address.pedestrian || "";
           extractedfulladdress = data?.display_name || "";
         } catch (geoError) {
@@ -146,8 +132,7 @@ const AddressPage = () => {
           lat: latitude,
           lng: longitude,
           location: extractedTitle,
-          city: extractedCity,
-          zone: extractedZone,
+        
           street: extractedStreet,
           fulladdress: extractedfulladdress,
         }));
@@ -196,9 +181,7 @@ const AddressPage = () => {
   const resetForm = () => {
     setForm({
       title: "",
-    
-      city: "",
-      zone: "",
+   
       street: "",
       fulladdress: "",
       number: "",
@@ -216,8 +199,6 @@ const AddressPage = () => {
     setForm({
       title: address.title || "",
    
-      city: address.city || "",
-      zone: address.zone || "",
       street: address.street || "",
       fulladdress: address.fulladdress || "",
       number: address.number?.toString() || "",
@@ -363,22 +344,8 @@ const AddressPage = () => {
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <input
-                name="city"
-                placeholder={t("city") || "City"}
-                value={form.city}
-                onChange={handleChange}
-                className={inputClass}
-                required
-              />
-              <input
-                name="zone"
-                placeholder={t("zone") || "Zone"}
-                value={form.zone}
-                onChange={handleChange}
-                className={inputClass}
-                required
-              />
+            
+             
 
               <input
                 name="street"
@@ -502,12 +469,7 @@ const AddressPage = () => {
                   </div>
 
                   <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    {a.city && a.zone && (
-                      <p className="flex items-center gap-2">
-                        <span className="text-zinc-400">🏙️</span> {a.city},{" "}
-                        {a.zone}
-                      </p>
-                    )}
+                    
                     <p className="flex items-center gap-2">
                       <span className="text-zinc-400">📍</span> {a.street}
                     </p>

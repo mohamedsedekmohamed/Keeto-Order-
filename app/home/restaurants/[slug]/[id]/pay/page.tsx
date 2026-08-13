@@ -487,8 +487,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
   const [addressForm, setAddressForm] = useState({
     title: "",
-    city: "",
-    zone: "",
+  
     street: "",
     fulladdress: "",
     number: "",
@@ -533,8 +532,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       const { latitude, longitude } = position.coords;
 
       let extractedTitle = "";
-      let extractedCity = "";
-      let extractedZone = "";
+      
       let extractedStreet = "";
       let extractedfulladdress = "";
 
@@ -549,21 +547,11 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           address.road ||
           address.neighbourhood ||
           address.suburb ||
-          address.city ||
+       
           geoData?.display_name ||
           "";
 
-        extractedCity =
-          address.city ||
-          address.town ||
-          address.village ||
-          address.county ||
-          "";
-        extractedZone =
-          address.suburb ||
-          address.neighbourhood ||
-          address.state_district ||
-          "";
+      
         extractedStreet = address.road || address.pedestrian || "";
         extractedfulladdress = geoData?.display_name || "";
       } catch (geoError) {
@@ -575,8 +563,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
         lat: latitude,
         lng: longitude,
         location: extractedTitle,
-        city: extractedCity,
-        zone: extractedZone,
+     
         street: extractedStreet,
         fulladdress: extractedfulladdress,
       }));
@@ -821,22 +808,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <input
-              name="city"
-              placeholder={t("city") || "City"}
-              value={addressForm.city}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="zone"
-              placeholder={t("zone") || "Zone"}
-              value={addressForm.zone}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
+         
 
             <input
               name="street"
