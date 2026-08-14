@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -19,27 +19,134 @@ import {
   Home,
   Briefcase,
   Edit,
+  Trash2,
+  Navigation,
+  CheckCircle2,
+  Plus,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
+import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
+import useDelete from "@/app/hooks/useDelete";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 
+// Leaflet Imports
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix Leaflet Marker Icon Path Issue in Next.js
+if (typeof window !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl:
+      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  });
+}
+
+// Default Fallback Coordinates
+const DEFAULT_MAP_CENTER: [number, number] = [30.0444, 31.2357];
+
+// ─────────────────────────────────────────────
+// Map Helper & Component (Draggable Pin)
+// ─────────────────────────────────────────────
+
+function MapClickHandler({
+  onChange,
+}: {
+  onChange: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onChange(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+function RecenterOnChange({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom());
+  }, [lat, lng]);
+  return null;
+}
+
+function LocationPicker({
+  lat,
+  lng,
+  onChange,
+}: {
+  lat: number;
+  lng: number;
+  onChange: (lat: number, lng: number) => void;
+}) {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker) {
+          const pos = marker.getLatLng();
+          onChange(pos.lat, pos.lng);
+        }
+      },
+    }),
+    [onChange],
+  );
+
+  return (
+    <MapContainer
+      center={[lat, lng]}
+      zoom={16}
+      scrollWheelZoom={true}
+      style={{ height: "220px", width: "100%" }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <Marker
+        position={[lat, lng]}
+        draggable={true}
+        eventHandlers={eventHandlers}
+        ref={markerRef}
+      />
+      <MapClickHandler onChange={onChange} />
+      <RecenterOnChange lat={lat} lng={lng} />
+    </MapContainer>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Interfaces
+// ─────────────────────────────────────────────
+
 interface Address {
   id: string;
-  zoneId: string;
-  type: "home" | "work" | string;
+  type?: "home" | "work" | string;
   title: string;
-  lat: string | number | null;
-  lng: string | number | null;
+  lat: number | null;
+  lng: number | null;
   street: string;
   number: string | number;
   floor: string | number;
+  apartment: string;
   landmark: string | null;
-  location: string | null;
-  apartment:string;
+  fulladdress?: string;
+  location?: string | null;
 }
 
 interface UserProfile {
@@ -67,32 +174,46 @@ interface ProfileApiResponse {
 }
 
 export default function ProfilePage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { logout } = useToken();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+  const isArabic = String(language).toLowerCase() === "ar";
   const callbackSlug = searchParams.get("callbackSlug");
+
+  // Mount state for SSR rendering safety with Leaflet
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<"profile" | "addresses">(
     "profile",
   );
 
-  // Fetching user profile data
+  // Delete Modal & GPS States
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+
+  // APIs
   const {
     data: profileResponse,
     loading: isFetching,
     refetch,
   } = useGet<ProfileApiResponse>("/api/user/profile");
 
-  // Update hooks
   const { putData: updateProfile, loading: isUpdatingProfile } =
     usePut("/api/user/profile");
-  const { putData: updateAddress, loading: isUpdatingAddress } = usePut(); // Kept empty to allow dynamic URLs
+  const { postData: addAddress, loading: isAddingAddress } =
+    usePost("/api/user/address");
+  const { putData: updateAddress, loading: isUpdatingAddress } = usePut();
+  const { deleteData, loading: isDeletingAddress } = useDelete("");
 
-  // Extracted response data
+  // Extracted Data
   const userData = profileResponse?.data?.data?.user;
   const walletBalance = profileResponse?.data?.data?.walletBalance || "0.00";
   const ordersCount = profileResponse?.data?.data?.ordersCount || 0;
@@ -105,9 +226,22 @@ export default function ProfilePage() {
     alternatePhone: "",
   });
 
-  // Address Editing State
+  // Address Editing / Adding State
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
-  const [editAddressData, setEditAddressData] = useState<Partial<Address>>({});
+  const [addressForm, setAddressForm] = useState({
+    title: "",
+    type: "home",
+    street: "",
+    fulladdress: "",
+    number: "",
+    floor: "",
+    apartment: "",
+    landmark: "",
+    lat: null as number | null,
+    lng: null as number | null,
+    location: "",
+  });
 
   useEffect(() => {
     if (userData) {
@@ -140,45 +274,190 @@ export default function ProfilePage() {
       );
       if (refetch) refetch();
     } catch (error) {
-      // Handled by hook
+      console.error(error);
     }
   };
 
-  // Handle Address Changes
+  // Reverse Geocoding via Nominatim
+  const applyLocation = async (latitude: number, longitude: number) => {
+    let extractedTitle = "";
+    let extractedStreet = "";
+    let extractedFullAddress = "";
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+      );
+      const data = await res.json();
+      const address = data?.address || {};
+
+      extractedTitle =
+        address.road ||
+        address.neighbourhood ||
+        address.suburb ||
+        data?.display_name ||
+        "";
+      extractedStreet = address.road || address.pedestrian || "";
+      extractedFullAddress = data?.display_name || "";
+    } catch (geoError) {
+      console.error("Error reverse geocoding location:", geoError);
+    }
+
+    setAddressForm((prev) => ({
+      ...prev,
+      lat: latitude,
+      lng: longitude,
+      location: extractedTitle,
+      street: extractedStreet,
+      fulladdress: extractedFullAddress,
+    }));
+  };
+
+  const handleMapLocationChange = (lat: number, lng: number) => {
+    applyLocation(lat, lng);
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert(
+        isArabic
+          ? "المتصفح الخاص بك لا يدعم تحديد الموقع."
+          : "Geolocation is not supported by your browser.",
+      );
+      return;
+    }
+
+    setIsLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        await applyLocation(latitude, longitude);
+        setIsLocating(false);
+      },
+      (error) => {
+        setIsLocating(false);
+        console.error("Error getting location:", error);
+        alert(
+          isArabic
+            ? "فشل في تحديد الموقع. يرجى تفعيل الـ GPS وإعطاء الصلاحية."
+            : "Failed to get location. Please allow location access.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  // Address Form Actions
+  const resetAddressForm = () => {
+    setAddressForm({
+      title: "",
+      type: "home",
+      street: "",
+      fulladdress: "",
+      number: "",
+      floor: "",
+      apartment: "",
+      landmark: "",
+      lat: null,
+      lng: null,
+      location: "",
+    });
+    setEditingAddressId(null);
+    setIsFormOpen(false);
+  };
+
+  const handleAddNewClick = () => {
+    resetAddressForm();
+    setIsFormOpen(true);
+  };
+
   const handleAddressEditClick = (address: Address) => {
+    setAddressForm({
+      title: address.title || "",
+      type: address.type || "home",
+      street: address.street || "",
+      fulladdress: address.fulladdress || "",
+      number: address.number?.toString() || "",
+      floor: address.floor?.toString() || "",
+      apartment: address.apartment || "",
+      landmark: address.landmark || "",
+      lat: address.lat !== null ? Number(address.lat) : null,
+      lng: address.lng !== null ? Number(address.lng) : null,
+      location: address.location || "",
+    });
     setEditingAddressId(address.id);
-    setEditAddressData(address);
+    setIsFormOpen(true);
   };
 
   const handleAddressChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value } = e.target;
-    setEditAddressData((prev) => ({ ...prev, [name]: value }));
+    setAddressForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAddressSubmit = async (e: React.FormEvent, addressId: string) => {
+  const handleAddressSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Convert values to numeric type to ensure backend compatibility
     const payload = {
-      ...editAddressData,
-      number: Number(editAddressData.number) || 0,
-      floor: Number(editAddressData.floor) || 0,
+      ...addressForm,
+      number: Number(addressForm.number) || 0,
+      floor: Number(addressForm.floor) || 0,
     };
 
     try {
-      await updateAddress(
-        payload,
-        `/api/user/address/${addressId}`,
-        t("address-updated-success") || "تم تحديث العنوان بنجاح!",
-      );
-      setEditingAddressId(null);
+      if (editingAddressId) {
+        await updateAddress(
+          payload,
+          `/api/user/address/${editingAddressId}`,
+          t("address-updated-success") || "تم تحديث العنوان بنجاح!",
+        );
+      } else {
+        await addAddress(
+          payload,
+          null,
+          t("address-added-success") || "تم إضافة العنوان بنجاح!",
+        );
+      }
+      resetAddressForm();
       if (refetch) refetch();
     } catch (error) {
-      // Handled by hook
+      console.error(error);
     }
   };
+
+  // Address Deletion
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    try {
+      await deleteData(
+        `/api/user/address/${deleteId}`,
+        t("address-deleted-success") || "تم حذف العنوان بنجاح!",
+      );
+      if (refetch) refetch();
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteId(null);
+    }
+  };
+
+  const hasLocation =
+    addressForm.lat !== null &&
+    addressForm.lng !== null &&
+    !Number.isNaN(Number(addressForm.lat)) &&
+    !Number.isNaN(Number(addressForm.lng));
+
+  const latDisplay = hasLocation ? Number(addressForm.lat).toFixed(4) : "";
+  const lngDisplay = hasLocation ? Number(addressForm.lng).toFixed(4) : "";
 
   if (isFetching || !userData) {
     return (
@@ -196,10 +475,10 @@ export default function ProfilePage() {
 
       <button
         onClick={() => router.back()}
-        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 start-4 active:scale-95"
+        className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 start-4 active:scale-95 text-white"
       >
         <ChevronLeft
-          className={`w-6 h-6 text-white ${isRtl ? "rotate-180" : ""}`}
+          className={`w-6 h-6 transform ${isRtl ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -468,8 +747,249 @@ export default function ProfilePage() {
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                         {t("savedAddresses") || "العناوين المحفوظة"}
                       </h3>
+
+                      {!isFormOpen && (
+                        <button
+                          onClick={handleAddNewClick}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-zinc-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-all active:scale-95 shadow-md shadow-yellow-400/20"
+                        >
+                          <Plus size={18} />
+                          <span>
+                            {t("add-address-btn") || "إضافة عنوان جديد"}
+                          </span>
+                        </button>
+                      )}
                     </div>
 
+                    {/* Dynamic Add / Edit Address Form */}
+                    {isFormOpen && (
+                      <form
+                        onSubmit={handleAddressSubmit}
+                        className="p-6 mb-6 space-y-5 bg-gray-50/80 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800 rounded-2xl transition-all"
+                      >
+                        <div className="pb-2 border-b border-gray-200 dark:border-zinc-700/60">
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                            {editingAddressId
+                              ? t("edit-address") || "تعديل العنوان"
+                              : t("add-address") || "إضافة عنوان جديد"}
+                          </h4>
+                        </div>
+
+                        {/* GPS Location Button */}
+                        <button
+                          type="button"
+                          onClick={handleGetCurrentLocation}
+                          disabled={isLocating}
+                          className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60 shadow-sm"
+                        >
+                          {isLocating ? (
+                            <Loader2
+                              size={18}
+                              className="animate-spin text-yellow-500"
+                            />
+                          ) : (
+                            <Navigation
+                              size={18}
+                              className="text-yellow-500 fill-yellow-500"
+                            />
+                          )}
+                          {isLocating
+                            ? isArabic
+                              ? "جاري تحديد موقعك..."
+                              : "Locating..."
+                            : isArabic
+                              ? "استخدام موقعي الحالي (GPS)"
+                              : "Use Current Location (GPS)"}
+                        </button>
+
+                        {/* Interactive Map */}
+                        <div>
+                          <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-zinc-400">
+                            {isArabic
+                              ? "اسحب الدبوس لتحديد موقعك بدقة"
+                              : "Drag the pin to fine-tune your exact location"}
+                          </p>
+                          {mounted && (
+                            <div className="overflow-hidden border rounded-2xl border-gray-200 dark:border-zinc-700">
+                              <LocationPicker
+                                lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
+                                lng={addressForm.lng ?? DEFAULT_MAP_CENTER[1]}
+                                onChange={handleMapLocationChange}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {hasLocation ? (
+                          <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400">
+                            <CheckCircle2
+                              size={16}
+                              className="shrink-0 mt-0.5"
+                            />
+                            <div className="flex flex-col gap-0.5">
+                              {addressForm.location && (
+                                <span>{addressForm.location}</span>
+                              )}
+                              <span>
+                                {isArabic
+                                  ? `تم التقاط الموقع: (${latDisplay}, ${lngDisplay})`
+                                  : `Location captured: (${latDisplay}, ${lngDisplay})`}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs font-medium text-amber-600 dark:text-amber-500">
+                            {isArabic
+                              ? "اضغط على الزر أعلاه لتحديد موقعك تلقائيًا قبل الحفظ."
+                              : "Tap the button above to auto-detect your location before saving."}
+                          </p>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                              {t("addressTitle") || "عنوان الإقامة"}
+                            </label>
+                            <input
+                              type="text"
+                              name="title"
+                              placeholder={t("title") || "اسم العنوان"}
+                              value={addressForm.title}
+                              onChange={handleAddressChange}
+                              className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                            {t("street") || "الشارع"}
+                          </label>
+                          <input
+                            type="text"
+                            name="street"
+                            placeholder={t("street") || "اسم الشارع"}
+                            value={addressForm.street}
+                            onChange={handleAddressChange}
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                            {t("address") || "العنوان بالتفصيل"}
+                          </label>
+                          <textarea
+                            name="fulladdress"
+                            placeholder={t("address") || "العنوان الكامل"}
+                            value={addressForm.fulladdress}
+                            onChange={handleAddressChange}
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400 resize-none"
+                            rows={2}
+                            required
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                              {t("number") || "المبنى"}
+                            </label>
+                            <input
+                              type="number"
+                              name="number"
+                              placeholder={t("number") || "رقم المبنى"}
+                              value={addressForm.number}
+                              onChange={handleAddressChange}
+                              className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                              {t("floor") || "الطابق"}
+                            </label>
+                            <input
+                              type="number"
+                              name="floor"
+                              placeholder={t("floor") || "رقم الطابق"}
+                              value={addressForm.floor}
+                              onChange={handleAddressChange}
+                              className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                              {t("apartment") || "الشقة"}
+                            </label>
+                            <input
+                              type="text"
+                              name="apartment"
+                              placeholder={t("apartment") || "رقم الشقة"}
+                              value={addressForm.apartment}
+                              onChange={handleAddressChange}
+                              className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                            {t("landmark") || "علامة مميزة"}
+                          </label>
+                          <input
+                            type="text"
+                            name="landmark"
+                            placeholder={t("landmark") || "علامة مميزة"}
+                            value={addressForm.landmark}
+                            onChange={handleAddressChange}
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-3 border-t border-gray-200 dark:border-zinc-700">
+                          <button
+                            type="submit"
+                            disabled={
+                              isAddingAddress ||
+                              isUpdatingAddress ||
+                              isLocating ||
+                              !hasLocation
+                            }
+                            className="flex-1 py-3 px-4 font-bold text-zinc-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 shadow-md shadow-yellow-400/20 disabled:opacity-70 flex justify-center items-center gap-2"
+                          >
+                            {isAddingAddress || isUpdatingAddress ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Save size={16} />
+                            )}
+                            <span>
+                              {isAddingAddress || isUpdatingAddress
+                                ? t("saving") || "جاري الحفظ..."
+                                : editingAddressId
+                                  ? t("update-address") || "تحديث العنوان"
+                                  : t("add-address-btn") || "حفظ العنوان"}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={resetAddressForm}
+                            className="px-5 py-3 font-bold text-gray-600 bg-gray-100 dark:bg-zinc-800 dark:text-zinc-300 rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700"
+                          >
+                            {t("cancel") || "إلغاء"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Address List View */}
                     {userData.addresses?.length === 0 ? (
                       <div className="py-12 text-center text-gray-500 dark:text-zinc-400">
                         <MapPin className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
@@ -482,212 +1002,82 @@ export default function ProfilePage() {
                         {userData.addresses?.map((address) => (
                           <div
                             key={address.id}
-                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative ${
+                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${
                               editingAddressId === address.id
                                 ? "ring-2 ring-yellow-400/50 border-yellow-400"
                                 : "hover:border-yellow-400/50"
                             }`}
                           >
-                            {/* IF IN EDITING MODE */}
-                            {editingAddressId === address.id ? (
-                              <form
-                                onSubmit={(e) =>
-                                  handleAddressSubmit(e, address.id)
-                                }
-                                className="space-y-4"
-                              >
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                  <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                      {t("addressTitle") ||
-                                        "اسم العنوان (مثال: المنزل)"}
-                                    </label>
-                                    <input
-                                      type="text"
-                                      name="title"
-                                      value={editAddressData.title || ""}
-                                      onChange={handleAddressChange}
-                                      required
-                                      className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
+                                  {address.type === "work" ? (
+                                    <Briefcase
+                                      size={16}
+                                      className="text-yellow-500"
                                     />
-                                  </div>
-
-                                  <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                      {t("addressType") || "نوع العنوان"}
-                                    </label>
-                                    <select
-                                      name="type"
-                                      value={editAddressData.type || "home"}
-                                      onChange={handleAddressChange}
-                                      className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                    >
-                                      <option value="home">
-                                        {t("home") || "المنزل"}
-                                      </option>
-                                      <option value="work">
-                                        {t("work") || "العمل"}
-                                      </option>
-                                      <option value="other">
-                                        {t("other") || "أخرى"}
-                                      </option>
-                                    </select>
-                                  </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                  <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                    {t("street") || "اسم الشارع"}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    name="street"
-                                    value={editAddressData.street || ""}
-                                    onChange={handleAddressChange}
-                                    required
-                                    className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                  />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                      {t("buildingNumber") || "رقم المبنى"}
-                                    </label>
-                                    <input
-                                      type="number"
-                                      name="number"
-                                      value={editAddressData.number || ""}
-                                      onChange={handleAddressChange}
-                                      required
-                                      className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
+                                  ) : (
+                                    <Home
+                                      size={16}
+                                      className="text-yellow-500"
                                     />
-                                  </div>
-                                                                    <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                      {t("ApartmentNumber") || "رقم المبنى"}
-                                    </label>
-                                    <input
-                                      type="apartment"
-                                      name="apartment"
-                                      value={editAddressData.apartment || ""}
-                                      onChange={handleAddressChange}
-                                      required
-                                      className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                      {t("floor") || "الدور / الطابق"}
-                                    </label>
-                                    <input
-                                      type="number"
-                                      name="floor"
-                                      value={editAddressData.floor || ""}
-                                      onChange={handleAddressChange}
-                                      className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                  <label className="block text-xs font-bold text-gray-700 dark:text-zinc-300">
-                                    {t("landmark") || "علامة مميزة"}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    name="landmark"
-                                    value={editAddressData.landmark || ""}
-                                    onChange={handleAddressChange}
-                                    className="w-full px-3 py-2.5 text-sm transition-all border border-gray-200 dark:border-zinc-700 outline-none bg-white dark:bg-zinc-900 rounded-xl dark:text-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                  />
-                                </div>
-
-                                <div className="flex items-center gap-3 pt-3 mt-2 border-t border-gray-100 dark:border-zinc-800">
-                                  <button
-                                    type="submit"
-                                    disabled={isUpdatingAddress}
-                                    className="flex-1 py-3 px-4 text-sm font-bold text-gray-900 transition-all bg-yellow-400 rounded-xl hover:bg-yellow-500 shadow-md shadow-yellow-400/20 disabled:opacity-70 flex justify-center items-center gap-2"
-                                  >
-                                    {isUpdatingAddress ? (
-                                      <Loader2
-                                        size={16}
-                                        className="animate-spin"
-                                      />
-                                    ) : (
-                                      <Save size={16} />
-                                    )}
-                                    <span>{t("save") || "حفظ"}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingAddressId(null)}
-                                    className="px-5 py-3 text-sm font-bold text-gray-600 transition-all bg-gray-100 dark:bg-zinc-800 dark:text-zinc-300 rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700"
-                                  >
-                                    {t("cancel") || "إلغاء"}
-                                  </button>
-                                </div>
-                              </form>
-                            ) : (
-                              /* IF IN READ-ONLY MODE */
-                              <>
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
-                                    {address.type === "work" ? (
-                                      <Briefcase
-                                        size={16}
-                                        className="text-yellow-500"
-                                      />
-                                    ) : (
-                                      <Home
-                                        size={16}
-                                        className="text-yellow-500"
-                                      />
-                                    )}
-                                    {address.title}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-2.5 py-0.5 text-xs font-semibold rounded-lg bg-yellow-400/20 text-yellow-700 dark:text-yellow-400 capitalize">
-                                      {address.type}
+                                  )}
+                                  {address.title}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {address.lat && address.lng && (
+                                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                      📍 GPS
                                     </span>
-                                    <button
-                                      onClick={() =>
-                                        handleAddressEditClick(address)
-                                      }
-                                      className="p-1.5 text-gray-500 transition-colors hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 dark:hover:text-yellow-400 rounded-lg"
-                                      title={t("edit") || "تعديل"}
-                                    >
-                                      <Edit size={16} />
-                                    </button>
-                                  </div>
+                                  )}
+                                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-lg bg-yellow-400/20 text-yellow-700 dark:text-yellow-400 capitalize">
+                                    {address.type || "home"}
+                                  </span>
                                 </div>
+                              </div>
 
-                                <div className="space-y-1 text-sm text-gray-600 dark:text-zinc-400 pr-1">
-                                  <p>
+                              <div className="space-y-1 text-sm text-gray-600 dark:text-zinc-400">
+                                <p>
+                                  <span className="font-semibold text-gray-700 dark:text-zinc-300">
+                                    {t("street") || "الشارع"}:
+                                  </span>{" "}
+                                  {address.street} - مبنى {address.number} (طابق{" "}
+                                  {address.floor})
+                                </p>
+                                {address.fulladdress && (
+                                  <p className="line-clamp-2">
                                     <span className="font-semibold text-gray-700 dark:text-zinc-300">
-                                      الشارع:
+                                      {t("address") || "العنوان"}:
                                     </span>{" "}
-                                    {address.street} - مبنى {address.number}{" "}
-                                    (طابق {address.floor})
+                                    {address.fulladdress}
                                   </p>
-                                  {address.location && (
-                                    <p>
-                                      <span className="font-semibold text-gray-700 dark:text-zinc-300">
-                                        الموقع:
-                                      </span>{" "}
-                                      {address.location}
-                                    </p>
-                                  )}
-                                  {address.landmark && (
-                                    <p className="italic text-gray-400 mt-1">
-                                      علامة مميزة: {address.landmark}
-                                    </p>
-                                  )}
-                                </div>
-                              </>
-                            )}
+                                )}
+                                {address.landmark && (
+                                  <p className="italic text-gray-400 mt-1">
+                                    {t("landmark") || "علامة مميزة"}:{" "}
+                                    {address.landmark}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-4 mt-4 border-t border-gray-100 dark:border-zinc-800">
+                              <button
+                                onClick={() => handleAddressEditClick(address)}
+                                className="flex-1 px-4 py-2 text-xs font-bold text-blue-600 transition-colors rounded-xl bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 flex items-center justify-center gap-1.5"
+                              >
+                                <Edit size={14} />
+                                <span>{t("edit") || "تعديل"}</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClick(address.id)}
+                                disabled={isDeletingAddress}
+                                className="flex-1 px-4 py-2 text-xs font-bold text-red-600 transition-colors rounded-xl bg-red-50 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <Trash2 size={14} />
+                                <span>{t("delete") || "حذف"}</span>
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -699,6 +1089,35 @@ export default function ProfilePage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="w-full max-w-md p-6 bg-white rounded-2xl dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-2xl">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
+              {t("confirm-delete") || "تأكيد الحذف"}
+            </h2>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              {t("are-you-sure-delete") ||
+                "هل أنت تأكد من أنك تريد حذف هذا العنوان؟"}
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-2.5 font-semibold text-gray-700 dark:text-zinc-300 bg-gray-100 rounded-xl dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                {t("cancel") || "إلغاء"}
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2.5 font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors shadow-md shadow-red-500/20"
+              >
+                {t("delete") || "حذف"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

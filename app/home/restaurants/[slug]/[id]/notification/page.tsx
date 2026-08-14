@@ -170,8 +170,9 @@ export default function OrdersPage() {
       "delivered",
       "completed",
       "cancelled",
-      "cooking",
-      "on_the_way",
+      "preparing",
+      "out_for_delivery",
+      "refund",
     ];
     return !forbiddenStatuses.includes(normalizedStatus);
   };
@@ -258,7 +259,7 @@ export default function OrdersPage() {
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  {order.orderNumber}
+                  {t("dailyOrderNumber")} : {order.dailyOrderNumber}
                 </p>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-sm font-black">
@@ -364,7 +365,8 @@ export default function OrdersPage() {
                               {selectedOrder.restaurantName}
                             </h2>
                             <p className="text-xs text-gray-400">
-                              {selectedOrder.orderNumber}
+                              {t("dailyOrderNumber")} :{" "}
+                              {selectedOrder.dailyOrderNumber}
                             </p>
                           </div>
                         </div>
@@ -383,25 +385,105 @@ export default function OrdersPage() {
                         </h4>
                         <div className="space-y-4">
                           {(selectedOrder.items || []).map(
-                            (item: any, i: number) => (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="flex items-center justify-center w-7 h-7 bg-yellow-400 text-gray-900 text-[10px] font-black rounded-lg">
-                                    {item.quantity || 1}x
-                                  </span>
-                                  <span className="text-sm font-bold">
-                                    {item.foodName || item.name}
-                                  </span>
+                            (item: any, i: number) => {
+                              // Parse variations/addons which come back as JSON strings
+                              let parsedVariations: any[] = [];
+                              let parsedAddons: any[] = [];
+                              try {
+                                parsedVariations =
+                                  typeof item.variations === "string"
+                                    ? JSON.parse(item.variations)
+                                    : item.variations || [];
+                              } catch {
+                                parsedVariations = [];
+                              }
+                              try {
+                                parsedAddons =
+                                  typeof item.addons === "string"
+                                    ? JSON.parse(item.addons)
+                                    : item.addons || [];
+                              } catch {
+                                parsedAddons = [];
+                              }
+
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex flex-col gap-2 pb-3 border-b border-gray-100 dark:border-zinc-800 last:border-0 last:pb-0"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <span className="flex items-center justify-center w-7 h-7 bg-yellow-400 text-gray-900 text-[10px] font-black rounded-lg">
+                                        {item.quantity || 1}x
+                                      </span>
+                                      <span className="text-sm font-bold">
+                                        {item.foodName || item.name}
+                                      </span>
+                                    </div>
+                                    <span className="text-sm font-black">
+                                      {item.basePrice || item.price}{" "}
+                                      {t("currency")}
+                                    </span>
+                                  </div>
+
+                                  {/* Variations & Addons Breakdown */}
+                                  {(parsedVariations.length > 0 ||
+                                    parsedAddons.length > 0) && (
+                                    <div className="ml-10 flex flex-col gap-1">
+                                      {parsedVariations.map(
+                                        (v: any, vi: number) => (
+                                          <div
+                                            key={`v-${vi}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              •{" "}
+                                              {v.optionName ||
+                                                v.name ||
+                                                t("variation")}
+                                            </span>
+                                            {v.additionalPrice && (
+                                              <span>
+                                                +{v.additionalPrice}{" "}
+                                                {t("currency")}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                      {parsedAddons.map(
+                                        (a: any, ai: number) => (
+                                          <div
+                                            key={`a-${ai}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              +{" "}
+                                              {(t("lang") === "ar"
+                                                ? a.nameAr
+                                                : a.name) ||
+                                                a.name ||
+                                                t("addon")}
+                                            </span>
+                                            {a.price && (
+                                              <span>
+                                                +{a.price} {t("currency")}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {item.note && (
+                                    <div className="ml-10 text-xs italic text-gray-400">
+                                      {t("note")}: {item.note}
+                                    </div>
+                                  )}
                                 </div>
-                                <span className="text-sm font-black">
-                                  {item.totalPrice || item.price}{" "}
-                                  {t("currency")}
-                                </span>
-                              </div>
-                            ),
+                              );
+                            },
                           )}
                         </div>
                       </div>
@@ -436,7 +518,23 @@ export default function OrdersPage() {
                           </span>
                         </div>
                       </div>
-
+                      {selectedOrder.status === "out_for_delivery" &&
+                        selectedOrder.deliveryMan && (
+                          <div className="flex items-center justify-between mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-400/10 rounded-xl">
+                            <span className="text-[11px] font-bold text-gray-700 dark:text-yellow-300">
+                              {t("deliveryMan")} :{" "}
+                              {selectedOrder.deliveryMan.name}
+                            </span>
+                            <a
+                              href={`tel:${selectedOrder.deliveryMan.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] font-bold text-yellow-600 dark:text-yellow-400"
+                            >
+                              {t("callDeliveryMan")} :{" "}
+                              {selectedOrder.deliveryMan.phone}
+                            </a>
+                          </div>
+                        )}
                       {/* Fixed Status Ribbon Footer banner */}
                       <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center justify-between shadow-lg shadow-yellow-400/20">
                         <div className="flex items-center gap-4">
