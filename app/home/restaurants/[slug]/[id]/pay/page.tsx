@@ -194,6 +194,10 @@ export default function Checkout() {
       paymentMethod: selectedPayment,
       idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       addressId: activeOrderType === "delivery" ? selectedAddress : null,
+      zoneId:
+        activeOrderType === "delivery"
+          ? (currentAddress?.zoneId ?? null)
+          : null,
       branchId:
         activeOrderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
       note: orderNote,
@@ -938,8 +942,8 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
     const payload = {
       ...addressForm,
-      number: Number(addressForm.number) || 0,
-      floor: Number(addressForm.floor) || 0,
+      number: String(addressForm.number) || 0,
+      floor: String(addressForm.floor) || 0,
     };
 
     try {

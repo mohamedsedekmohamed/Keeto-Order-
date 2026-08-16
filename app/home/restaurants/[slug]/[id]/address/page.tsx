@@ -265,8 +265,8 @@ const AddressPage = () => {
 
     const payload = {
       ...form,
-      number: Number(form.number) || 0,
-      floor: Number(form.floor) || 0,
+      number: String(form.number)|| 0,
+      floor: String(form.floor) || 0,
     };
 
     try {

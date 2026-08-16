@@ -404,8 +404,8 @@ export default function ProfilePage() {
 
     const payload = {
       ...addressForm,
-      number: Number(addressForm.number) || 0,
-      floor: Number(addressForm.floor) || 0,
+      number: String(addressForm.number) || 0,
+      floor: String(addressForm.floor) || 0,
     };
 
     try {
@@ -898,7 +898,7 @@ export default function ProfilePage() {
                               {t("number") || "المبنى"}
                             </label>
                             <input
-                              type="number"
+                              type="text"
                               name="number"
                               placeholder={t("number") || "رقم المبنى"}
                               value={addressForm.number}
@@ -913,7 +913,7 @@ export default function ProfilePage() {
                               {t("floor") || "الطابق"}
                             </label>
                             <input
-                              type="number"
+                              type="text"
                               name="floor"
                               placeholder={t("floor") || "رقم الطابق"}
                               value={addressForm.floor}
