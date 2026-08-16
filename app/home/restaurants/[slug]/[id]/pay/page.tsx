@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
-import usePut from "@/app/hooks/usePost";
+import usePost from "@/app/hooks/usePost";
+import usePut from "@/app/hooks/usePut";
 import {
   MapPin,
   CreditCard,
@@ -524,7 +525,7 @@ export default function Checkout() {
 // PhonePopup Component
 // Blocks checkout until the user has a phone + alternate phone
 // saved on their profile. Uses the same /api/user/profile endpoint
-// (via usePost) to save the update.
+// (via usePut) to save the update.
 // ─────────────────────────────────────────────
 
 interface PhonePopupProps {
@@ -569,7 +570,7 @@ function PhonePopup({
       );
       onSuccess();
     } catch {
-      // Error toast already handled inside usePost
+      // Error toast already handled inside usePut
     }
   };
 
