@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
-import usePost from "@/app/hooks/usePost";
+import usePut from "@/app/hooks/usePost";
 import {
   MapPin,
   CreditCard,
@@ -539,8 +539,8 @@ function PhonePopup({
   onSuccess,
 }: PhonePopupProps) {
   const { t } = useLanguage();
-  const { postData: postProfile, loading: isSavingProfile } =
-    usePost("/api/user/profile");
+  const { putData: postProfile, loading: isSavingProfile } =
+    usePut("/api/user/profile");
 
   const [phone, setPhone] = useState(initialPhone);
   const [alternatePhone, setAlternatePhone] = useState(initialAlternatePhone);
