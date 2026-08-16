@@ -163,13 +163,10 @@ export default function Checkout() {
     if (data?.addresses?.length > 0 && !selectedAddress) {
       setSelectedAddress(data.addresses[0].id);
     }
-    if (data?.branches?.length > 0 && !selectedBranch) {
-      setSelectedBranch(data.branches[0].id);
-    }
     if (paymentMethods.length > 0 && !selectedPayment) {
       setSelectedPayment(paymentMethods[0].id);
     }
-  }, [data, selectedAddress, selectedBranch, selectedPayment, paymentMethods]);
+  }, [data, selectedAddress, selectedPayment, paymentMethods]);
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
@@ -185,7 +182,7 @@ export default function Checkout() {
       }
     }
 
-    if (activeOrderType !== "delivery" && !selectedBranch)
+    if (activeOrderType === "takeaway" && !selectedBranch)
       return toast.error(t("selectBranchError"));
 
     const payload = {
@@ -198,8 +195,7 @@ export default function Checkout() {
         activeOrderType === "delivery"
           ? (currentAddress?.zoneId ?? null)
           : null,
-      branchId:
-        activeOrderType !== "delivery" ? selectedBranch : data?.branches[0]?.id,
+      branchId: activeOrderType === "takeaway" ? selectedBranch || null : null,
       note: orderNote,
     };
 
