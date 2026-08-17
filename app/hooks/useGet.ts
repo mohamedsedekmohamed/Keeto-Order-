@@ -47,7 +47,7 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
         "Request failed";
 
       if (errorMsg.toLowerCase().includes("no token provided")) {
-        errorMsg = "Login please";
+        errorMsg = "";
       }
 
       setError(errorMsg);
