@@ -64,7 +64,17 @@ export default function TopNav() {
         localStorage.setItem("login_source", "food_aggregator");
         router.push(`/auth/sign-in`);
       } else {
-        localStorage.setItem("login_source", "online_order_web");
+        // FIX: scope login_source per restaurant slug, same pattern as
+        // token_${slug} / restaurant_id_${slug}. A flat "login_source" key
+        // leaked "online_order_web" into every other restaurant's profile
+        // page once the user had signed in through any one restaurant's
+        // ordering flow, causing /api/user/order/select to fail with
+        // "no active business plan for online_order_web" on restaurants
+        // that don't support that order source.
+        localStorage.setItem(
+          `login_source_${restaurantSlug}`,
+          "online_order_web",
+        );
         router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
       }
     }
@@ -87,7 +97,7 @@ export default function TopNav() {
             <User className="w-5 h-5" />
             <span className="sm:block text-sm font-medium">
               {/* 5. عرض الاسم بجوار كلمة الترحيب إذا كان موجوداً */}
-          
+
               {userName ? ` ${userName}` : ""}
             </span>
           </Link>

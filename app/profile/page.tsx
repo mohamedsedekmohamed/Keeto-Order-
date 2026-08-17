@@ -14,6 +14,8 @@ import {
   BadgeCheck,
   Loader2,
   ChevronLeft,
+  ChevronRight,
+  ChevronDown,
   MapPin,
   ShoppingBag,
   Home,
@@ -23,14 +25,28 @@ import {
   Navigation,
   CheckCircle2,
   Plus,
+  Heart,
+  Truck,
+  Clock,
+  History,
+  X,
+  ReceiptText,
+  Package,
+  Ban,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
+import axios from "axios";
+import toast from "react-hot-toast";
+import api from "@/api/api";
 import { useLanguage } from "../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
 import useDelete from "@/app/hooks/useDelete";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
+import { getRestaurantId } from "@/context/Restaurantid";
 
 // Leaflet Imports
 import {
@@ -55,12 +71,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-// Default Fallback Coordinates
 const DEFAULT_MAP_CENTER: [number, number] = [30.0444, 31.2357];
-
-// ─────────────────────────────────────────────
-// Map Helper & Component (Draggable Pin)
-// ─────────────────────────────────────────────
 
 function MapClickHandler({
   onChange,
@@ -130,10 +141,6 @@ function LocationPicker({
   );
 }
 
-// ─────────────────────────────────────────────
-// Interfaces
-// ─────────────────────────────────────────────
-
 interface Address {
   id: string;
   type?: "home" | "work" | string;
@@ -173,52 +180,224 @@ interface ProfileApiResponse {
   };
 }
 
+interface FavoriteFood {
+  id: string;
+  name: string;
+  nameAr: string;
+  image: string;
+  description: string;
+  price: string;
+}
+
 export default function ProfilePage() {
   const { t, language } = useLanguage();
-  const { logout } = useToken();
+  const { logout, getToken } = useToken();
   const router = useRouter();
+  const params = useParams();
   const searchParams = useSearchParams();
 
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
   const isArabic = String(language).toLowerCase() === "ar";
   const callbackSlug = searchParams.get("callbackSlug");
 
-  // Mount state for SSR rendering safety with Leaflet
+  const restaurantSlug =
+    (params?.slug as string) ||
+    (searchParams?.get("callbackSlug") as string) ||
+    "";
+  const token = getToken(restaurantSlug);
+
+  const [storedRestaurantId, setStoredRestaurantId] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    if (restaurantSlug) {
+      setStoredRestaurantId(getRestaurantId(restaurantSlug));
+    }
+  }, [restaurantSlug]);
+  const restaurantId = storedRestaurantId || restaurantSlug;
+
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<"profile" | "addresses">(
-    "profile",
-  );
+  // Active Tab State (can be null if all are closed, or one of the sections)
+  const [activeTab, setActiveTab] = useState<
+    "general" | "addresses" | "favorites" | "tracking" | null
+  >("general");
 
-  // Delete Modal & GPS States
+  const toggleTab = (
+    tab: "general" | "addresses" | "favorites" | "tracking",
+  ) => {
+    setActiveTab(activeTab === tab ? null : tab);
+  };
+
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
-  // APIs
+  const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
+  const [isFavLoading, setIsFavLoading] = useState(false);
+  const [favLoaded, setFavLoaded] = useState(false);
+
+  const [orderSubTab, setOrderSubTab] = useState<"active" | "history">(
+    "active",
+  );
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
+  const [updatingOrderStatus, setUpdatingOrderStatus] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedReasonId, setSelectedReasonId] = useState<string>("");
+  const [cancelReasons, setCancelReasons] = useState<any[]>([]);
+
   const {
     data: profileResponse,
     loading: isFetching,
     refetch,
-  } = useGet<ProfileApiResponse>("/api/user/profile");
-
+  } = useGet<ProfileApiResponse>(
+    `/api/user/profile?restaurantId=${restaurantId}`,
+  );
   const { putData: updateProfile, loading: isUpdatingProfile } =
     usePut("/api/user/profile");
   const { postData: addAddress, loading: isAddingAddress } =
     usePost("/api/user/address");
   const { putData: updateAddress, loading: isUpdatingAddress } = usePut();
   const { deleteData, loading: isDeletingAddress } = useDelete("");
+  const { postData: toggleFav } = usePost("/api/user/favlist/toggle");
 
-  // Extracted Data
+  const {
+    data: activeOrdersData,
+    loading: loadingActiveOrders,
+    refetch: refetchActiveOrders,
+  } = useGet<any>(`/api/user/order/active?restaurantId=${restaurantId}`);
+  const {
+    data: historyOrdersData,
+    loading: loadingHistoryOrders,
+    refetch: refetchHistoryOrders,
+  } = useGet<any>(`/api/user/order/history?restaurantId=${restaurantId}`);
+
+  const getOrderSource = () => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem(`login_source_${restaurantSlug}`) ||
+        localStorage.getItem("login_source") ||
+        "food_aggregator"
+      );
+    }
+    return "food_aggregator";
+  };
+
+  const activeOrdersList =
+    activeOrdersData?.data?.data || activeOrdersData?.data || [];
+  const historyOrdersList =
+    historyOrdersData?.data?.data || historyOrdersData?.data || [];
+  const currentOrders =
+    orderSubTab === "active" ? activeOrdersList : historyOrdersList;
+  const isLoadingOrdersList =
+    orderSubTab === "active" ? loadingActiveOrders : loadingHistoryOrders;
+
+  useEffect(() => {
+    if (!selectedOrderId) {
+      setSelectedOrder(null);
+      return;
+    }
+
+    const fetchOrderDetails = async () => {
+      setLoadingOrderDetails(true);
+      try {
+        const response = await api.get(`/api/user/order/${selectedOrderId}`);
+        if (response.data.success) {
+          setSelectedOrder(response.data.data.data || response.data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching order details:", error);
+        toast.error(
+          t("errorFetchingDetails") ||
+            "Error pulling item data configurations.",
+        );
+        setSelectedOrderId(null);
+      } finally {
+        setLoadingOrderDetails(false);
+      }
+    };
+
+    fetchOrderDetails();
+  }, [selectedOrderId, t]);
+
+  const handleOpenCancelModal = async () => {
+    setShowCancelModal(true);
+    try {
+      const response = await api.get(
+        `/api/user/order/select?restaurantId=${restaurantId}&orderSource=${getOrderSource()}`,
+      );
+      setCancelReasons(
+        response.data?.data?.data?.reasons ||
+          response.data?.data?.reasons ||
+          response.data?.reasons ||
+          [],
+      );
+    } catch (error) {
+      console.error("Error fetching cancel reasons:", error);
+      toast.error(t("errorFetchingReasons") || "فشل تحميل أسباب الإلغاء");
+    }
+  };
+
+  const handleCancelOrderSubmit = async () => {
+    if (!selectedOrderId) return;
+    if (!selectedReasonId) {
+      toast.error(t("pleaseSelectReason") || "برجاء اختيار سبب الإلغاء أولاً");
+      return;
+    }
+
+    setUpdatingOrderStatus(true);
+    try {
+      const response = await api.put(
+        `/api/user/order/${selectedOrderId}/cancel`,
+        {
+          status: "cancelled",
+          cancelReasonId: selectedReasonId,
+        },
+      );
+
+      if (response.data.success || response.status === 200) {
+        toast.success(
+          t("orderCancelledSuccessfully") || "تم إلغاء الطلب بنجاح",
+        );
+        setShowCancelModal(false);
+        setSelectedOrderId(null);
+        setSelectedReasonId("");
+        refetchActiveOrders?.();
+        refetchHistoryOrders?.();
+      } else {
+        toast.error(t("failedToCancel") || "فشل إلغاء الطلب");
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error(t("failedToCancel") || "فشل إلغاء الطلب");
+    } finally {
+      setUpdatingOrderStatus(false);
+    }
+  };
+
+  const isCancellationAllowed = (status: string) => {
+    const normalizedStatus = status?.toLowerCase();
+    const forbiddenStatuses = [
+      "accepted",
+      "delivered",
+      "completed",
+      "cancelled",
+      "preparing",
+      "out_for_delivery",
+      "refund",
+    ];
+    return !forbiddenStatuses.includes(normalizedStatus);
+  };
+
   const userData = profileResponse?.data?.data?.user;
   const walletBalance = profileResponse?.data?.data?.walletBalance || "0.00";
   const ordersCount = profileResponse?.data?.data?.ordersCount || 0;
 
-  // Profile Form state
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -226,7 +405,6 @@ export default function ProfilePage() {
     alternatePhone: "",
   });
 
-  // Address Editing / Adding State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addressForm, setAddressForm] = useState({
@@ -254,7 +432,45 @@ export default function ProfilePage() {
     }
   }, [userData]);
 
-  // Handle Profile Changes
+  const fetchFavorites = async () => {
+    if (!token) return;
+    try {
+      setIsFavLoading(true);
+      const res = await axios.get(
+        "https://keetobcknd.keeto.org/api/user/favlist",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      setFavorites(res?.data?.data?.data?.foods || []);
+    } catch (error) {
+      console.error(error);
+      toast.error(t("favoritesLoadFailed") || "فشل تحميل المفضلة");
+    } finally {
+      setIsFavLoading(false);
+      setFavLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "favorites" && !favLoaded && token) {
+      fetchFavorites();
+    }
+  }, [activeTab, token]);
+
+  const handleRemoveFavorite = async (foodId: string) => {
+    try {
+      await toggleFav(
+        { foodId },
+        null,
+        t("removedFromFavorites") || "تمت الإزالة من المفضلة",
+      );
+      setFavorites((prev) => prev.filter((item) => item.id !== foodId));
+    } catch (error) {
+      toast.error(t("favoriteRemoveFailed") || "حدث خطأ أثناء الإزالة");
+    }
+  };
+
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -278,7 +494,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Reverse Geocoding via Nominatim
   const applyLocation = async (latitude: number, longitude: number) => {
     let extractedTitle = "";
     let extractedStreet = "";
@@ -348,7 +563,6 @@ export default function ProfilePage() {
     );
   };
 
-  // Address Form Actions
   const resetAddressForm = () => {
     setAddressForm({
       title: "",
@@ -429,7 +643,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Address Deletion
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
     setShowDeleteModal(true);
@@ -467,9 +680,38 @@ export default function ProfilePage() {
     );
   }
 
+  // Helper macro for rendering accordion buttons
+  const renderAccordionButton = (
+    tabKey: "general" | "addresses" | "favorites" | "tracking",
+    icon: React.ReactNode,
+    label: string,
+  ) => {
+    const isOpen = activeTab === tabKey;
+    return (
+      <button
+        onClick={() => toggleTab(tabKey)}
+        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${
+          isOpen
+            ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
+            : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          {icon}
+          <span>{label}</span>
+        </div>
+        <ChevronDown
+          size={18}
+          className={`transform transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+    );
+  };
+
   return (
     <div className="relative min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      {/* Background Orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-400/10 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-yellow-500/5 blur-[130px] rounded-full pointer-events-none" />
 
@@ -482,12 +724,11 @@ export default function ProfilePage() {
         />
       </button>
 
-      <div className="relative z-10 max-w-5xl mx-auto">
-        {/* Header Section */}
+      <div className="relative z-10 max-w-4xl mx-auto space-y-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
+          className="flex items-center justify-between"
         >
           <div>
             <h1 className="text-4xl font-black text-gray-900 dark:text-white">
@@ -502,247 +743,215 @@ export default function ProfilePage() {
           </button>
         </motion.div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Left Column: Summary Card */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="space-y-6 lg:col-span-1"
-          >
-            <div className="p-8 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl text-center">
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {userData.name}
-                </h3>
-                {userData.isVerified && (
-                  <BadgeCheck size={20} className="text-blue-500" />
-                )}
-              </div>
-              <p className="mt-1 text-sm font-medium text-gray-500 dark:text-zinc-400">
-                {userData.email}
-              </p>
-
-              {/* Stats Row */}
-              <div className="grid grid-cols-2 gap-3 mt-6">
-                <div className="flex flex-col items-center justify-center p-3 bg-yellow-400/10 rounded-2xl border border-yellow-400/20">
-                  <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-400 font-bold text-sm">
-                    <Wallet size={16} />
-                    <span>{walletBalance}</span>
-                  </div>
-                  <span className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-                    {t("wallet") || "المحفظة"}
-                  </span>
+        {/* -------------------------------------------
+            DIV 1: THE TWO BOXES ONLY (Wallet & Orders)
+        ------------------------------------------- */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-8 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4 text-center md:text-start">
+              <div>
+                <div className="flex items-center justify-center md:justify-start gap-2">
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white">
+                    {userData.name}
+                  </h3>
+                  {userData.isVerified && (
+                    <BadgeCheck size={22} className="text-blue-500" />
+                  )}
                 </div>
-
-                <div className="flex flex-col items-center justify-center p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                  <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-sm">
-                    <ShoppingBag size={16} />
-                    <span>{ordersCount}</span>
-                  </div>
-                  <span className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-                    {t("orders") || "الطلبات"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Tab Selector Buttons */}
-              <div className="pt-6 mt-6 space-y-2 border-t border-gray-100 dark:border-zinc-800">
-                <button
-                  onClick={() => setActiveTab("profile")}
-                  className={`flex items-center w-full gap-3 px-4 py-3 font-bold rounded-2xl transition-all ${
-                    activeTab === "profile"
-                      ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
-                      : "text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/50"
-                  }`}
-                >
-                  <User size={18} />
-                  <span>{t("personalInfo") || "البيانات الشخصية"}</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("addresses")}
-                  className={`flex items-center justify-between w-full px-4 py-3 font-bold rounded-2xl transition-all ${
-                    activeTab === "addresses"
-                      ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
-                      : "text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <MapPin size={18} />
-                    <span>{t("addresses") || "العناوين المحفوظة"}</span>
-                  </div>
-                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-200/60 dark:bg-zinc-700/60">
-                    {userData.addresses?.length || 0}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    logout(callbackSlug);
-                    logout();
-                    const redirectPath = callbackSlug
-                      ? `/home/restaurants/${callbackSlug}`
-                      : "/";
-                    router.push(redirectPath);
-                  }}
-                  className="flex items-center justify-center w-full gap-2 py-3 mt-4 font-bold text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl"
-                >
-                  <LogOut size={18} />
-                  {t("logout") || "تسجيل الخروج"}
-                </button>
+                <p className="mt-1 text-sm font-medium text-gray-500 dark:text-zinc-400">
+                  {userData.email}
+                </p>
               </div>
             </div>
-          </motion.div>
 
-          {/* Right Column: Tab Contents */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-2"
-          >
-            <div className="p-8 sm:p-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl">
-              <AnimatePresence mode="wait">
-                {/* TAB 1: Profile Details Form */}
-                {activeTab === "profile" && (
-                  <motion.form
-                    key="profile-tab"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-6"
-                    onSubmit={handleProfileSubmit}
-                  >
+            {/* The Two Boxes */}
+            <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
+              <div className="flex flex-col items-center justify-center px-6 py-4 bg-yellow-400/10 rounded-2xl border border-yellow-400/20 min-w-[140px]">
+                <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-400 font-bold text-base">
+                  <Wallet size={18} />
+                  <span>{walletBalance}</span>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                  {t("wallet") || "المحفظة"}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center justify-center px-6 py-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 min-w-[140px]">
+                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-base">
+                  <ShoppingBag size={18} />
+                  <span>{ordersCount}</span>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                  {t("orders") || "الطلبات"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* -------------------------------------------
+            DIV 2: ACCORDION TABS (Open/Close with Arrows)
+        ------------------------------------------- */}
+        <div className="space-y-4">
+          {/* SECTION 1: GENERAL INFO */}
+          <div>
+            {renderAccordionButton(
+              "general",
+              <Info size={18} />,
+              t("generalInfo") || "معلومات عامة",
+            )}
+            <AnimatePresence>
+              {activeTab === "general" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 sm:p-8 mt-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl space-y-6">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                      {t("editProfile") || "تعديل البيانات"}
+                      {t("editProfile") || "تعديل البيانات الأساسية"}
                     </h3>
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                          {t("fullName") || "الاسم الكامل"}
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                            <User
-                              size={18}
-                              className="text-gray-400 group-focus-within:text-yellow-500"
+                    <form onSubmit={handleProfileSubmit} className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300 ms-1">
+                            {t("fullName") || "الاسم الكامل"}
+                          </label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3">
+                              <User
+                                size={16}
+                                className="text-gray-400 group-focus-within:text-yellow-500"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              name="name"
+                              value={formData.name}
+                              onChange={handleProfileChange}
+                              required
+                              className="w-full py-3 text-sm transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-xl ps-10 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
                             />
                           </div>
-                          <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleProfileChange}
-                            required
-                            className="w-full py-4 transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-2xl ps-11 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
-                          />
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                          {t("email") || "البريد الإلكتروني"}
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                            <Mail size={18} className="text-gray-400" />
-                          </div>
-                          <input
-                            type="email"
-                            disabled
-                            value={formData.email}
-                            className="w-full py-4 text-gray-400 border-2 border-transparent cursor-not-allowed bg-gray-100/30 dark:bg-zinc-800/20 rounded-2xl ps-11"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                          {t("phone") || "رقم الهاتف"}
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                            <Phone
-                              size={18}
-                              className="text-gray-400 group-focus-within:text-yellow-500"
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300 ms-1">
+                            {t("email") || "البريد الإلكتروني"}
+                          </label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3">
+                              <Mail size={16} className="text-gray-400" />
+                            </div>
+                            <input
+                              type="email"
+                              name="email"
+                              value={formData.email}
+                              disabled
+                              className="w-full py-3 text-sm transition-all border-2 border-transparent outline-none bg-gray-200/60 dark:bg-zinc-800/20 text-gray-500 dark:text-zinc-500 rounded-xl ps-10 cursor-not-allowed select-none"
                             />
                           </div>
-                          <input
-                            type="tel"
-                            name="phone"
-                            required
-                            value={formData.phone}
-                            onChange={handleProfileChange}
-                            className="w-full py-4 transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-2xl ps-11 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
-                          />
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 dark:text-zinc-300 ms-1">
-                          {t("alternatePhone") || "رقم هاتف إضافي"}
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-4">
-                            <Phone
-                              size={18}
-                              className="text-gray-400 group-focus-within:text-yellow-500"
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300 ms-1">
+                            {t("phone") || "رقم الهاتف"}
+                          </label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3">
+                              <Phone
+                                size={16}
+                                className="text-gray-400 group-focus-within:text-yellow-500"
+                              />
+                            </div>
+                            <input
+                              type="tel"
+                              name="phone"
+                              required
+                              value={formData.phone}
+                              onChange={handleProfileChange}
+                              className="w-full py-3 text-sm transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-xl ps-10 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
                             />
                           </div>
-                          <input
-                            type="tel"
-                            name="alternatePhone"
-                            value={formData.alternatePhone}
-                            onChange={handleProfileChange}
-                            className="w-full py-4 transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-2xl ps-11 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
-                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-700 dark:text-zinc-300 ms-1">
+                            {t("alternatePhone") || "رقم هاتف بديل"}
+                          </label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 flex items-center pointer-events-none start-0 ps-3">
+                              <Phone
+                                size={16}
+                                className="text-gray-400 group-focus-within:text-yellow-500"
+                              />
+                            </div>
+                            <input
+                              type="tel"
+                              name="alternatePhone"
+                              value={formData.alternatePhone}
+                              onChange={handleProfileChange}
+                              className="w-full py-3 text-sm transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-xl ps-10 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="pt-6 border-t border-gray-100 dark:border-zinc-800">
-                      <h4 className="flex items-center gap-2 mb-4 font-bold text-gray-900 dark:text-white">
-                        <Shield size={18} className="text-yellow-500" />
-                        {t("security") || "الأمان"}
-                      </h4>
-                      <button
-                        type="button"
-                        className="text-sm font-bold text-yellow-600 dark:text-yellow-400 hover:underline"
-                      >
-                        {t("changePassword") || "تغيير كلمة المرور"}
-                      </button>
-                    </div>
+                      <div className="pt-4 flex items-center justify-between">
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-zinc-400 hover:text-yellow-500 transition-colors"
+                        >
+                          <Shield size={16} />
+                          {t("changePassword") || "تغيير كلمة المرور"}
+                        </button>
 
-                    <div className="pt-4">
-                      <motion.button
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        disabled={isUpdatingProfile}
-                        type="submit"
-                        className="flex items-center justify-center w-full gap-2 py-4 font-black text-gray-900 transition-all bg-yellow-400 shadow-xl rounded-2xl hover:bg-yellow-500 shadow-yellow-400/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                      >
-                        {isUpdatingProfile ? (
-                          <Loader2 size={20} className="animate-spin" />
-                        ) : (
-                          <Save size={20} />
-                        )}
-                        {isUpdatingProfile
-                          ? t("saving") || "جاري الحفظ..."
-                          : t("saveChanges") || "حفظ التغييرات"}
-                      </motion.button>
-                    </div>
-                  </motion.form>
-                )}
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          disabled={isUpdatingProfile}
+                          type="submit"
+                          className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-black text-gray-900 transition-all bg-yellow-400 shadow-lg rounded-xl hover:bg-yellow-500 shadow-yellow-400/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                          {isUpdatingProfile ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Save size={16} />
+                          )}
+                          {isUpdatingProfile
+                            ? t("saving") || "جاري الحفظ..."
+                            : t("saveChanges") || "حفظ التغييرات"}
+                        </motion.button>
+                      </div>
+                    </form>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-                {/* TAB 2: Saved Addresses */}
-                {activeTab === "addresses" && (
-                  <motion.div
-                    key="addresses-tab"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-6"
-                  >
+          {/* SECTION 2: ADDRESSES */}
+          <div>
+            {renderAccordionButton(
+              "addresses",
+              <MapPin size={18} />,
+              t("addresses") || "العناوين",
+            )}
+            <AnimatePresence>
+              {activeTab === "addresses" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 sm:p-8 mt-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl space-y-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                         {t("savedAddresses") || "العناوين المحفوظة"}
@@ -751,9 +960,9 @@ export default function ProfilePage() {
                       {!isFormOpen && (
                         <button
                           onClick={handleAddNewClick}
-                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-zinc-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-all active:scale-95 shadow-md shadow-yellow-400/20"
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-all active:scale-95 shadow-md shadow-yellow-400/20"
                         >
-                          <Plus size={18} />
+                          <Plus size={16} />
                           <span>
                             {t("add-address-btn") || "إضافة عنوان جديد"}
                           </span>
@@ -761,7 +970,6 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    {/* Dynamic Add / Edit Address Form */}
                     {isFormOpen && (
                       <form
                         onSubmit={handleAddressSubmit}
@@ -775,7 +983,6 @@ export default function ProfilePage() {
                           </h4>
                         </div>
 
-                        {/* GPS Location Button */}
                         <button
                           type="button"
                           onClick={handleGetCurrentLocation}
@@ -802,7 +1009,6 @@ export default function ProfilePage() {
                               : "Use Current Location (GPS)"}
                         </button>
 
-                        {/* Interactive Map */}
                         <div>
                           <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-zinc-400">
                             {isArabic
@@ -989,7 +1195,6 @@ export default function ProfilePage() {
                       </form>
                     )}
 
-                    {/* Address List View */}
                     {userData.addresses?.length === 0 ? (
                       <div className="py-12 text-center text-gray-500 dark:text-zinc-400">
                         <MapPin className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
@@ -1082,12 +1287,257 @@ export default function ProfilePage() {
                         ))}
                       </div>
                     )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* SECTION 3: FAVORITES */}
+          <div>
+            {renderAccordionButton(
+              "favorites",
+              <Heart size={18} />,
+              t("favorites") || "المفضلة",
+            )}
+            <AnimatePresence>
+              {activeTab === "favorites" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 sm:p-8 mt-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      {t("favorites") || "المفضلة"}
+                    </h3>
+
+                    {isFavLoading ? (
+                      <div className="flex items-center justify-center py-16">
+                        <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+                      </div>
+                    ) : favorites.length === 0 ? (
+                      <div className="py-12 text-center text-gray-500 dark:text-zinc-400">
+                        <Heart className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
+                        <p>
+                          {t("noFavorites") || "لا توجد عناصر مفضلة حالياً."}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        {favorites.map((item) => (
+                          <div
+                            key={item.id}
+                            className="p-4 transition bg-gray-50/50 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 rounded-2xl hover:border-yellow-400/50"
+                          >
+                            <div className="relative w-full h-40 mb-4 overflow-hidden rounded-xl">
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="object-cover w-full h-full"
+                              />
+                            </div>
+
+                            <h4 className="mb-1 font-bold text-gray-900 dark:text-white">
+                              {isArabic ? item.nameAr : item.name}
+                            </h4>
+
+                            <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400 line-clamp-2">
+                              {item.description}
+                            </p>
+
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-yellow-500">
+                                {item.price} E£
+                              </span>
+
+                              <button
+                                onClick={() => handleRemoveFavorite(item.id)}
+                                className="p-2 transition bg-red-100 rounded-full cursor-pointer dark:bg-red-500/10 hover:scale-110"
+                              >
+                                <Heart
+                                  size={16}
+                                  className="text-red-500 fill-red-500"
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* SECTION 4: ORDER TRACKING */}
+          <div>
+            {renderAccordionButton(
+              "tracking",
+              <Truck size={18} />,
+              t("orderTracking") || "تتبع الطلبات",
+            )}
+            <AnimatePresence>
+              {activeTab === "tracking" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 sm:p-8 mt-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      {t("myOrders") || "طلباتي"}
+                    </h3>
+
+                    <div className="flex p-1 bg-gray-100 dark:bg-zinc-800/60 rounded-2xl">
+                      <button
+                        onClick={() => setOrderSubTab("active")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "active"
+                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                            : "text-gray-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        <Clock size={16} />
+                        {t("activeOrders") || "الطلبات النشطة"}
+                      </button>
+                      <button
+                        onClick={() => setOrderSubTab("history")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "history"
+                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                            : "text-gray-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        <History size={16} />
+                        {t("orderHistory") || "سجل الطلبات"}
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {isLoadingOrdersList ? (
+                        <div className="flex items-center justify-center py-16">
+                          <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+                        </div>
+                      ) : currentOrders.length > 0 ? (
+                        currentOrders.map((order: any, i: number) => (
+                          <motion.div
+                            key={order.orderId || order.id || i}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                            onClick={() =>
+                              setSelectedOrderId(order.orderId || order.id)
+                            }
+                            className="flex items-center gap-4 p-4 bg-gray-50/50 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 rounded-2xl cursor-pointer hover:border-yellow-400/50 transition-all active:scale-[0.98]"
+                          >
+                            <div className="relative flex-shrink-0 w-14 h-14 overflow-hidden rounded-xl bg-gray-100 dark:bg-zinc-800">
+                              <img
+                                src={
+                                  order.restaurantImage || "/placeholder.jpg"
+                                }
+                                alt={order.restaurantName || "Restaurant logo"}
+                                className="object-cover w-full h-full"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="font-bold text-gray-900 dark:text-white truncate">
+                                  {order.restaurantName}
+                                </h4>
+                                <span className="text-[10px] font-bold px-2 py-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 rounded-lg uppercase whitespace-nowrap">
+                                  {t(order.status) || order.status}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
+                                {order.dailyOrderNumber}
+                              </p>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-sm font-black text-gray-900 dark:text-white">
+                                  {order.totalAmount || order.total}{" "}
+                                  {t("currency") || "ج.م"}
+                                </span>
+                                <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                  <ShoppingBag size={12} />{" "}
+                                  {order.itemsCount || order.items?.length || 0}{" "}
+                                  {t("items") || "عناصر"}
+                                </span>
+                              </div>
+
+                              {order.status === "out_for_delivery" &&
+                                order.deliveryMan && (
+                                  <div className="flex items-center justify-between mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-400/10 rounded-xl">
+                                    <span className="text-[11px] font-bold text-gray-700 dark:text-yellow-300">
+                                      {order.deliveryMan.name}
+                                    </span>
+                                    <a
+                                      href={`tel:${order.deliveryMan.phone}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-[11px] font-bold text-yellow-600 dark:text-yellow-400"
+                                    >
+                                      {order.deliveryMan.phone}
+                                    </a>
+                                  </div>
+                                )}
+                            </div>
+                            <div className="text-gray-300 dark:text-zinc-600">
+                              {isRtl ? (
+                                <ChevronLeft size={18} />
+                              ) : (
+                                <ChevronRight size={18} />
+                              )}
+                            </div>
+                          </motion.div>
+                        ))
+                      ) : (
+                        <div className="py-12 text-center text-gray-500 dark:text-zinc-400">
+                          <Package className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
+                          <p className="font-bold">
+                            {t("noOrdersYet") || "لا توجد طلبات حتى الآن."}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+                            {orderSubTab === "active"
+                              ? t("noActiveOrdersDesc") ||
+                                "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
+                              : t("noHistoryOrdersDesc") ||
+                                "لا يوجد سجل طلبات سابقة لهذا المطعم."}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
+
+        {/* LOG OUT BUTTON */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex justify-center mt-8"
+        >
+          <button
+            onClick={() => {
+              logout(callbackSlug);
+              logout();
+              const redirectPath = callbackSlug
+                ? `/home/restaurants/${callbackSlug}`
+                : "/";
+              router.push(redirectPath);
+            }}
+            className="flex items-center justify-center px-10 py-4 gap-2 font-black text-red-500 transition-all bg-white border border-red-100 hover:bg-red-50 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:bg-red-500/10 rounded-2xl shadow-xl w-full sm:w-auto"
+          >
+            <LogOut size={20} />
+            {t("logout") || "تسجيل الخروج"}
+          </button>
+        </motion.div>
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -1118,6 +1568,344 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Order Details Drawer */}
+      <AnimatePresence>
+        {selectedOrderId && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedOrderId(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-zinc-950 rounded-t-[40px] max-h-[92vh] overflow-y-auto shadow-2xl border-t dark:border-zinc-800"
+            >
+              <div className="p-6">
+                <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-800 rounded-full mx-auto mb-6" />
+
+                {loadingOrderDetails ? (
+                  <div className="flex flex-col items-center gap-4 py-20">
+                    <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+                    <p className="text-sm text-gray-500">
+                      {t("loadingDetails") || "جاري تحميل التفاصيل..."}
+                    </p>
+                  </div>
+                ) : (
+                  selectedOrder && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="relative w-16 h-16 overflow-hidden shadow-md rounded-2xl">
+                            <img
+                              src={
+                                selectedOrder.restaurantImage ||
+                                "/placeholder.jpg"
+                              }
+                              alt={
+                                selectedOrder.restaurantName ||
+                                "Establishment Banner"
+                              }
+                              className="object-cover w-full h-full"
+                            />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-black">
+                              {selectedOrder.restaurantName}
+                            </h2>
+                            <p className="text-xs text-gray-400">
+                              {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
+                              {selectedOrder.dailyOrderNumber}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedOrderId(null)}
+                          className="p-3 text-gray-500 transition-colors bg-gray-100 dark:bg-zinc-800 rounded-2xl hover:text-red-500"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+
+                      <div className="p-5 border border-gray-100 bg-gray-50 dark:bg-zinc-900/50 rounded-3xl dark:border-zinc-800">
+                        <h4 className="text-[11px] font-black text-gray-400 uppercase mb-4 flex items-center gap-2">
+                          <ShoppingBag size={14} />{" "}
+                          {t("orderSummary") || "ملخص الطلب"}
+                        </h4>
+                        <div className="space-y-4">
+                          {(selectedOrder.items || []).map(
+                            (item: any, i: number) => {
+                              let parsedVariations: any[] = [];
+                              let parsedAddons: any[] = [];
+                              try {
+                                parsedVariations =
+                                  typeof item.variations === "string"
+                                    ? JSON.parse(item.variations)
+                                    : item.variations || [];
+                              } catch {
+                                parsedVariations = [];
+                              }
+                              try {
+                                parsedAddons =
+                                  typeof item.addons === "string"
+                                    ? JSON.parse(item.addons)
+                                    : item.addons || [];
+                              } catch {
+                                parsedAddons = [];
+                              }
+
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex flex-col gap-2 pb-3 border-b border-gray-100 dark:border-zinc-800 last:border-0 last:pb-0"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <span className="flex items-center justify-center w-7 h-7 bg-yellow-400 text-gray-900 text-[10px] font-black rounded-lg">
+                                        {item.quantity || 1}x
+                                      </span>
+                                      <span className="text-sm font-bold">
+                                        {item.foodName || item.name}
+                                      </span>
+                                    </div>
+                                    <span className="text-sm font-black">
+                                      {item.basePrice || item.price}{" "}
+                                      {t("currency") || "ج.م"}
+                                    </span>
+                                  </div>
+
+                                  {(parsedVariations.length > 0 ||
+                                    parsedAddons.length > 0) && (
+                                    <div className="ml-10 flex flex-col gap-1">
+                                      {parsedVariations.map(
+                                        (v: any, vi: number) => (
+                                          <div
+                                            key={`v-${vi}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              •{" "}
+                                              {v.optionName ||
+                                                v.name ||
+                                                t("variation")}
+                                            </span>
+                                            {v.additionalPrice && (
+                                              <span>
+                                                +{v.additionalPrice}{" "}
+                                                {t("currency") || "ج.م"}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                      {parsedAddons.map(
+                                        (a: any, ai: number) => (
+                                          <div
+                                            key={`a-${ai}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              +{" "}
+                                              {(isArabic ? a.nameAr : a.name) ||
+                                                a.name ||
+                                                t("addon")}
+                                            </span>
+                                            {a.price && (
+                                              <span>
+                                                +{a.price}{" "}
+                                                {t("currency") || "ج.م"}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {item.note && (
+                                    <div className="ml-10 text-xs italic text-gray-400">
+                                      {t("note") || "ملاحظة"}: {item.note}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="px-2 space-y-3">
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>{t("subtotal") || "المجموع الفرعي"}</span>
+                          <span>
+                            {selectedOrder.subtotal || selectedOrder.subTotal}{" "}
+                            {t("currency") || "ج.م"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>{t("deliveryFee") || "رسوم التوصيل"}</span>
+                          <span>
+                            {selectedOrder.deliveryFee} {t("currency") || "ج.م"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>{t("serviceFee") || "رسوم الخدمة"}</span>
+                          <span>
+                            {selectedOrder.serviceFee} {t("currency") || "ج.م"}
+                          </span>
+                        </div>
+                        <div className="h-px my-2 bg-gray-100 dark:bg-zinc-800" />
+                        <div className="flex justify-between text-xl font-black text-gray-900 dark:text-white">
+                          <span>{t("total") || "الإجمالي"}</span>
+                          <span className="text-yellow-500">
+                            {selectedOrder.totalAmount || selectedOrder.total}{" "}
+                            {t("currency") || "ج.م"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {selectedOrder.status === "out_for_delivery" &&
+                        selectedOrder.deliveryMan && (
+                          <div className="flex items-center justify-between mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-400/10 rounded-xl">
+                            <span className="text-[11px] font-bold text-gray-700 dark:text-yellow-300">
+                              {t("deliveryMan") || "عامل التوصيل"} :{" "}
+                              {selectedOrder.deliveryMan.name}
+                            </span>
+                            <a
+                              href={`tel:${selectedOrder.deliveryMan.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] font-bold text-yellow-600 dark:text-yellow-400"
+                            >
+                              {t("callDeliveryMan") || "اتصال بعامل التوصيل"} :{" "}
+                              {selectedOrder.deliveryMan.phone}
+                            </a>
+                          </div>
+                        )}
+
+                      <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center justify-between shadow-lg shadow-yellow-400/20">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-white/20 rounded-2xl">
+                            <ReceiptText size={24} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase font-black opacity-60">
+                              {t("orderStatus") || "حالة الطلب"}
+                            </p>
+                            <p className="text-lg font-black leading-none">
+                              {t(selectedOrder.status) || selectedOrder.status}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isCancellationAllowed(selectedOrder.status) && (
+                          <button
+                            onClick={handleOpenCancelModal}
+                            className="flex items-center gap-2 px-4 py-2.5 text-xs font-black text-white bg-red-600 rounded-2xl hover:bg-red-700 transition-colors shadow-md active:scale-95"
+                          >
+                            <Ban size={14} />
+                            {t("cancelOrder") || "إلغاء الطلب"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Cancel Reason Modal */}
+      <AnimatePresence>
+        {showCancelModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCancelModal(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-x-4 top-[25%] md:max-w-md md:mx-auto bg-white dark:bg-zinc-900 p-6 rounded-[2.5rem] z-[90] shadow-2xl border dark:border-zinc-800"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 text-red-500 rounded-2xl mb-4">
+                  <AlertTriangle size={28} />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                  {t("cancelOrderTitle") || "إلغاء الطلب"}
+                </h3>
+                <p className="text-xs text-gray-400 mt-1 mb-4">
+                  {t("cancelOrderDesc") ||
+                    "برجاء اختيار سبب الإلغاء قبل المتابعة"}
+                </p>
+
+                <div className="w-full space-y-2 max-h-[200px] overflow-y-auto pr-1 mb-6">
+                  {cancelReasons.length > 0 ? (
+                    cancelReasons.map((reason: any) => (
+                      <label
+                        key={reason.id}
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                          selectedReasonId === reason.id
+                            ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                            : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                        }`}
+                      >
+                        <span className="text-sm text-gray-800 dark:text-zinc-200">
+                          {t(reason.name) || reason.name}
+                        </span>
+                        <input
+                          type="radio"
+                          name="cancelReason"
+                          value={reason.id}
+                          checked={selectedReasonId === reason.id}
+                          onChange={() => setSelectedReasonId(reason.id)}
+                          className="w-4 h-4 accent-red-500 cursor-pointer"
+                        />
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-400 py-4">
+                      {t("noReasonsAvailable") || "لا توجد أسباب متاحة"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="flex-1 py-3 text-sm font-bold text-gray-500 bg-gray-100 dark:bg-zinc-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+                  >
+                    {t("back") || "تراجع"}
+                  </button>
+                  <button
+                    onClick={handleCancelOrderSubmit}
+                    disabled={updatingOrderStatus || !selectedReasonId}
+                    className="flex-1 py-3 text-sm font-bold text-white bg-red-600 rounded-2xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-red-600/10 flex items-center justify-center gap-2"
+                  >
+                    {updatingOrderStatus ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      t("confirmCancel") || "تأكيد الإلغاء"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

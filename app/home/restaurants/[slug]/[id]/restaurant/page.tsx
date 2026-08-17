@@ -12,6 +12,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
 import { useToken } from "@/context/TokenContext";
+import { setRestaurantId } from "@/context/Restaurantid";
 
 import api from "@/api/api";
 import LogoNav from "@/components/LogoNav";
@@ -74,6 +75,17 @@ export default function Restaurant() {
 
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
   const { menu, isLoading: menuLoading } = useMenu();
+
+  // Persist this restaurant's real DB id (UUID), keyed by its slug — so
+  // other pages (profile, checkout, etc.) can look it up via the same
+  // slug without re-fetching the whole restaurant payload. Keying by slug
+  // matters here: a different restaurant visited later must not overwrite
+  // this one's stored id.
+  useEffect(() => {
+    if (restaurant?.id) {
+      setRestaurantId(restaurantName, restaurant.id);
+    }
+  }, [restaurant?.id, restaurantName]);
 
   if (restaurantLoading || menuLoading || !isReady) {
     return (

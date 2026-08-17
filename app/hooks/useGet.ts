@@ -20,7 +20,13 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
   const [loading, setLoading] = useState<boolean>(!!url);
   const [error, setError] = useState<string | null>(null);
 
-  const hasFetched = useRef(false);
+  // Tracks the URL we last fetched (or are currently fetching), NOT just
+  // whether we've ever fetched anything. A plain "hasFetched once" boolean
+  // permanently locks the hook after its first successful call, so if `url`
+  // later changes (e.g. a query param resolves after mount, like
+  // restaurantId going from a slug fallback to the real id) it would never
+  // fetch again until the component fully remounts (hard refresh).
+  const lastFetchedUrl = useRef<string | null>(null);
   const { isReady } = useToken();
 
   const fetchData = useCallback(async (): Promise<void> => {
@@ -54,11 +60,21 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
   useEffect(() => {
     if (!isReady || !url) return; // 3. Don't run if context isn't ready or url is null
 
-    if (hasFetched.current) return;
-    hasFetched.current = true;
+    // Only skip if this exact URL was already the last one we fetched —
+    // this still prevents duplicate calls (e.g. StrictMode's double-invoke
+    // in dev) while allowing a genuinely new URL to trigger a fresh fetch.
+    if (lastFetchedUrl.current === url) return;
+    lastFetchedUrl.current = url;
 
     fetchData();
   }, [fetchData, isReady, url]);
 
-  return { data, loading, error, refetch: fetchData };
+  // Manual refetch() should always hit the network regardless of the
+  // last-fetched-url guard above (e.g. "refresh my orders" button).
+  const refetch = useCallback(async () => {
+    lastFetchedUrl.current = url;
+    await fetchData();
+  }, [fetchData, url]);
+
+  return { data, loading, error, refetch };
 }
