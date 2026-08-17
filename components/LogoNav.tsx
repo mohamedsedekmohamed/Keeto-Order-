@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
 
-import { Bell, ShoppingCart, BadgePercent } from "lucide-react";
+import { Heart } from "lucide-react";
 import { StaticImageData } from "next/image";
 import { useRestaurant } from "@/context/RestaurantContext";
 import { useToken } from "@/context/TokenContext";
@@ -29,13 +29,13 @@ export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
         {/* Logo */}
         <div className="flex items-center gap-12">
           {/* العودة للرئيسية الخاصة بالمطعم */}
-          <Link href={`${basePath}`}>
+        {/*   <Link href={`${basePath}`}>
             <img
               src={restaurant?.logo || "/placeholder.jpg"}
               alt={restaurant?.name || "image"}
               className="object-contain w-10 h-10 rounded-full"
             />
-          </Link>
+          </Link> */}
         </div>
 
         {/* Actions */}
@@ -43,39 +43,39 @@ export default function LogoNav({ logo }: { logo: string | StaticImageData }) {
           {/* Notification */}
           {token && (
             <>
-              <Link
+            {/*   <Link
                 href={`${basePath}/address`}
                 className="relative text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
               >
                 <FaLocationCrosshairs className="w-5 h-5" />
-              </Link>
-              <Link
+              </Link> */}
+            {/*   <Link
                 href={`${basePath}/notification`}
                 className="relative text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
               >
                 <Bell className="w-5 h-5" />
                 <span className="absolute w-2 h-2 bg-red-500 border border-white rounded-full -top-1 -right-1 dark:border-gray-950" />
-              </Link>
+              </Link> */}
 
               {/* Order */}
-              <Link
+             {/*  <Link
                 href={`${basePath}/order`}
                 className="text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400"
               >
                 <ShoppingCart className="w-5 h-5" />
-              </Link>
-              <Link
+              </Link> */}
+             {/*  <Link
                 href={`${basePath}/Fav`}
                 className="relative text-gray-600 transition hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
               >
-                <img src="/heart.jpeg" className="w-5 h-5 rounded-lg" />
-              </Link>
-              <Link
+                <Heart className="w-5 h-5" />
+              </Link> */}
+             {/*  <Link
                 href={`${basePath}/offer`}
                 className="relative text-gray-600 transition hover:text-yellow-500 dark:text-gray-400 dark:hover:text-red-400"
               >
                 <BadgePercent className="w-5 h-5" />
-              </Link>
+              </Link> */}
             </>
           )}
 

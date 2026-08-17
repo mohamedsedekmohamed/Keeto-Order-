@@ -7,11 +7,26 @@ import { MapPin, ChevronDown, Sun, Moon, User } from "lucide-react";
 import { useToken } from "@/context/TokenContext";
 import Link from "next/link";
 import ReactCountryFlag from "react-country-flag";
-// 👈 استيراد useSearchParams لقط لقطة من الـ Query parameters
 import { usePathname, useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
+// 1. استيراد هوك useGet (تأكد من مسار الاستيراد بناءً على هيكل مشروعك)
+import useGet from "@/app/hooks/useGet";
+
 type Language = "English" | "العربية";
+
+// 2. تعريف واجهة (Interface) لبيانات المستخدم القادمة من الـ API
+interface ProfileResponse {
+  success: boolean;
+  data: {
+    data: {
+      user: {
+        name: string;
+        // ... يمكنك إضافة باقي الحقول هنا لاحقاً إذا احتجتها
+      };
+    };
+  };
+}
 
 export default function TopNav() {
   const { setTheme, resolvedTheme } = useTheme();
@@ -20,19 +35,23 @@ export default function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams(); // 👈 تهيئة الـ searchParams
+  const searchParams = useSearchParams();
 
-  // 👈 تعديل ذكي: جلب الـ slug سواء من الـ Path أو من الـ Query Parameter (callbackSlug)
   const restaurantSlug =
     (params?.slug as string) ||
     (searchParams?.get("callbackSlug") as string) ||
     "";
 
-  // استدعاءgetToken و isReady من الـ Context المحدث
   const { getToken, isReady } = useToken();
-
-  // جلب التوكن الخاص بالمطعم الحالي ديناميكياً
   const currentToken = getToken(restaurantSlug);
+
+  // 3. جلب بيانات الملف الشخصي فقط إذا كان هناك توكن
+  const { data: profileData } = useGet<ProfileResponse>(
+    currentToken ? "/api/user/profile" : null,
+  );
+
+  // 4. استخراج اسم المستخدم من الاستجابة
+  const userName = profileData?.data?.data?.user?.name;
 
   const toggleLanguage = (lang: Language) => {
     changeLanguage(lang);
@@ -42,24 +61,20 @@ export default function TopNav() {
   const handleClick = () => {
     if (typeof window !== "undefined" && router) {
       if (!restaurantSlug) {
-        // مستخدم جاي من الموقع العام (Aggregator)
         localStorage.setItem("login_source", "food_aggregator");
         router.push(`/auth/sign-in`);
       } else {
-        // مستخدم داخل من لينك مباشر للمطعم
         localStorage.setItem("login_source", "online_order_web");
         router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
       }
     }
   };
 
-  // حماية لمنع حدوث تضارب أثناء الـ Hydration
   if (!isReady) return null;
 
   return (
     <header className="w-full font-sans transition-all duration-500 shadow-sm dark:shadow-md dark:shadow-yellow-400/5 dark:border-b dark:border-gray-800">
       <div className="flex items-center justify-between px-6 py-2 bg-[#FCFDF2] dark:bg-gray-900 transition-colors duration-500 text-sm">
-        {/* فحص التوكن الخاص بالمطعم الحالي بدلاً من التوكن العام القديم */}
         {currentToken ? (
           <Link
             href={
@@ -67,10 +82,14 @@ export default function TopNav() {
                 ? `/profile?callbackSlug=${restaurantSlug}`
                 : "/profile"
             }
-            className="flex items-center gap-2" // ضفتلك تنسيق بسيط عشان الأيقونة والكلام يبقوا جنب بعض مظبوط
+            className="flex items-center gap-2"
           >
             <User className="w-5 h-5" />
-            <span className="sm:block text-sm font-medium">{t("welcome")}</span>
+            <span className="sm:block text-sm font-medium">
+              {/* 5. عرض الاسم بجوار كلمة الترحيب إذا كان موجوداً */}
+          
+              {userName ? ` ${userName}` : ""}
+            </span>
           </Link>
         ) : (
           <span className="cursor-pointer font-medium" onClick={handleClick}>
@@ -78,9 +97,7 @@ export default function TopNav() {
           </span>
         )}
 
-        {/* قسم اللغة والوضع الليلي */}
         <div className="flex items-center gap-6">
-          {/* 🌍 اللغة */}
           <div className="relative">
             <button
               onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}

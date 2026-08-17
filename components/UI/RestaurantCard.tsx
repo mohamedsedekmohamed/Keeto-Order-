@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Clock,
   MapPin,
@@ -30,7 +30,7 @@ interface RatingResponse {
 interface SliderImage {
   id: string;
   restaurantid: string;
-  img: string; // base64 or URL
+  img: string;
   createdAt: string;
   updatedAt: string;
   periorty: number;
@@ -49,6 +49,17 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
     (a, b) => a.periorty - b.periorty,
   );
 
+  // AUTO-SCROLL LOGIC
+  useEffect(() => {
+    if (images.length <= 1) return;
+
+    const intervalId = setInterval(() => {
+      setCurrent((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    }, 3000); // Changes slide every 3 seconds
+
+    return () => clearInterval(intervalId); // Cleanup interval on unmount
+  }, [images.length]);
+
   if (loading || images.length === 0) return null;
 
   const prev = () => setCurrent((i) => (i === 0 ? images.length - 1 : i - 1));
@@ -61,7 +72,7 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
         <img
           src={images[current].img}
           alt={`slide-${current}`}
-          className="w-full h-full object-cover transition-all duration-300"
+          className="w-full h-full object-cover transition-all duration-500"
         />
 
         {/* OVERLAY GRADIENT */}
@@ -69,13 +80,15 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
 
         {/* DOTS */}
         {images.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
             {images.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
                 className={`w-2 h-2 rounded-full transition-all ${
-                  i === current ? "bg-white w-4" : "bg-white/50"
+                  i === current
+                    ? "bg-white w-4"
+                    : "bg-white/50 hover:bg-white/80"
                 }`}
               />
             ))}
@@ -83,18 +96,18 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
         )}
       </div>
 
-      {/* ARROWS — only show if more than 1 image */}
+      {/* ARROWS */}
       {images.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition z-10"
           >
             <ChevronLeft size={18} />
           </button>
           <button
             onClick={next}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition z-10"
           >
             <ChevronRight size={18} />
           </button>
@@ -134,12 +147,10 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
   const ratingItem = data?.data?.data;
 
   /* ---------------- SUBMIT ---------------- */
-  /* ---------------- SUBMIT ---------------- */
   const handleSubmitRating = async () => {
     if (rating === 0) return;
 
     try {
-      // 👇 ضيفنا الـ comment هنا عشان يتبعت مع الـ rating للـ API
       await postData({
         restaurantId: restaurant?.id,
         rating,
@@ -148,7 +159,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
       setShowRating(false);
       setRating(0);
-      setComment(""); // تفريغ التكست إريا بعد ما الـ تقييم يتبعت بنجاح
+      setComment("");
       refetch();
     } catch (err) {
       if (restaurantSlug) {
@@ -159,6 +170,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       console.error(err);
     }
   };
+
   return (
     <>
       {/* CARD */}
@@ -167,7 +179,8 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
         className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24"
       >
         <div className="p-4 bg-white border border-emerald-500 shadow-lg dark:bg-zinc-900 rounded-2xl md:p-6">
-          <div className="relative flex">
+          {/* --- TOP SECTION: LOGO & INFO --- */}
+          <div className="relative flex items-center min-h-[4rem] md:min-h-[5rem]">
             {/* LOGO */}
             <div
               className={`absolute ${
@@ -177,6 +190,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
               <img
                 src={restaurant?.logo || "/placeholder.jpg"}
                 className="object-contain w-full h-full"
+                alt={restaurant?.name}
               />
             </div>
 
@@ -187,66 +201,71 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                 isRTL ? "mr-28 md:mr-40" : "ml-28 md:ml-40"
               } flex-1 flex flex-col items-start`}
             >
-              <h1 className="text-xl font-bold md:text-3xl">
+              <h1 className="text-xl font-bold md:text-3xl dark:text-white">
                 {isRTL ? restaurant?.nameAr : restaurant?.name}
               </h1>
-
-              {/* ACTIONS */}
-              <div dir="rtl" className="flex items-center gap-3 mt-3">
-                <ShareButton />
-                <button
-                  onClick={() => setShowRating(true)}
-                  className="p-2 text-yellow-500 transition rounded-full hover:bg-yellow-50 dark:hover:bg-zinc-800"
-                >
-                  <Star size={20} />
-                </button>
-              </div>
             </div>
           </div>
 
-          {/* BOTTOM */}
-          <div className="flex items-center justify-around pt-6 mt-12 border-t">
-            <div className="flex flex-col items-center">
-              <Clock className="w-6 h-6 text-yellow-400" />
-              <span>
-                {restaurant?.minDeliveryTime}-{restaurant?.maxDeliveryTime}{" "}
-                {restaurant?.deliveryTimeUnit}
+          {/* --- BOTTOM SECTION: ACTIONS & STATS --- */}
+          <div className="flex flex-wrap items-center justify-around gap-4 pt-4 mt-6 border-t border-gray-100 dark:border-zinc-800">
+            {/* LOCATION BUTTON */}
+            <button
+              onClick={() => setShowMap(true)}
+              className="flex flex-col items-center gap-1 transition hover:opacity-80"
+            >
+              <MapPin className="w-6 h-6 text-emerald-500" />
+              <span className="text-sm font-medium dark:text-zinc-300">
+                {t("Location")}
               </span>
-            </div>
-
-            <button onClick={() => setShowMap(true)}>
-              <MapPin className="w-6 h-6 ml-4 text-yellow-400" />
-              <span>{t("Location")}</span>
             </button>
 
             {/* ⭐ AVG RATING */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-1">
                 <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-                <span className="font-bold">
+                <span className="text-lg font-bold dark:text-white">
                   {ratingItem?.avgRating
                     ? parseFloat(ratingItem.avgRating).toFixed(1)
                     : "—"}
                 </span>
               </div>
-              <span className="text-yellow-400 text-sm">
+              <span className="text-xs text-gray-500 dark:text-zinc-400">
                 {ratingItem?.totalRatings} {t("Ratings")}
               </span>
+            </div>
+
+            {/* ACTIONS (SHARE & RATE) */}
+            <div
+              dir={isRTL ? "rtl" : "ltr"}
+              className="flex items-center gap-3"
+            >
+              <ShareButton />
+              <button
+                onClick={() => setShowRating(true)}
+                className="flex items-center justify-center p-2 text-yellow-500 transition rounded-full hover:bg-yellow-50 dark:hover:bg-zinc-800"
+                title={t("Rate")}
+              >
+                <Star size={24} />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* SLIDER — only mounts when restaurant.id is ready */}
+      {/* SLIDER */}
       {restaurant?.id && <RestaurantSlider restaurantId={restaurant.id} />}
 
       {/* ---------------- MAP MODAL ---------------- */}
       {showMap && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-3xl bg-white rounded-2xl">
-            <div className="flex justify-between p-4 border-b">
-              <h2>{restaurant?.name}</h2>
-              <button onClick={() => setShowMap(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+            <div className="flex justify-between p-4 border-b dark:border-zinc-800">
+              <h2 className="font-bold dark:text-white">{restaurant?.name}</h2>
+              <button
+                onClick={() => setShowMap(false)}
+                className="dark:text-white"
+              >
                 <X />
               </button>
             </div>
@@ -264,17 +283,23 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
       {/* ---------------- RATING MODAL ---------------- */}
       {showRating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="w-full max-w-sm p-5 bg-white dark:bg-zinc-900 rounded-2xl">
             <div className="flex justify-between mb-4">
-              <h2 className="font-bold text-lg dark:text-white">
+              <h2 className="text-lg font-bold dark:text-white">
                 {t("Enjoying your visit?")}
               </h2>
-              <button onClick={() => {setShowRating(false); setComment("");}}>
+              <button
+                onClick={() => {
+                  setShowRating(false);
+                  setComment("");
+                }}
+                className="dark:text-white"
+              >
                 <X />
               </button>
             </div>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6">
+            <p className="mb-6 text-sm text-gray-500 dark:text-zinc-400">
               {t("Kindlly Rate Restaurant")}
             </p>
 
@@ -292,20 +317,23 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                 </button>
               ))}
             </div>
+
             <div className="mb-6">
               <textarea
                 placeholder={t("Leave a comment")}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="w-full p-4 text-sm bg-gray-50 dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-yellow-400 focus:outline-none dark:text-white resize-none h-24"
+                className="w-full h-24 p-4 text-sm bg-gray-50 dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-yellow-400 focus:outline-none dark:text-white resize-none"
               />
             </div>
 
             <button
               onClick={handleSubmitRating}
               disabled={isSubmitting || rating === 0}
-              className={`w-full py-2 text-white rounded-xl ${
-                isSubmitting || rating === 0 ? "bg-gray-400" : "bg-yellow-400"
+              className={`w-full py-2 text-white rounded-xl transition ${
+                isSubmitting || rating === 0
+                  ? "bg-gray-400"
+                  : "bg-yellow-400 hover:bg-yellow-500"
               }`}
             >
               {isSubmitting ? t("Submitting...") : t("Submit Rating")}

@@ -66,14 +66,14 @@ const Footer = () => {
           {/* الجانب الأيسر: السوشيال ميديا */}
           <div className="flex items-center gap-4">
             <a
-              href="https://facebook.com/keetoapp"
+              href="https://www.facebook.com/share/1E89WcjA6P/?mibextid=wwXIfr"
               target="_blank"
               className="p-3 text-gray-600 transition-all rounded-full shadow-sm bg-gray-50 dark:bg-zinc-900 dark:text-zinc-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20"
             >
               <FaFacebook size={20} />
             </a>
             <a
-              href="https://instagram.com/keeto_app"
+              href="https://www.instagram.com/keeto_app?igsh=YW1lZjVwenlsbDhn"
               target="_blank"
               className="p-3 text-gray-600 transition-all rounded-full shadow-sm bg-gray-50 dark:bg-zinc-900 dark:text-zinc-400 hover:bg-pink-50 hover:text-pink-600 dark:hover:bg-pink-900/20"
             >

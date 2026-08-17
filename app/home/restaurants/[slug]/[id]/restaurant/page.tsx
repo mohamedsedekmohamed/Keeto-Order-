@@ -16,6 +16,7 @@ import { useToken } from "@/context/TokenContext";
 import api from "@/api/api";
 import LogoNav from "@/components/LogoNav";
 import NewKeetaLogo from "@/public/PicWhite.jpeg";
+
 export default function Restaurant() {
   const params = useParams();
   const { t } = useLanguage();
@@ -24,7 +25,7 @@ export default function Restaurant() {
   const basePath = `/home/restaurants/${restaurantName}`;
   const { getToken, isReady } = useToken();
   const token = getToken(restaurantName);
-  const cartItems = useAppSelector((state) => state.cart.items);
+  const cartItems = useAppSelector((state: any) => state.cart.items);
 
   // Local state to track dynamic cart animation burst
   const [isAnimate, setIsAnimate] = useState(false);
@@ -47,12 +48,20 @@ export default function Restaurant() {
     fetchCart();
   }, [isReady]);
 
+  // ✅ Extract the actual items array safely, handling both direct arrays and nested cart objects
+  const actualItemsArray = Array.isArray(cartItems)
+    ? cartItems
+    : Array.isArray(cartItems?.cartItems)
+      ? cartItems.cartItems
+      : Array.isArray(cartItems?.items)
+        ? cartItems.items
+        : [];
+
   // ✅ حساب عدد العناصر
-  const totalItems = Array.isArray(cartItems)
-    ? cartItems.reduce((acc, item) => {
-        return acc + (Number(item.quantity) || 0);
-      }, 0)
-    : 0;
+  const totalItems = actualItemsArray.reduce((acc: number, item: any) => {
+    // Falls back to `qty` or assumes 1 if neither exists but the item object is present
+    return acc + (Number(item?.quantity) || Number(item?.qty) || 1);
+  }, 0);
 
   // Trigger pop & pulse feedback ripple whenever item counter updates upward
   useEffect(() => {
@@ -65,8 +74,6 @@ export default function Restaurant() {
 
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
   const { menu, isLoading: menuLoading } = useMenu();
-
-  //const restaurantId = (params?.id as string) || restaurant?.id;
 
   if (restaurantLoading || menuLoading || !isReady) {
     return (
@@ -82,7 +89,7 @@ export default function Restaurant() {
 
   return (
     <div className="relative w-full min-h-screen pb-24 font-sans bg-white dark:bg-black">
-      <LogoNav logo={NewKeetaLogo} />
+      {/* <LogoNav logo={NewKeetaLogo} /> */}
       <RestaurantHeader cover={restaurant.cover} />
       <RestaurantCard restaurant={restaurant} />
       <RestaurantItms
@@ -104,7 +111,7 @@ export default function Restaurant() {
         >
           {/* Expanding Flash Pulse Ripple */}
           {isAnimate && (
-            <span className="absolute inset-0 rounded-2xl bg-yellow-400/40 animate-ping pointer-events-none" />
+            <span className="absolute inset-0 pointer-events-none rounded-2xl bg-yellow-400/40 animate-ping" />
           )}
 
           <div className="relative">
