@@ -9,7 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { useRestaurant, useMenu } from "@/context/RestaurantContext";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
 import { useToken } from "@/context/TokenContext";
 import { setRestaurantId } from "@/context/Restaurantid";
@@ -31,13 +31,26 @@ export default function Restaurant() {
   // Local state to track dynamic cart animation burst
   const [isAnimate, setIsAnimate] = useState(false);
 
+  // Tracks which restaurant is *currently* being viewed, read at the
+  // moment a cart response comes back — not at the moment the request
+  // was fired. Without this, switching restaurants quickly can let a
+  // slow response for the restaurant you already left resolve *after*
+  // the new restaurant's (faster) response, silently overwriting the
+  // correct cart with stale data. Every dispatch checks this ref first
+  // and drops the response if it's no longer for the active restaurant.
+  const activeRestaurantRef = useRef(restaurantName);
+  activeRestaurantRef.current = restaurantName;
+
   const fetchCart = async () => {
+    const requestedFor = restaurantName;
     try {
       const res = await api.get("/api/user/cart");
+      if (activeRestaurantRef.current !== requestedFor) return; // stale response, ignore
       if (res?.data?.data?.data) {
         dispatch(setCartItems(res.data.data.data));
       }
     } catch (err) {
+      if (activeRestaurantRef.current !== requestedFor) return; // stale error, ignore
       console.error("Error fetching cart:", err);
     }
   };
@@ -45,18 +58,44 @@ export default function Restaurant() {
   useEffect(() => {
     if (!isReady) return;
     const token = getToken(restaurantName);
-    if (!token) return;
+    if (!token) {
+      // No token for this restaurant (e.g. never signed in here) — clear
+      // out whatever cart was left over from a previously viewed
+      // restaurant so the button doesn't show a stale count.
+      dispatch(setCartItems([]));
+      return;
+    }
     fetchCart();
-  }, [isReady]);
+    // restaurantName must be a dependency: this component instance is
+    // reused across client-side navigations between
+    // /home/restaurants/[slug] pages, so without it this effect only
+    // ever runs once (when isReady first flips true) and never refetches
+    // when the user navigates to a different restaurant's page.
+  }, [isReady, restaurantName]);
+
+  const { restaurant, isLoading: restaurantLoading } = useRestaurant();
+  const { menu, isLoading: menuLoading } = useMenu();
 
   // ✅ Extract the actual items array safely, handling both direct arrays and nested cart objects
-  const actualItemsArray = Array.isArray(cartItems)
+  const rawItemsArray = Array.isArray(cartItems)
     ? cartItems
     : Array.isArray(cartItems?.cartItems)
       ? cartItems.cartItems
       : Array.isArray(cartItems?.items)
         ? cartItems.items
         : [];
+
+  // 🔒 /api/user/cart returns the user's cart across ALL restaurants (each
+  // item is tagged with its own restaurantId/restaurantName — see
+  // CartItem in cartSlice.ts). The button on this page must only reflect
+  // items belonging to the restaurant currently being viewed, so filter
+  // by restaurant.id before counting. Without this, the badge sums the
+  // user's entire cross-restaurant cart and looks "stuck" when switching
+  // restaurants, since the underlying array doesn't change — only which
+  // slice of it is relevant does.
+  const actualItemsArray = restaurant?.id
+    ? rawItemsArray.filter((item: any) => item?.restaurantId === restaurant.id)
+    : [];
 
   // ✅ حساب عدد العناصر
   const totalItems = actualItemsArray.reduce((acc: number, item: any) => {
@@ -72,9 +111,6 @@ export default function Restaurant() {
       return () => clearTimeout(timer);
     }
   }, [totalItems]);
-
-  const { restaurant, isLoading: restaurantLoading } = useRestaurant();
-  const { menu, isLoading: menuLoading } = useMenu();
 
   // Persist this restaurant's real DB id (UUID), keyed by its slug — so
   // other pages (profile, checkout, etc.) can look it up via the same

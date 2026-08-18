@@ -16,6 +16,8 @@ import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
 import { useRouter, useParams } from "next/navigation";
 import { useLanguage } from "../../context/LanguageContext";
+// Import the utility to get the correct restaurant ID
+import { getRestaurantId } from "@/context/Restaurantid";
 
 interface RatingResponse {
   success: boolean;
@@ -36,6 +38,18 @@ interface SliderImage {
   periorty: number;
 }
 
+interface Branch {
+  id: string;
+  restaurantId: string;
+  name: string;
+  nameAr: string;
+  address: string;
+  addressAr: string;
+  phoneNumber: string;
+  lat: string;
+  lng: string;
+}
+
 /* ---------------- SLIDER COMPONENT ---------------- */
 function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
   const [current, setCurrent] = useState(0);
@@ -49,15 +63,14 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
     (a, b) => a.periorty - b.periorty,
   );
 
-  // AUTO-SCROLL LOGIC
   useEffect(() => {
     if (images.length <= 1) return;
 
     const intervalId = setInterval(() => {
       setCurrent((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-    }, 3000); // Changes slide every 3 seconds
+    }, 3000);
 
-    return () => clearInterval(intervalId); // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, [images.length]);
 
   if (loading || images.length === 0) return null;
@@ -67,28 +80,25 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
 
   return (
     <div className="relative w-[92%] md:w-full max-w-4xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-md">
-      {/* IMAGE */}
-      <div className="relative w-full h-48 md:h-64 bg-gray-100 dark:bg-zinc-800">
+      <div className="relative w-full h-48 bg-gray-100 md:h-64 dark:bg-zinc-800">
         <img
           src={images[current].img}
           alt={`slide-${current}`}
-          className="w-full h-full object-cover transition-all duration-500"
+          className="object-cover w-full h-full transition-all duration-500"
         />
 
-        {/* OVERLAY GRADIENT */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
 
-        {/* DOTS */}
         {images.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          <div className="absolute flex gap-1.5 z-10 bottom-3 left-1/2 -translate-x-1/2">
             {images.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
-                className={`w-2 h-2 rounded-full transition-all ${
+                className={`h-2 rounded-full transition-all ${
                   i === current
                     ? "bg-white w-4"
-                    : "bg-white/50 hover:bg-white/80"
+                    : "bg-white/50 hover:bg-white/80 w-2"
                 }`}
               />
             ))}
@@ -96,18 +106,17 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
         )}
       </div>
 
-      {/* ARROWS */}
       {images.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition z-10"
+            className="absolute z-10 flex items-center justify-center w-8 h-8 text-white transition -translate-y-1/2 rounded-full left-2 top-1/2 bg-black/40 hover:bg-black/60"
           >
             <ChevronLeft size={18} />
           </button>
           <button
             onClick={next}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition z-10"
+            className="absolute z-10 flex items-center justify-center w-8 h-8 text-white transition -translate-y-1/2 rounded-full right-2 top-1/2 bg-black/40 hover:bg-black/60"
           >
             <ChevronRight size={18} />
           </button>
@@ -119,40 +128,86 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
 
 /* ---------------- MAIN CARD ---------------- */
 export default function RestaurantCard({ restaurant }: { restaurant: any }) {
-  const [showMap, setShowMap] = useState(false);
+  const [showBranchesModal, setShowBranchesModal] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
-  const router = useRouter();
+  const [comment, setComment] = useState("");
 
+  const router = useRouter();
   const params = useParams();
   const restaurantSlug = params?.slug as string;
-
-  const [comment, setComment] = useState("");
-  const lat = restaurant?.latitude || restaurant?.lat;
-  const lng = restaurant?.longitude || restaurant?.lng;
   const { t } = useLanguage();
+
   const isRTL =
     typeof window !== "undefined" && document.documentElement.dir === "rtl";
-  const mapQuery = encodeURIComponent(
-    restaurant?.address || restaurant?.name || "Restaurant Location",
+
+  /* ---------------- FETCH BRANCHES ---------------- */
+  // Retrieve the correct ID based on the slug[cite: 2]
+  const currentRestaurantId = getRestaurantId(restaurantSlug) || restaurant?.id;
+
+  const { data: branchesResponse, loading: branchesLoading } = useGet<{
+    success: boolean;
+    data: { data: Branch[] };
+  }>(
+    currentRestaurantId
+      ? `/api/user/restaurants/${currentRestaurantId}/branches`
+      : "",
   );
 
-  /* ---------------- API ---------------- */
+  const branches = branchesResponse?.data?.data || [];
+
+  /* ---------------- MAP HANDLING ---------------- */
+  const handleOpenMap = () => {
+    setShowBranchesModal(true);
+    // Auto-select the first branch if available
+    if (branches.length > 0 && !selectedBranch) {
+      setSelectedBranch(branches[0]);
+    }
+  };
+
+  const cleanCoordinate = (coord: string) => coord?.replace(/,/g, "").trim();
+
+  const getMapIframeSrc = () => {
+    if (selectedBranch?.lat && selectedBranch?.lng) {
+      // Clean trailing commas from API lat/lng[cite: 1]
+      const lat = cleanCoordinate(selectedBranch.lat);
+      const lng = cleanCoordinate(selectedBranch.lng);
+      return `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
+    }
+
+    // Fallback to main restaurant coordinates or address
+    const fallbackLat = restaurant?.latitude || restaurant?.lat;
+    const fallbackLng = restaurant?.longitude || restaurant?.lng;
+    if (fallbackLat && fallbackLng) {
+      return `https://maps.google.com/maps?q=${fallbackLat},${fallbackLng}&z=15&output=embed`;
+    }
+
+    const mapQuery = encodeURIComponent(
+      selectedBranch?.address ||
+        restaurant?.address ||
+        restaurant?.name ||
+        "Restaurant Location",
+    );
+    return `https://maps.google.com/maps?q=${mapQuery}&z=15&output=embed`;
+  };
+
+  /* ---------------- RATINGS API ---------------- */
   const { postData, loading: isSubmitting } = usePost("/api/user/rating");
 
   const { data, refetch } = useGet<RatingResponse>(
-    `api/user/rating/restaurant/${restaurant?.id}`,
+    `api/user/rating/restaurant/${currentRestaurantId}`,
   );
 
   const ratingItem = data?.data?.data;
 
-  /* ---------------- SUBMIT ---------------- */
   const handleSubmitRating = async () => {
     if (rating === 0) return;
 
     try {
       await postData({
-        restaurantId: restaurant?.id,
+        restaurantId: currentRestaurantId,
         rating,
         comment,
       });
@@ -178,7 +233,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
         dir="ltr"
         className="relative z-10 w-[92%] md:w-full max-w-4xl mx-auto -mt-16 md:-mt-24"
       >
-        <div className="p-4 bg-white border border-emerald-500 shadow-lg dark:bg-zinc-900 rounded-2xl md:p-6">
+        <div className="p-4 bg-white border shadow-lg border-emerald-500 dark:bg-zinc-900 rounded-2xl md:p-6">
           {/* --- TOP SECTION: LOGO & INFO --- */}
           <div className="relative flex items-center min-h-[4rem] md:min-h-[5rem]">
             {/* LOGO */}
@@ -211,7 +266,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
           <div className="flex flex-wrap items-center justify-around gap-4 pt-4 mt-6 border-t border-gray-100 dark:border-zinc-800">
             {/* LOCATION BUTTON */}
             <button
-              onClick={() => setShowMap(true)}
+              onClick={handleOpenMap}
               className="flex flex-col items-center gap-1 transition hover:opacity-80"
             >
               <MapPin className="w-6 h-6 text-emerald-500" />
@@ -254,29 +309,84 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       </div>
 
       {/* SLIDER */}
-      {restaurant?.id && <RestaurantSlider restaurantId={restaurant.id} />}
+      {currentRestaurantId && (
+        <RestaurantSlider restaurantId={currentRestaurantId} />
+      )}
 
-      {/* ---------------- MAP MODAL ---------------- */}
-      {showMap && (
+      {/* ---------------- BRANCHES & MAP MODAL ---------------- */}
+      {showBranchesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
-            <div className="flex justify-between p-4 border-b dark:border-zinc-800">
-              <h2 className="font-bold dark:text-white">{restaurant?.name}</h2>
-              <button
-                onClick={() => setShowMap(false)}
-                className="dark:text-white"
-              >
-                <X />
-              </button>
+          <div className="flex flex-col w-full max-w-5xl overflow-hidden bg-white md:flex-row h-[85vh] md:h-[70vh] dark:bg-zinc-900 rounded-2xl">
+            {/* BRANCH LIST SIDEBAR */}
+            <div
+              dir={isRTL ? "rtl" : "ltr"}
+              className="flex flex-col w-full border-b md:w-1/3 md:border-b-0 md:border-x border-gray-100 dark:border-zinc-800"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-zinc-800">
+                <h2 className="text-lg font-bold dark:text-white">
+                  {t("Branches")}
+                </h2>
+                <button
+                  onClick={() => setShowBranchesModal(false)}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 dark:text-white md:hidden"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 p-3 overflow-y-auto">
+                {branchesLoading ? (
+                  <p className="text-center text-gray-500 dark:text-zinc-400 mt-4">
+                    {t("Loading branches...")}
+                  </p>
+                ) : branches.length > 0 ? (
+                  <div className="space-y-2">
+                    {branches.map((branch) => (
+                      <button
+                        key={branch.id}
+                        onClick={() => setSelectedBranch(branch)}
+                        className={`w-full text-start p-3 rounded-xl border transition-all ${
+                          selectedBranch?.id === branch.id
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
+                            : "border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          {isRTL ? branch.nameAr || branch.name : branch.name}
+                        </h3>
+                        <p className="text-sm text-gray-500 line-clamp-2 dark:text-zinc-400 mt-1">
+                          {isRTL
+                            ? branch.addressAr || branch.address
+                            : branch.address}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-zinc-400 mt-4">
+                    {t("No branches found.")}
+                  </p>
+                )}
+              </div>
             </div>
-            <iframe
-              className="w-full h-[400px]"
-              src={
-                lat && lng
-                  ? `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`
-                  : `https://maps.google.com/maps?q=${mapQuery}&z=15&output=embed`
-              }
-            />
+
+            {/* MAP VIEW */}
+            <div className="relative w-full h-full md:w-2/3 min-h-[300px]">
+              <button
+                onClick={() => setShowBranchesModal(false)}
+                className="absolute z-10 hidden p-2 bg-white rounded-full shadow-md top-4 right-4 dark:bg-zinc-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 md:block"
+              >
+                <X size={20} />
+              </button>
+
+              <iframe
+                className="w-full h-full border-0"
+                src={getMapIframeSrc()}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
           </div>
         </div>
       )}

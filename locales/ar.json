@@ -159,6 +159,8 @@
   "subtotal": "المجموع الفرعي",
   "addressTitle":"اسم العنوان ",
   "total": "الإجمالي الكلي",
+  "generalInfo": "معلومات عامة",
+  "orderTracking": "تتبع الطلب",
   "checkoutNow": "إتمام الطلب الآن",
   "completeOrder": "إتمام الطلب",
   "orderType": "نوع الطلب",

@@ -437,7 +437,7 @@ export default function ProfilePage() {
     try {
       setIsFavLoading(true);
       const res = await axios.get(
-        "https://keetobcknd.keeto.org/api/user/favlist",
+        `https://keetobcknd.keeto.org/api/user/favlist?restaurantId=${restaurantId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
