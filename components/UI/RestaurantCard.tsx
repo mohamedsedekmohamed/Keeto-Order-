@@ -193,8 +193,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
     return `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
   };
 
-  const handleBranchClick = (branch: Branch) => {
-    setSelectedBranch(branch);
+  const handleOpenInMaps = (branch: Branch | null) => {
     const url = getBranchMapsUrl(branch);
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -216,8 +215,9 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
     const mapQuery = encodeURIComponent(
       selectedBranch?.address ||
-        selectedBranch?.addressAr ||
+      selectedBranch?.addressAr ||
         restaurant?.address ||
+
         restaurant?.name ||
         "Restaurant Location",
     );
@@ -375,7 +375,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                     {branches.map((branch) => (
                       <button
                         key={branch.id}
-                        onClick={() => handleBranchClick(branch)}
+                        onClick={() => setSelectedBranch(branch)}
                         className={`w-full text-start p-3 rounded-xl border transition-all ${
                           selectedBranch?.id === branch.id
                             ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
@@ -408,6 +408,15 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                 className="absolute z-10 hidden p-2 bg-white rounded-full shadow-md top-4 right-4 dark:bg-zinc-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 md:block"
               >
                 <X size={20} />
+              </button>
+
+              {/* OPEN IN MAPS — always visible, doesn't wait for a branch/map click */}
+              <button
+                onClick={() => handleOpenInMaps(selectedBranch)}
+                className="absolute z-10 flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition rounded-full shadow-md top-4 left-4 bg-emerald-500 hover:bg-emerald-600"
+              >
+                <ExternalLink size={16} />
+                {t("Open in Maps")}
               </button>
 
               <iframe
