@@ -4,24 +4,21 @@ const api = axios.create({
   baseURL: "https://Keetobcknd.keeto.org",
 });
 
-function getCurrentSlug() {
-  if (typeof window === "undefined") return null;
-  // Prefer the path segment (e.g. /restaurant/[slug]/...)
-  const pathMatch = window.location.pathname.match(/^\/([^/]+)/);
-  const pathSlug = pathMatch?.[1];
-
-  // Fall back to ?callbackSlug=... just like TokenContext does
-  const searchParams = new URLSearchParams(window.location.search);
-  const callbackSlug = searchParams.get("callbackSlug");
-
-  return pathSlug || callbackSlug || null;
+// Kept in sync by TokenContext (which resolves the slug via Next's own
+// useParams()/useSearchParams()). We previously re-derived the slug here
+// by regex-parsing window.location.pathname independently — that could
+// disagree with the router's resolved params for a beat during
+// client-side navigations (e.g. right after the post-login redirect),
+// which is why the profile call only worked after a hard refresh.
+let activeSlug = null;
+export function setActiveSlug(slug) {
+  activeSlug = slug || null;
 }
 
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const slug = getCurrentSlug();
-      const key = slug ? `token_${slug}` : "token";
+      const key = activeSlug ? `token_${activeSlug}` : "token";
       const token = localStorage.getItem(key) || localStorage.getItem("token");
 
       if (token) {

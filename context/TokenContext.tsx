@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import api, { setActiveSlug } from "@/api/api"; // adjust to your actual path
 type TokenContextType = {
   getToken: (slug?: string | null) => string | null;
   setToken: (token: string | null, slug?: string | null) => void;
@@ -23,7 +24,12 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
     (params?.slug as string) ||
     (searchParams?.get("callbackSlug") as string) ||
     undefined;
-
+  // Push the resolved slug into axios's interceptor whenever it changes,
+  // so the request-time token lookup always matches what getToken()/setToken()
+  // above are using — no more independent URL-parsing in api.js.
+  useEffect(() => {
+    setActiveSlug(currentSlug ?? null);
+  }, [currentSlug]);
   // جلب الـ slug الحالي تلقائياً من المسار إن وجد
 
   useEffect(() => {
