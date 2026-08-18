@@ -169,6 +169,36 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
   const cleanCoordinate = (coord: string) => coord?.replace(/,/g, "").trim();
 
+  // Builds a real (non-embed) Google Maps URL so it can be opened directly in a new tab
+  const getBranchMapsUrl = (branch: Branch | null) => {
+    if (branch?.lat && branch?.lng) {
+      const lat = cleanCoordinate(branch.lat);
+      const lng = cleanCoordinate(branch.lng);
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    }
+
+    const fallbackLat = restaurant?.latitude || restaurant?.lat;
+    const fallbackLng = restaurant?.longitude || restaurant?.lng;
+    if (fallbackLat && fallbackLng) {
+      return `https://www.google.com/maps/search/?api=1&query=${fallbackLat},${fallbackLng}`;
+    }
+
+    const mapQuery = encodeURIComponent(
+      branch?.address ||
+        branch?.addressAr ||
+        restaurant?.address ||
+        restaurant?.name ||
+        "Restaurant Location",
+    );
+    return `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
+  };
+
+  const handleBranchClick = (branch: Branch) => {
+    setSelectedBranch(branch);
+    const url = getBranchMapsUrl(branch);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const getMapIframeSrc = () => {
     if (selectedBranch?.lat && selectedBranch?.lng) {
       // Clean trailing commas from API lat/lng[cite: 1]
@@ -186,6 +216,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
     const mapQuery = encodeURIComponent(
       selectedBranch?.address ||
+        selectedBranch?.addressAr ||
         restaurant?.address ||
         restaurant?.name ||
         "Restaurant Location",
@@ -344,7 +375,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
                     {branches.map((branch) => (
                       <button
                         key={branch.id}
-                        onClick={() => setSelectedBranch(branch)}
+                        onClick={() => handleBranchClick(branch)}
                         className={`w-full text-start p-3 rounded-xl border transition-all ${
                           selectedBranch?.id === branch.id
                             ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
