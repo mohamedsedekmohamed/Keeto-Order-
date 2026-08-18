@@ -74,7 +74,7 @@ export default function Checkout() {
 
   const getOrderSource = () => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("login_source") || "food_aggregator";
+      return localStorage.getItem(`login_source_${restaurantName}`) || "food_aggregator";
     }
     return "food_aggregator";
   };
