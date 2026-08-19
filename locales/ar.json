@@ -158,6 +158,8 @@
    "deliveryMan":"رجل التوصيل",
   "callDeliveryMan":"اتصل برجل التوصيل ",
   "subtotal": "المجموع الفرعي",
+  "remainingPrepTime": "الوقت المتبقي للتحضير",  
+  "orderShouldBeReady":"سيكون طلبك جاهزًا في وقت قصير",
   "addressTitle":"اسم العنوان ",
   "total": "الإجمالي الكلي",
   "generalInfo": "معلومات عامة",

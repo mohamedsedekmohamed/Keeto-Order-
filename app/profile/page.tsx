@@ -189,6 +189,111 @@ interface FavoriteFood {
   price: string;
 }
 
+// Parses "DD/MM/YYYY, hh:mm:ss am/pm" (and falls back to native Date parsing
+// for ISO strings) into a valid JS Date object.
+function parseOrderDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+
+  const match = value.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s*(am|pm)$/i,
+  );
+
+  if (match) {
+    const [, dd, mm, yyyy, hh, min, sec, meridiem] = match;
+    let hours = parseInt(hh, 10);
+    if (/pm/i.test(meridiem) && hours !== 12) hours += 12;
+    if (/am/i.test(meridiem) && hours === 12) hours = 0;
+    return new Date(
+      parseInt(yyyy, 10),
+      parseInt(mm, 10) - 1,
+      parseInt(dd, 10),
+      hours,
+      parseInt(min, 10),
+      parseInt(sec, 10),
+    );
+  }
+
+  const fallback = new Date(value);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+// Counts down from (createdAt + durationMinutes) to now, ticking every
+// second. Returns null once inputs are missing/invalid; returns 0 (not
+// negative) once the target time has passed.
+function usePrepCountdown(
+  createdAt: string | null | undefined,
+  durationMinutes: number | null | undefined,
+) {
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    const start = parseOrderDate(createdAt);
+    if (!start || !durationMinutes || durationMinutes <= 0) {
+      setRemainingMs(null);
+      return;
+    }
+
+    const target = start.getTime() + durationMinutes * 60 * 1000;
+
+    const tick = () => {
+      const diff = target - Date.now();
+      setRemainingMs(diff > 0 ? diff : 0);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [createdAt, durationMinutes]);
+
+  return remainingMs;
+}
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
+// Small self-contained countdown pill. It keeps its own ticking state here
+// (rather than in the page) so only this pill re-renders every second,
+// not the whole orders list/details view.
+function PrepCountdown({
+  createdAt,
+  durationMinutes,
+  t,
+  className = "",
+}: {
+  createdAt: string | null | undefined;
+  durationMinutes: number | null | undefined;
+  t: (key: string) => string | undefined;
+  className?: string;
+}) {
+  const remainingMs = usePrepCountdown(createdAt, durationMinutes);
+
+  if (remainingMs === null || !durationMinutes) return null;
+
+  const isDone = remainingMs <= 0;
+
+  return (
+    <div
+      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg ${
+        isDone
+          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+          : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
+      } ${className}`}
+    >
+      <Clock size={12} />
+      {isDone
+        ? t("orderShouldBeReady") || "من المفترض أن يكون الطلب جاهزًا"
+        : `${t("remainingPrepTime") || "الوقت المتبقي"} ${formatCountdown(remainingMs)}`}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { t, language } = useLanguage();
   const { logout, getToken } = useToken();
@@ -224,7 +329,7 @@ export default function ProfilePage() {
   // Active Tab State (can be null if all are closed, or one of the sections)
   const [activeTab, setActiveTab] = useState<
     "general" | "addresses" | "favorites" | "tracking" | null
-  >("general");
+  >(null);
 
   const toggleTab = (
     tab: "general" | "addresses" | "favorites" | "tracking",
@@ -324,7 +429,35 @@ export default function ProfilePage() {
 
     fetchOrderDetails();
   }, [selectedOrderId, t]);
+  // Auto-poll active orders and selected order details
+  useEffect(() => {
+    // Only run polling if the user is viewing active orders
+    if (activeTab !== "tracking" || orderSubTab !== "active") return;
 
+    const POLL_INTERVAL = 2*60*1000; // Poll every 10 seconds
+
+    const intervalId = setInterval(() => {
+      // 1. Refetch the active orders list
+      refetchActiveOrders?.();
+
+      // 2. If an order drawer is open, fetch its latest details
+      if (selectedOrderId) {
+        api
+          .get(`/api/user/order/${selectedOrderId}`)
+          .then((response) => {
+            if (response.data?.success) {
+              setSelectedOrder(response.data.data.data || response.data.data);
+            }
+          })
+          .catch((error) => {
+            console.error("Error polling order details:", error);
+          });
+      }
+    }, POLL_INTERVAL);
+
+    // Clean up interval when leaving active tracking or switching tabs
+    return () => clearInterval(intervalId);
+  }, [activeTab, orderSubTab, selectedOrderId, refetchActiveOrders]);
   const handleOpenCancelModal = async () => {
     setShowCancelModal(true);
     try {
@@ -1468,6 +1601,18 @@ export default function ProfilePage() {
                                 </span>
                               </div>
 
+                              {orderSubTab === "active" &&
+                                order.durationOrderPreparing && (
+                                  <PrepCountdown
+                                    createdAt={order.createdAt}
+                                    durationMinutes={
+                                      order.durationOrderPreparing
+                                    }
+                                    t={t}
+                                    className="mt-2 w-fit"
+                                  />
+                                )}
+
                               {order.status === "out_for_delivery" &&
                                 order.deliveryMan && (
                                   <div className="flex items-center justify-between mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-400/10 rounded-xl">
@@ -1623,6 +1768,16 @@ export default function ProfilePage() {
                               {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
                               {selectedOrder.dailyOrderNumber}
                             </p>
+                            {selectedOrder.durationOrderPreparing && (
+                              <PrepCountdown
+                                createdAt={selectedOrder.createdAt}
+                                durationMinutes={
+                                  selectedOrder.durationOrderPreparing
+                                }
+                                t={t}
+                                className="mt-1.5 w-fit"
+                              />
+                            )}
                           </div>
                         </div>
                         <button

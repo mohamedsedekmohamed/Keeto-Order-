@@ -16,6 +16,8 @@
   "no-restaurant": "No Restaurant",
   "view-cart": "View Cart",
   "closed":"The restaurant is close now",
+  "remainingPrepTime": "Remaining Preparation Time",  
+  "orderShouldBeReady":" Order should be ready in",
   "terms": "Terms & Conditions",
   "favorites": "Favorites",
   "orderTracking": "Order Tracking",
