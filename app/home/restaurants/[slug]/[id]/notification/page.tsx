@@ -55,9 +55,9 @@ export default function OrdersPage() {
   } = useGet<any>("/api/user/order/history?restaurantId=" + restaurantId);
   const getOrderSource = () => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("login_source") || "food_aggregator";
+      return localStorage.getItem("login_source") || "online_order_web";
     }
-    return "food_aggregator";
+    return "online_order_web";
   };
 
   // 👈 جلب أسباب الإلغاء والبيانات المساعدة بناءً على الـ Endpoint المطلوب

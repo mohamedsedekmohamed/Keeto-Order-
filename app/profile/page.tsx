@@ -387,10 +387,10 @@ export default function ProfilePage() {
       return (
         localStorage.getItem(`login_source_${restaurantSlug}`) ||
         localStorage.getItem("login_source") ||
-        "food_aggregator"
+        "online_order_web"
       );
     }
-    return "food_aggregator";
+    return "online_order_web";
   };
 
   const activeOrdersList =
@@ -434,7 +434,7 @@ export default function ProfilePage() {
     // Only run polling if the user is viewing active orders
     if (activeTab !== "tracking" || orderSubTab !== "active") return;
 
-    const POLL_INTERVAL = 2*60*1000; // Poll every 10 seconds
+    const POLL_INTERVAL = 2 * 60 * 1000; // Poll every 10 seconds
 
     const intervalId = setInterval(() => {
       // 1. Refetch the active orders list
