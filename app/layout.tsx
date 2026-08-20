@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import TopNav from "@/components/TopNav";
+import ConditionalTopNav from "@/components/Conditionaltopnav";
 import { Providers } from "../context/providers";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { Toaster } from "react-hot-toast";
@@ -42,7 +42,7 @@ export default function RootLayout({
               <AxiosInterceptor>
                 <RestaurantSettingsProvider>
                   <div className="flex flex-col min-h-screen">
-                    <TopNav />
+                    <ConditionalTopNav />
                     <main className="flex-1">{children}</main>
                     <Toaster position="top-center" reverseOrder={false} />
                   </div>
@@ -55,4 +55,3 @@ export default function RootLayout({
     </html>
   );
 }
-
