@@ -7,6 +7,8 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { Toaster } from "react-hot-toast";
 import { TokenProvider } from "@/context/TokenContext";
 import { AxiosInterceptor } from "../context/AxiosInterceptor";
+import { RestaurantSettingsProvider } from "@/context/RestaurantSettingsContext";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -38,11 +40,13 @@ export default function RootLayout({
           <LanguageProvider>
             <TokenProvider>
               <AxiosInterceptor>
-                <div className="flex flex-col min-h-screen">
-                  <TopNav />
-                  <main className="flex-1">{children}</main>
-                  <Toaster position="top-center" reverseOrder={false} />
-                </div>
+                <RestaurantSettingsProvider>
+                  <div className="flex flex-col min-h-screen">
+                    <TopNav />
+                    <main className="flex-1">{children}</main>
+                    <Toaster position="top-center" reverseOrder={false} />
+                  </div>
+                </RestaurantSettingsProvider>
               </AxiosInterceptor>
             </TokenProvider>
           </LanguageProvider>
@@ -51,3 +55,4 @@ export default function RootLayout({
     </html>
   );
 }
+

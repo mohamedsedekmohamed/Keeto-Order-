@@ -131,10 +131,11 @@ const MenuContext = createContext<{
 export const useRestaurant = () => useContext(RestaurantContext);
 export const useMenu = () => useContext(MenuContext);
 
-// ==========================================
-// 4. الـ Provider الموحد
-// ==========================================
 import { useEffect } from "react";
+import { RestaurantSettingsProvider, useRestaurantSettings, useThemeSettings } from "./RestaurantSettingsContext";
+import { setRestaurantId } from "./Restaurantid";
+
+export { useRestaurantSettings, useThemeSettings };
 
 export default function RestaurantAndMenuProvider({
   children,
@@ -143,6 +144,7 @@ export default function RestaurantAndMenuProvider({
 }) {
   const params = useParams();
   const restaurantId = params?.id as string;
+  const restaurantSlug = params?.slug as string;
 
   const { data, loading, error } = useGet<any>(
     `/api/user/home/restaurants/${restaurantId}`,
@@ -154,18 +156,24 @@ export default function RestaurantAndMenuProvider({
   useEffect(() => {
     if (restaurant?.id && typeof window !== "undefined") {
       sessionStorage.setItem("restaurantId", restaurant.id);
+      if (restaurantSlug) {
+        setRestaurantId(restaurantSlug, restaurant.id);
+      }
     }
-  }, [restaurant?.id]);
+  }, [restaurant?.id, restaurantSlug]);
 
   return (
-    <RestaurantContext.Provider
-      value={{ restaurant, isLoading: loading || false, isError: !!error }}
-    >
-      <MenuContext.Provider
-        value={{ menu, isLoading: loading || false, isError: !!error }}
+    <RestaurantSettingsProvider restaurantId={restaurant?.id || restaurantId}>
+      <RestaurantContext.Provider
+        value={{ restaurant, isLoading: loading || false, isError: !!error }}
       >
-        {children}
-      </MenuContext.Provider>
-    </RestaurantContext.Provider>
+        <MenuContext.Provider
+          value={{ menu, isLoading: loading || false, isError: !!error }}
+        >
+          {children}
+        </MenuContext.Provider>
+      </RestaurantContext.Provider>
+    </RestaurantSettingsProvider>
   );
 }
+

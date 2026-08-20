@@ -6,6 +6,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --theme-first-color: #facc15;
+  --theme-second-color: #eab308;
+  --theme-first-text-color: #000000;
+  --theme-second-text-color: #ffffff;
 }
 
 /* 2. تغيير الميديا كويري إلى كلاس .dark ليتفاعل مع next-themes */
@@ -17,9 +21,115 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-theme-first: var(--theme-first-color);
+  --color-theme-second: var(--theme-second-color);
+  --color-theme-first-text: var(--theme-first-text-color);
+  --color-theme-second-text: var(--theme-second-text-color);
+  --color-yellow-300: var(--theme-first-color);
+  --color-yellow-400: var(--theme-first-color);
+  --color-yellow-500: var(--theme-second-color);
+  --color-yellow-600: var(--theme-second-color);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+/* Dynamic theme utility classes */
+.bg-theme-first,
+.bg-theme-main {
+  background-color: var(--theme-first-color) !important;
+  color: var(--theme-first-text-color);
+}
+
+.hover\:bg-theme-second:hover,
+.hover\:bg-theme-hover:hover {
+  background-color: var(--theme-second-color) !important;
+  color: var(--theme-second-text-color);
+}
+
+.text-theme-first,
+.text-theme-main {
+  color: var(--theme-first-color) !important;
+}
+
+.hover\:text-theme-second:hover,
+.hover\:text-theme-hover:hover {
+  color: var(--theme-second-color) !important;
+}
+
+.text-theme-first-text {
+  color: var(--theme-first-text-color) !important;
+}
+
+.text-theme-second-text {
+  color: var(--theme-second-text-color) !important;
+}
+
+.border-theme-first,
+.border-theme-main {
+  border-color: var(--theme-first-color) !important;
+}
+
+.btn-theme-main {
+  background-color: var(--theme-first-color) !important;
+  color: var(--theme-first-text-color) !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-theme-main:hover {
+  background-color: var(--theme-second-color) !important;
+  color: var(--theme-second-text-color) !important;
+}
+
+/* ========================================================= */
+/* Global automatic replacement of yellow palette with theme */
+/* ========================================================= */
+.bg-yellow-400,
+.bg-yellow-500 {
+  background-color: var(--theme-first-color) !important;
+  color: var(--theme-first-text-color) !important;
+}
+
+.hover\:bg-yellow-500:hover,
+.hover\:bg-yellow-600:hover,
+.group:hover .group-hover\:bg-yellow-400 {
+  background-color: var(--theme-second-color) !important;
+  color: var(--theme-second-text-color) !important;
+}
+
+.text-yellow-400,
+.text-yellow-500,
+.text-yellow-600,
+.group:hover .group-hover\:text-yellow-500 {
+  color: var(--theme-first-color) !important;
+}
+
+.hover\:text-yellow-500:hover,
+.hover\:text-yellow-600:hover {
+  color: var(--theme-second-color) !important;
+}
+
+.border-yellow-400,
+.border-yellow-500 {
+  border-color: var(--theme-first-color) !important;
+}
+
+.focus\:ring-yellow-400:focus,
+.focus\:border-yellow-400:focus {
+  --tw-ring-color: var(--theme-first-color) !important;
+  border-color: var(--theme-first-color) !important;
+}
+
+.accent-yellow-400,
+.accent-yellow-500 {
+  accent-color: var(--theme-first-color) !important;
+}
+
+.fill-yellow-400,
+.fill-yellow-500 {
+  fill: var(--theme-first-color) !important;
+}
+
+
 /* إجبار لون النص على الظهور دائماً مهما كان وضع المتصفح */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,

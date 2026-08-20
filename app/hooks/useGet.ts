@@ -46,12 +46,18 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
         axiosError.message ||
         "Request failed";
 
-      if (errorMsg.toLowerCase().includes("no token provided")) {
-        errorMsg = "";
-      }
+      const isNoToken =
+        errorMsg.toLowerCase().includes("no token provided") ||
+        errorMsg.toLowerCase().includes("no token");
 
-      setError(errorMsg);
-      toast.error(errorMsg);
+      if (isNoToken) {
+        setError(null);
+      } else {
+        setError(errorMsg);
+        if (errorMsg) {
+          toast.error(errorMsg);
+        }
+      }
     } finally {
       setLoading(false);
     }
