@@ -161,6 +161,7 @@
   "remainingPrepTime": "الوقت المتبقي للتحضير",  
   "orderShouldBeReady":"سيكون طلبك جاهزًا في وقت قصير",
   "addressTitle":"اسم العنوان ",
+  "orderedAt":"تم الطلب في",
   "total": "الإجمالي الكلي",
   "generalInfo": "معلومات عامة",
   "orderTracking": "تتبع الطلب",

@@ -97,11 +97,10 @@ export default function Restaurant() {
     ? rawItemsArray.filter((item: any) => item?.restaurantId === restaurant.id)
     : [];
 
-  // ✅ حساب عدد العناصر
-  const totalItems = actualItemsArray.reduce((acc: number, item: any) => {
-    // Falls back to `qty` or assumes 1 if neither exists but the item object is present
-    return acc + (Number(item?.quantity) || Number(item?.qty) || 1);
-  }, 0);
+  // ✅ عدد المنتجات المختلفة فى السلة (صفوف السلة) — مش مجموع الكميات، عشان
+  // لو أضفت نفس المنتج تانى بيزود quantity بس مش بيضيف صف جديد، فالرقم على
+  // الزرار مايتغيّرش.
+  const totalItems = actualItemsArray.length;
 
   // Trigger pop & pulse feedback ripple whenever item counter updates upward
   useEffect(() => {

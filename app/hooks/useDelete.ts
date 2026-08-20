@@ -36,7 +36,7 @@ export default function useDelete<T = DeleteResponse>(
       const response = res.data as DeleteResponse;
 
       if (response?.success) {
-        toast.success(customSuccessMessage || successMessage);
+       // toast.success(customSuccessMessage || successMessage);
       } else if (response?.error?.message) {
         toast.error(response.error.message);
       }

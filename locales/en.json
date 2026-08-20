@@ -18,6 +18,7 @@
   "closed":"The restaurant is close now",
   "remainingPrepTime": "Remaining Preparation Time",  
   "orderShouldBeReady":" Order should be ready in",
+  "orderedAt":"Ordered at",
   "terms": "Terms & Conditions",
   "favorites": "Favorites",
   "orderTracking": "Order Tracking",

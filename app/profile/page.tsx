@@ -217,23 +217,56 @@ function parseOrderDate(value: string | null | undefined): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// Counts down from (createdAt + durationMinutes) to now, ticking every
-// second. Returns null once inputs are missing/invalid; returns 0 (not
-// negative) once the target time has passed.
-function usePrepCountdown(
-  createdAt: string | null | undefined,
+// Formats createdAt into a plain, locale-aware date/time label. This is
+// purely for display — it is never used to derive the countdown below.
+function formatOrderDateTime(value: string | null | undefined): string | null {
+  const date = parseOrderDate(value);
+  if (!date) return null;
+  return date.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Counts down from the duration value itself (durationMinutes) — it does
+// NOT compare against createdAt. But a plain "start at durationMinutes on
+// mount" resets to the full duration on every refresh/remount, which looks
+// like the timer "repeating itself". To fix that while still never touching
+// createdAt, we anchor the countdown's start moment to localStorage the
+// first time we see this order+duration pair, then reuse that same anchor
+// on every subsequent mount (refresh, tab switch, poll) so it keeps
+// counting down correctly instead of restarting.
+function useDurationCountdown(
+  orderKey: string | null | undefined,
   durationMinutes: number | null | undefined,
 ) {
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   useEffect(() => {
-    const start = parseOrderDate(createdAt);
-    if (!start || !durationMinutes || durationMinutes <= 0) {
+    if (!orderKey || !durationMinutes || durationMinutes <= 0) {
       setRemainingMs(null);
       return;
     }
 
-    const target = start.getTime() + durationMinutes * 60 * 1000;
+    const storageKey = `prep-countdown-start:${orderKey}:${durationMinutes}`;
+    let startedAt: number | null = null;
+
+    if (typeof window !== "undefined") {
+      const stored = Number(window.localStorage.getItem(storageKey));
+      startedAt = stored > 0 ? stored : null;
+    }
+
+    if (!startedAt) {
+      startedAt = Date.now();
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(storageKey, String(startedAt));
+      }
+    }
+
+    const target = startedAt + durationMinutes * 60 * 1000;
 
     const tick = () => {
       const diff = target - Date.now();
@@ -243,7 +276,7 @@ function usePrepCountdown(
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [createdAt, durationMinutes]);
+  }, [orderKey, durationMinutes]);
 
   return remainingMs;
 }
@@ -258,21 +291,45 @@ function formatCountdown(ms: number) {
     .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
-// Small self-contained countdown pill. It keeps its own ticking state here
-// (rather than in the page) so only this pill re-renders every second,
-// not the whole orders list/details view.
-function PrepCountdown({
+// Always-visible createdAt label — used for both active and history orders,
+// independent of whether a prep-duration countdown applies.
+function OrderCreatedAt({
   createdAt,
-  durationMinutes,
   t,
   className = "",
 }: {
   createdAt: string | null | undefined;
+  t: (key: string) => string | undefined;
+  className?: string;
+}) {
+  const createdAtLabel = formatOrderDateTime(createdAt);
+  if (!createdAtLabel) return null;
+
+  return (
+    <span
+      className={`text-[10px] text-gray-400 dark:text-zinc-500 ${className}`}
+    >
+      {t("orderedAt") || "وقت الطلب"}: {createdAtLabel}
+    </span>
+  );
+}
+
+// Small self-contained countdown pill. It keeps its own ticking state here
+// (rather than in the page) so only this pill re-renders every second,
+// not the whole orders list/details view. Only handles the prep-duration
+// timer — createdAt is shown separately via <OrderCreatedAt />.
+function PrepCountdown({
+  orderKey,
+  durationMinutes,
+  t,
+  className = "",
+}: {
+  orderKey: string | null | undefined;
   durationMinutes: number | null | undefined;
   t: (key: string) => string | undefined;
   className?: string;
 }) {
-  const remainingMs = usePrepCountdown(createdAt, durationMinutes);
+  const remainingMs = useDurationCountdown(orderKey, durationMinutes);
 
   if (remainingMs === null || !durationMinutes) return null;
 
@@ -280,7 +337,7 @@ function PrepCountdown({
 
   return (
     <div
-      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg ${
+      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${
         isDone
           ? "bg-green-500/10 text-green-600 dark:text-green-400"
           : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
@@ -1601,15 +1658,21 @@ export default function ProfilePage() {
                                 </span>
                               </div>
 
+                              <OrderCreatedAt
+                                createdAt={order.createdAt}
+                                t={t}
+                                className="mt-2 block"
+                              />
+
                               {orderSubTab === "active" &&
                                 order.durationOrderPreparing && (
                                   <PrepCountdown
-                                    createdAt={order.createdAt}
+                                    orderKey={order.orderId || order.id}
                                     durationMinutes={
                                       order.durationOrderPreparing
                                     }
                                     t={t}
-                                    className="mt-2 w-fit"
+                                    className="mt-1"
                                   />
                                 )}
 
@@ -1768,14 +1831,21 @@ export default function ProfilePage() {
                               {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
                               {selectedOrder.dailyOrderNumber}
                             </p>
+                            <OrderCreatedAt
+                              createdAt={selectedOrder.createdAt}
+                              t={t}
+                              className="mt-1 block"
+                            />
                             {selectedOrder.durationOrderPreparing && (
                               <PrepCountdown
-                                createdAt={selectedOrder.createdAt}
+                                orderKey={
+                                  selectedOrder.orderId || selectedOrder.id
+                                }
                                 durationMinutes={
                                   selectedOrder.durationOrderPreparing
                                 }
                                 t={t}
-                                className="mt-1.5 w-fit"
+                                className="mt-1.5"
                               />
                             )}
                           </div>

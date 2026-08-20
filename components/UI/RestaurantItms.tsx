@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Search,
@@ -11,12 +12,13 @@ import {
   FileText,
 } from "lucide-react";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
+import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { useRouter, useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { useAppDispatch } from "@/redux/hooks";
 import { clearCartLocal } from "@/redux/cartSlice";
 import {
   MenuItem,
@@ -116,7 +118,7 @@ export default function RestaurantItms({
   };
 
   // ── Navigation state ──────────────────────────────────────────────
-  const [viewMode, setViewMode] = useState<ViewMode>("menu");
+  const [viewMode] = useState<ViewMode>("menu");
   const [activeCategoryTab, setActiveCategoryTab] = useState("");
   const [activeSubCategoryTab, setActiveSubCategoryTab] = useState<
     string | null
@@ -149,6 +151,14 @@ export default function RestaurantItms({
   const [pendingCartPayload, setPendingCartPayload] = useState<any | null>(
     null,
   );
+
+  // ── Fulfillment states ────────────────────────────────────────────
+  const [showFulfillmentDialog, setShowFulfillmentDialog] = useState(false);
+  const [fulfillmentMode, setFulfillmentMode] = useState<
+    "delivery" | "takeaway" | null
+  >(null);
+  const [selectedFulfillmentId, setSelectedFulfillmentId] =
+    useState<string>("");
 
   // ─────────────────────────────────────────────────────────────────
   // DERIVED DATA — group flat foods into DerivedCategory[]
@@ -261,19 +271,6 @@ export default function RestaurantItms({
     const subTab = document.getElementById(targetId);
     if (subTab && subCategoryMenuRef.current) {
       const container = subCategoryMenuRef.current;
-
-      // Use getBoundingClientRect() instead of offsetLeft/offsetParent.
-      // offsetLeft is measured against the nearest POSITIONED ancestor —
-      // here that's the sticky header wrapper (position: sticky counts
-      // as positioned), NOT the scroll container itself. That mismatch
-      // made the centering math wrong (especially once the responsive
-      // layout changed widths), so the bar could refuse to scroll right.
-      // getBoundingClientRect gives real viewport coordinates, so this
-      // works correctly regardless of what sits in between, and also
-      // works for RTL without special-casing (modern browsers all use
-      // spec-compliant negative scrollLeft in RTL, and since we derive
-      // the absolute offset from the CURRENT scrollLeft, the formula
-      // stays self-consistent in either direction).
       const tabRect = subTab.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
       const containerWidth = container.offsetWidth;
@@ -289,6 +286,44 @@ export default function RestaurantItms({
       });
     }
   };
+
+  const getOrderSource = () => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem(`login_source_${restaurantSlug}`) ||
+        "online_order_web"
+      );
+    }
+    return "online_order_web";
+  };
+
+  const { data: checkoutData } = useGet<any>(
+    `/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`,
+  );
+
+  // api/user/order/select responds with a double-nested "data" object:
+  // { success, data: { data: { addresses, branches, zones, ... } } }
+  // Reading `checkoutData?.data?.addresses` (single nested) silently
+  // returns undefined — the real payload lives one level deeper.
+  const selectData = checkoutData?.data?.data;
+
+  // Only addresses the backend flagged as deliverable make sense to offer.
+  const deliverableAddresses = useMemo(
+    () =>
+      (selectData?.addresses || []).filter((addr: any) => addr.isDeliverable),
+    [selectData],
+  );
+
+  // Exclude branches the selected item is unavailable at, and keep only
+  // active branches — this is what the "unavailableBranches" dialog exists
+  // to resolve, so a branch it's not available at should never be selectable.
+  const availableBranches = useMemo(() => {
+    const unavailableIds: string[] = selectedItem?.unavailableBranches || [];
+    return (selectData?.branches || []).filter(
+      (branch: any) =>
+        branch.status === "active" && !unavailableIds.includes(branch.id),
+    );
+  }, [selectData, selectedItem]);
 
   useEffect(() => {
     if (
@@ -409,6 +444,12 @@ export default function RestaurantItms({
 
   // ── Item modal helpers ────────────────────────────────────────────
   const handleItemClick = (item: MenuItem) => {
+    if ((item as any).isOutOfStock) {
+      toast.error(
+        isRtl ? "هذا المنتج غير متوفر حاليًا" : "This item is out of stock",
+      );
+      return;
+    }
     setSelectedItem(item);
     setQuantity(1);
     setSelectedAddons([]);
@@ -534,6 +575,67 @@ export default function RestaurantItms({
     }
   };
 
+  // Execution function that makes the API call
+  const executeAddToCart = async (
+    fulfillmentData: { addressId?: string; branchId?: string } = {},
+  ) => {
+    if (!selectedItem) return;
+
+    const variations = Object.entries(selectedOptions).flatMap(
+      ([vId, optIds]) =>
+        optIds.map((oId) => ({ variationId: vId, optionId: oId })),
+    );
+
+    const addons = (selectedItem.addons || [])
+      .filter((addon: AddonItem) => selectedAddons.includes(addon.id))
+      .map((addon: AddonItem) => ({
+        addonId: addon.id,
+        name: addon.name,
+        price: addon.price,
+      }));
+
+    // addressId / branchId are sent inside the cart body itself.
+    const payload = {
+      foodId: selectedItem.id,
+      quantity,
+      variations,
+      addons,
+      note,
+      ...fulfillmentData,
+    };
+
+    try {
+      setLoading(true);
+      await api.post("/api/user/cart", payload);
+      const newExpiry = Date.now() + 60 * 60 * 1000;
+      localStorage.setItem("cart-expiry", newExpiry.toString());
+
+      toast.success(t("addedToCart"));
+      onCartUpdated();
+      setSelectedItem(null);
+      setShowFulfillmentDialog(false);
+      setFulfillmentMode(null);
+      setSelectedFulfillmentId("");
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 409) {
+        setPendingCartPayload(payload);
+        setShowConflictDialog(true);
+      } else if (status === 400) {
+        toast.error("بيانات غير صحيحة");
+      } else if (status === 401) {
+        toast.error(t("loginFirst"));
+      } else if (error?.response) {
+        toast.error("حدث خطأ ما، حاول مرة أخرى");
+      } else {
+        toast.error("تحقق من الاتصال بالإنترنت");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Submit handler attached to the button
   const handleAddToCartSubmit = async () => {
     if (!token) {
       toast.error(t("loginFirst"));
@@ -558,53 +660,15 @@ export default function RestaurantItms({
       return;
     }
 
-    const variations = Object.entries(selectedOptions).flatMap(
-      ([vId, optIds]) =>
-        optIds.map((oId) => ({ variationId: vId, optionId: oId })),
-    );
-
-    const addons = (selectedItem.addons || [])
-      .filter((addon: AddonItem) => selectedAddons.includes(addon.id))
-      .map((addon: AddonItem) => ({
-        addonId: addon.id,
-        name: addon.name,
-        price: addon.price,
-      }));
-
-    const payload = {
-      foodId: selectedItem.id,
-      quantity,
-      variations,
-      addons,
-      note,
-    };
-
-    try {
-      setLoading(true);
-      await api.post("/api/user/cart", payload);
-      const newExpiry = Date.now() + 60 * 60 * 1000;
-      localStorage.setItem("cart-expiry", newExpiry.toString());
-
-      toast.success(t("addedToCart"));
-      onCartUpdated();
-      setSelectedItem(null);
-    } catch (error: any) {
-      const status = error?.response?.status;
-      if (status === 409) {
-        setPendingCartPayload(payload);
-        setShowConflictDialog(true);
-      } else if (status === 400) {
-        toast.error("بيانات غير صحيحة");
-      } else if (status === 401) {
-        toast.error(t("loginFirst"));
-      } else if (error?.response) {
-        toast.error("حدث خطأ ما، حاول مرة أخرى");
-      } else {
-        toast.error("تحقق من الاتصال بالإنترنت");
-      }
-    } finally {
-      setLoading(false);
+    if (
+      selectedItem.unavailableBranches &&
+      selectedItem.unavailableBranches.length > 0
+    ) {
+      setShowFulfillmentDialog(true);
+      return;
     }
+
+    await executeAddToCart();
   };
 
   const handleClearCart = async () => {
@@ -633,7 +697,7 @@ export default function RestaurantItms({
       setShowConflictDialog(false);
       setPendingCartPayload(null);
       setSelectedItem(null);
-    } catch (err) {
+    } catch {
       toast.error("حدث خطأ أثناء تحديث السلة");
     } finally {
       setLoading(false);
@@ -643,17 +707,36 @@ export default function RestaurantItms({
   // ── Shared UI templates ───────────────────────────────────────────
   const FoodCard = ({ item }: { item: MenuItem }) => {
     const isFav = favoritesList.includes(item.id);
+    const outOfStock = Boolean((item as any).isOutOfStock);
+
     return (
       <div
-        onClick={() => handleItemClick(item)}
-        className="relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm cursor-pointer dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 hover:shadow-md group"
+        onClick={() => {
+          if (outOfStock) return;
+          handleItemClick(item);
+        }}
+        aria-disabled={outOfStock}
+        className={`relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 group ${
+          outOfStock
+            ? "opacity-60 cursor-not-allowed"
+            : "cursor-pointer hover:shadow-md"
+        }`}
       >
         <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl">
           <img
             src={item.image}
             alt={item.name}
-            className="object-cover w-full h-full transition-transform group-hover:scale-110"
+            className={`object-cover w-full h-full transition-transform ${
+              outOfStock ? "grayscale" : "group-hover:scale-110"
+            }`}
           />
+          {outOfStock && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <span className="px-2 py-1 text-[10px] font-black tracking-wide text-white uppercase rounded-md bg-black/70">
+                {isRtl ? "نفذت الكمية" : "Out of Stock"}
+              </span>
+            </div>
+          )}
         </div>
         <div
           className={`flex flex-col justify-between flex-1 h-full ${
@@ -662,13 +745,20 @@ export default function RestaurantItms({
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h3
-                className={`font-bold text-gray-900 dark:text-zinc-100 line-clamp-1 ${
-                  isRtl ? "ml-6" : "mr-6"
-                }`}
-              >
-                {isRtl ? item.nameAr : item.name}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3
+                  className={`font-bold text-gray-900 dark:text-zinc-100 line-clamp-1 ${
+                    isRtl ? "ml-6" : "mr-6"
+                  }`}
+                >
+                  {isRtl ? item.nameAr : item.name}
+                </h3>
+                {outOfStock && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 rounded-md">
+                    {isRtl ? "غير متوفر" : "Out of Stock"}
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">
                 {isRtl ? item.descriptionAr : item.description}
               </p>
@@ -709,15 +799,21 @@ export default function RestaurantItms({
                 </span>
               )}
             </div>
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                handleItemClick(item);
-              }}
-              className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl"
-            >
-              <Plus size={18} />
-            </div>
+            {outOfStock ? (
+              <div className="p-2 text-gray-400 bg-gray-100 dark:bg-zinc-800 dark:text-zinc-500 rounded-xl cursor-not-allowed">
+                <Plus size={18} />
+              </div>
+            ) : (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleItemClick(item);
+                }}
+                className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl"
+              >
+                <Plus size={18} />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1325,6 +1421,148 @@ export default function RestaurantItms({
                   }}
                   disabled={loading}
                   className="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 font-bold py-3 rounded-xl transition-all active:scale-[0.98] border border-zinc-200/40 dark:border-zinc-700/30"
+                >
+                  {isRtl ? "إلغاء" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── FULFILLMENT SELECTION DIALOG ── */}
+        {showFulfillmentDialog && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-md p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                  {isRtl ? "طريقة الاستلام" : "Fulfillment Method"}
+                </h3>
+                <p className="text-sm text-zinc-500">
+                  {isRtl
+                    ? "يرجى تحديد طريقة استلام هذا الطلب."
+                    : "Please select how you want to receive this item."}
+                </p>
+              </div>
+
+              {/* Mode Selection */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setFulfillmentMode("delivery");
+                    setSelectedFulfillmentId("");
+                  }}
+                  className={`flex-1 py-3 rounded-xl font-bold transition-all border ${
+                    fulfillmentMode === "delivery"
+                      ? "bg-yellow-400 text-zinc-950 border-yellow-400 shadow-md"
+                      : "bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"
+                  }`}
+                >
+                  {isRtl ? "توصيل" : "Delivery"}
+                </button>
+                <button
+                  onClick={() => {
+                    setFulfillmentMode("takeaway");
+                    setSelectedFulfillmentId("");
+                  }}
+                  className={`flex-1 py-3 rounded-xl font-bold transition-all border ${
+                    fulfillmentMode === "takeaway"
+                      ? "bg-yellow-400 text-zinc-950 border-yellow-400 shadow-md"
+                      : "bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"
+                  }`}
+                >
+                  {isRtl ? "استلام من الفرع" : "Takeaway"}
+                </button>
+              </div>
+
+              {/* Dynamic List Rendering */}
+              {fulfillmentMode === "delivery" && (
+                <div className="space-y-3 mt-4">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    {isRtl ? "اختر العنوان" : "Select Address"}
+                  </label>
+                  <select
+                    className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 outline-none focus:border-yellow-400"
+                    value={selectedFulfillmentId}
+                    onChange={(e) => setSelectedFulfillmentId(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      {isRtl ? "اختر عنواناً..." : "Select an address..."}
+                    </option>
+                    {deliverableAddresses.map((addr: any) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.title} - {addr.street}
+                      </option>
+                    ))}
+                  </select>
+                  {deliverableAddresses.length === 0 && (
+                    <p className="text-xs text-red-500">
+                      {isRtl
+                        ? "لا يوجد عنوان متاح للتوصيل حالياً"
+                        : "No deliverable address is available right now"}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {fulfillmentMode === "takeaway" && (
+                <div className="space-y-3 mt-4">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    {isRtl ? "اختر الفرع" : "Select Branch"}
+                  </label>
+                  <select
+                    className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 outline-none focus:border-yellow-400"
+                    value={selectedFulfillmentId}
+                    onChange={(e) => setSelectedFulfillmentId(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      {isRtl ? "اختر فرعاً..." : "Select a branch..."}
+                    </option>
+                    {availableBranches.map((branch: any) => (
+                      <option key={branch.id} value={branch.id}>
+                        {isRtl && branch.nameAr ? branch.nameAr : branch.name}
+                      </option>
+                    ))}
+                  </select>
+                  {availableBranches.length === 0 && (
+                    <p className="text-xs text-red-500">
+                      {isRtl
+                        ? "هذا المنتج غير متاح فى أى فرع حالياً"
+                        : "This item isn't available for pickup at any branch right now"}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    const fulfillmentData =
+                      fulfillmentMode === "delivery"
+                        ? { addressId: selectedFulfillmentId }
+                        : { branchId: selectedFulfillmentId };
+
+                    executeAddToCart(fulfillmentData);
+                  }}
+                  disabled={loading || !selectedFulfillmentId}
+                  className="flex-1 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center"
+                >
+                  {loading ? (
+                    <span className="w-5 h-5 border-2 border-white dark:border-zinc-900 border-t-transparent rounded-full animate-spin inline-block" />
+                  ) : isRtl ? (
+                    "تأكيد"
+                  ) : (
+                    "Confirm"
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFulfillmentDialog(false);
+                    setFulfillmentMode(null);
+                    setSelectedFulfillmentId("");
+                  }}
+                  disabled={loading}
+                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 font-bold py-3 rounded-xl transition-all border border-zinc-200/40 dark:border-zinc-700/30"
                 >
                   {isRtl ? "إلغاء" : "Cancel"}
                 </button>
