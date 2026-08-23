@@ -102,13 +102,17 @@ export default function Checkout() {
   const profileUser = profileRes?.data?.data?.user;
 
   // Apple's "Hide My Email" sign-in gives the user a random relay address like
-  // thc44djrm9@privaterelay.appleid.com instead of their real email. When that's
-  // still on the profile, we don't have a real username or a usable email for the
-  // account, so checkout needs to be gated until the user supplies both.
+  // thc44djrm9@privaterelay.appleid.com instead of their real email, and no
+  // real name either. We only ask for a username to fill that gap — and only
+  // once ever: as soon as profileUser.username is set, this stays false for
+  // good, even though the relay email itself never changes.
   const isAppleRelayEmail = (email?: string | null) =>
     !!email && /@privaterelay\.appleid\.com$/i.test(email.trim());
 
-  const showEmailPopup = !!profileUser && isAppleRelayEmail(profileUser.email);
+  const showUsernamePopup =
+    !!profileUser &&
+    isAppleRelayEmail(profileUser.email) &&
+    !profileUser.username;
 
   // Derived directly from the fetched profile — no local state/effect needed.
   // Once refetchProfile() pulls the updated phone fields, this recomputes
@@ -233,12 +237,12 @@ export default function Checkout() {
       </div>
     );
 
-  // Apple private-relay email is required to be replaced (with a real
-  // username + email) before we even ask about phone numbers — it's the
-  // more fundamental account gap.
-  if (showEmailPopup) {
+  // Apple private-relay email means no real username came through sign-in.
+  // Ask for one — but only ever once, since showUsernamePopup goes false
+  // permanently the moment profileUser.username is saved.
+  if (showUsernamePopup) {
     return (
-      <EmailPopup
+      <UsernamePopup
         initialUsername={profileUser?.username || profileUser?.name || ""}
         onSuccess={refetchProfile}
       />
@@ -675,69 +679,48 @@ function PhonePopup({
 }
 
 // ─────────────────────────────────────────────
-// EmailPopup Component
+// UsernamePopup Component
 // Blocks checkout when the profile still has an Apple "Hide My Email"
-// relay address (e.g. thc44djrm9@privaterelay.appleid.com) instead of a
-// real one. Apple sign-in with the hide-email option also doesn't give us
-// a real name, so we collect a username here too. Uses the same
-// /api/user/profile endpoint (via usePut) to save the update.
+// relay address (e.g. thc44djrm9@privaterelay.appleid.com) — that sign-in
+// flow also skips giving us a real name, so we collect a username here.
+// Gated to run only once ever per user: see showUsernamePopup, which goes
+// false permanently as soon as profileUser.username is saved. Uses the
+// same /api/user/profile endpoint (via usePut) to save the update.
 // ─────────────────────────────────────────────
 
-interface EmailPopupProps {
+interface UsernamePopupProps {
   initialUsername: string;
   onSuccess: () => void;
 }
 
-function EmailPopup({ initialUsername, onSuccess }: EmailPopupProps) {
+function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
   const { t } = useLanguage();
   const { putData: postProfile, loading: isSavingProfile } =
     usePut("/api/user/profile");
 
   const [username, setUsername] = useState(initialUsername);
-  const [email, setEmail] = useState("");
 
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
 
-  const isEmailValid = (value: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  const isAppleRelayEmail = (value: string) =>
-    /@privaterelay\.appleid\.com$/i.test(value.trim());
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim() || !email.trim()) {
+    if (!username.trim()) {
       return toast.error(
         t("dir") === "rtl"
-          ? "يرجى إدخال اسم المستخدم والبريد الإلكتروني."
-          : "Please enter both a username and an email.",
-      );
-    }
-
-    if (!isEmailValid(email)) {
-      return toast.error(
-        t("dir") === "rtl"
-          ? "يرجى إدخال بريد إلكتروني صحيح."
-          : "Please enter a valid email address.",
-      );
-    }
-
-    if (isAppleRelayEmail(email)) {
-      return toast.error(
-        t("dir") === "rtl"
-          ? "يرجى إدخال بريدك الإلكتروني الحقيقي وليس بريد Apple المخفي."
-          : "Please enter your real email, not the hidden Apple relay address.",
+          ? "يرجى إدخال اسم المستخدم."
+          : "Please enter a username.",
       );
     }
 
     try {
       await postProfile(
-        { username, email },
+        { username },
         null,
         t("dir") === "rtl"
-          ? "تم تحديث بيانات الحساب بنجاح"
-          : "Account details updated successfully",
+          ? "تم تحديث اسم المستخدم بنجاح"
+          : "Username updated successfully",
       );
       onSuccess();
     } catch {
@@ -759,8 +742,8 @@ function EmailPopup({ initialUsername, onSuccess }: EmailPopupProps) {
           </h2>
           <p className="text-sm text-gray-500 dark:text-zinc-400">
             {t("dir") === "rtl"
-              ? "لقد سجلت الدخول باستخدام خيار إخفاء البريد الإلكتروني من Apple. يرجى إدخال اسم مستخدم وبريدك الإلكتروني الحقيقي لإتمام عملية الطلب."
-              : "You signed in using Apple's Hide My Email option. Please enter a username and your real email address to continue with checkout."}
+              ? "لقد سجلت الدخول باستخدام خيار إخفاء البريد الإلكتروني من Apple. يرجى إدخال اسم مستخدم لإتمام عملية الطلب."
+              : "You signed in using Apple's Hide My Email option. Please enter a username to continue with checkout."}
           </p>
         </div>
 
@@ -775,24 +758,6 @@ function EmailPopup({ initialUsername, onSuccess }: EmailPopupProps) {
               onChange={(e) => setUsername(e.target.value)}
               placeholder={
                 t("dir") === "rtl" ? "أدخل اسم المستخدم" : "Enter username"
-              }
-              className={inputClass}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block mb-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-              {t("dir") === "rtl" ? "البريد الإلكتروني" : "Email"}
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={
-                t("dir") === "rtl"
-                  ? "أدخل بريدك الإلكتروني الحقيقي"
-                  : "Enter your real email address"
               }
               className={inputClass}
               required
