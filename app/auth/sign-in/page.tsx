@@ -46,12 +46,14 @@ export default function SignIn() {
   const { setToken } = useToken();
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
   const callbackSlug = searchParams.get("callbackSlug");
-
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-
+  useEffect(() => {
+    setRestaurantId(sessionStorage.getItem("restaurantId"));
+  }, []);
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== "undefined" && (window as any).AppleID) {
@@ -105,9 +107,9 @@ export default function SignIn() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await postData(formData, null, t("loginSuccess"));
+      const response = await postData({ ...formData, restaurantId }, null, t("loginSuccess"));
       handleAuthResponse(response);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -165,13 +167,13 @@ export default function SignIn() {
                   try {
                     if (credentialResponse.credential) {
                       const response = await loginWithGoogle(
-                        { token: credentialResponse.credential },
+                        { token: credentialResponse.credential, restaurantId },
                         null,
                         t("loginSuccess"),
                       );
                       handleAuthResponse(response);
                     }
-                  } catch {}
+                  } catch { }
                 }}
                 containerProps={{
                   style: {
@@ -220,7 +222,7 @@ export default function SignIn() {
                   const idToken = appleResponse?.authorization?.id_token;
                   if (!idToken) return;
                   const response = await loginWithApple(
-                    { token: idToken },
+                    { token: idToken, restaurantId },
                     null,
                     t("loginSuccess"),
                   );
@@ -348,11 +350,10 @@ export default function SignIn() {
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                     disabled={loading || isGoogleLoading || isAppleLoading}
-                    className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
-                      loading || isGoogleLoading || isAppleLoading
-                        ? "opacity-70 cursor-not-allowed"
-                        : "hover:bg-yellow-500"
-                    }`}
+                    className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading || isGoogleLoading || isAppleLoading
+                      ? "opacity-70 cursor-not-allowed"
+                      : "hover:bg-yellow-500"
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       {loading || isGoogleLoading || isAppleLoading ? (

@@ -158,6 +158,7 @@
    "deliveryMan":"رجل التوصيل",
   "callDeliveryMan":"اتصل برجل التوصيل ",
   "subtotal": "المجموع الفرعي",
+  "cancellationReason":"سبب الإلغاء",
   "remainingPrepTime": "الوقت المتبقي للتحضير",  
   "orderShouldBeReady":"سيكون طلبك جاهزًا في وقت قصير",
   "addressTitle":"اسم العنوان ",

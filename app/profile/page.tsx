@@ -337,10 +337,11 @@ function PrepCountdown({
 
   return (
     <div
-      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${isDone
+      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${
+        isDone
           ? "bg-green-500/10 text-green-600 dark:text-green-400"
           : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
-        } ${className}`}
+      } ${className}`}
     >
       <Clock size={12} />
       {isDone
@@ -475,7 +476,7 @@ export default function ProfilePage() {
         console.error("Error fetching order details:", error);
         toast.error(
           t("errorFetchingDetails") ||
-          "Error pulling item data configurations.",
+            "Error pulling item data configurations.",
         );
         setSelectedOrderId(null);
       } finally {
@@ -522,9 +523,9 @@ export default function ProfilePage() {
       );
       setCancelReasons(
         response.data?.data?.data?.reasons ||
-        response.data?.data?.reasons ||
-        response.data?.reasons ||
-        [],
+          response.data?.data?.reasons ||
+          response.data?.reasons ||
+          [],
       );
     } catch (error) {
       console.error("Error fetching cancel reasons:", error);
@@ -581,6 +582,22 @@ export default function ProfilePage() {
       "refund",
     ];
     return !forbiddenStatuses.includes(normalizedStatus);
+  };
+
+  // Final/closed statuses — once an order reaches one of these there is no
+  // more preparing left to do, so the prep-duration countdown no longer
+  // applies and should not be shown in the order details dialog.
+  const isFinalOrderStatus = (status: string | null | undefined) => {
+    const normalizedStatus = status?.toLowerCase();
+    const finalStatuses = [
+      "cancelled",
+      "canceled",
+      "delivered",
+      "refund",
+      "refunded",
+      "rejected",
+    ];
+    return !!normalizedStatus && finalStatuses.includes(normalizedStatus);
   };
 
   const userData = profileResponse?.data?.data?.user;
@@ -879,10 +896,11 @@ export default function ProfilePage() {
     return (
       <button
         onClick={() => toggleTab(tabKey)}
-        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${isOpen
+        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${
+          isOpen
             ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
             : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
-          }`}
+        }`}
       >
         <div className="flex items-center gap-3">
           {icon}
@@ -890,8 +908,9 @@ export default function ProfilePage() {
         </div>
         <ChevronDown
           size={18}
-          className={`transform transition-transform duration-300 ${isOpen ? "rotate-180" : ""
-            }`}
+          className={`transform transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
         />
       </button>
     );
@@ -1394,10 +1413,11 @@ export default function ProfilePage() {
                         {userData.addresses?.map((address) => (
                           <div
                             key={address.id}
-                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${editingAddressId === address.id
+                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${
+                              editingAddressId === address.id
                                 ? "ring-2 ring-yellow-400/50 border-yellow-400"
                                 : "hover:border-yellow-400/50"
-                              }`}
+                            }`}
                           >
                             <div>
                               <div className="flex items-center justify-between mb-3">
@@ -1581,20 +1601,22 @@ export default function ProfilePage() {
                     <div className="flex p-1 bg-gray-100 dark:bg-zinc-800/60 rounded-2xl">
                       <button
                         onClick={() => setOrderSubTab("active")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "active"
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "active"
                             ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
                             : "text-gray-500 dark:text-zinc-400"
-                          }`}
+                        }`}
                       >
                         <Clock size={16} />
                         {t("activeOrders") || "الطلبات النشطة"}
                       </button>
                       <button
                         onClick={() => setOrderSubTab("history")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "history"
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "history"
                             ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
                             : "text-gray-500 dark:text-zinc-400"
-                          }`}
+                        }`}
                       >
                         <History size={16} />
                         {t("orderHistory") || "سجل الطلبات"}
@@ -1704,9 +1726,9 @@ export default function ProfilePage() {
                           <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
                             {orderSubTab === "active"
                               ? t("noActiveOrdersDesc") ||
-                              "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
+                                "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
                               : t("noHistoryOrdersDesc") ||
-                              "لا يوجد سجل طلبات سابقة لهذا المطعم."}
+                                "لا يوجد سجل طلبات سابقة لهذا المطعم."}
                           </p>
                         </div>
                       )}
@@ -1830,18 +1852,19 @@ export default function ProfilePage() {
                               t={t}
                               className="mt-1 block"
                             />
-                            {selectedOrder.durationOrderPreparing && (
-                              <PrepCountdown
-                                orderKey={
-                                  selectedOrder.orderId || selectedOrder.id
-                                }
-                                durationMinutes={
-                                  selectedOrder.durationOrderPreparing
-                                }
-                                t={t}
-                                className="mt-1.5"
-                              />
-                            )}
+                            {selectedOrder.durationOrderPreparing &&
+                              !isFinalOrderStatus(selectedOrder.status) && (
+                                <PrepCountdown
+                                  orderKey={
+                                    selectedOrder.orderId || selectedOrder.id
+                                  }
+                                  durationMinutes={
+                                    selectedOrder.durationOrderPreparing
+                                  }
+                                  t={t}
+                                  className="mt-1.5"
+                                />
+                              )}
                           </div>
                         </div>
                         <button
@@ -1851,6 +1874,22 @@ export default function ProfilePage() {
                           <X size={20} />
                         </button>
                       </div>
+
+                      {selectedOrder.cancellation && (
+                        <div className="flex items-start gap-3 p-4 border border-red-100 bg-red-50/60 dark:bg-red-950/20 dark:border-red-900/40 rounded-3xl">
+                          <div className="flex items-center justify-center flex-shrink-0 text-red-500 bg-red-100 dark:bg-red-900/40 rounded-2xl w-10 h-10">
+                            <Ban size={18} />
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <p className="text-[10px] uppercase font-black text-red-400 tracking-wide">
+                              {t("cancellationReason") || "سبب الإلغاء"}
+                            </p>
+                            <p className="text-sm font-bold text-red-700 dark:text-red-300 leading-snug">
+                              {selectedOrder.cancellation.reason}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="p-5 border border-gray-100 bg-gray-50 dark:bg-zinc-900/50 rounded-3xl dark:border-zinc-800">
                         <h4 className="text-[11px] font-black text-gray-400 uppercase mb-4 flex items-center gap-2">
@@ -1901,51 +1940,51 @@ export default function ProfilePage() {
 
                                   {(parsedVariations.length > 0 ||
                                     parsedAddons.length > 0) && (
-                                      <div className="ml-10 flex flex-col gap-1">
-                                        {parsedVariations.map(
-                                          (v: any, vi: number) => (
-                                            <div
-                                              key={`v-${vi}`}
-                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                            >
+                                    <div className="ml-10 flex flex-col gap-1">
+                                      {parsedVariations.map(
+                                        (v: any, vi: number) => (
+                                          <div
+                                            key={`v-${vi}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              •{" "}
+                                              {v.optionName ||
+                                                v.name ||
+                                                t("variation")}
+                                            </span>
+                                            {v.additionalPrice && (
                                               <span>
-                                                •{" "}
-                                                {v.optionName ||
-                                                  v.name ||
-                                                  t("variation")}
+                                                +{v.additionalPrice}{" "}
+                                                {t("currency") || "ج.م"}
                                               </span>
-                                              {v.additionalPrice && (
-                                                <span>
-                                                  +{v.additionalPrice}{" "}
-                                                  {t("currency") || "ج.م"}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ),
-                                        )}
-                                        {parsedAddons.map(
-                                          (a: any, ai: number) => (
-                                            <div
-                                              key={`a-${ai}`}
-                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                            >
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                      {parsedAddons.map(
+                                        (a: any, ai: number) => (
+                                          <div
+                                            key={`a-${ai}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              +{" "}
+                                              {(isArabic ? a.nameAr : a.name) ||
+                                                a.name ||
+                                                t("addon")}
+                                            </span>
+                                            {a.price && (
                                               <span>
-                                                +{" "}
-                                                {(isArabic ? a.nameAr : a.name) ||
-                                                  a.name ||
-                                                  t("addon")}
+                                                +{a.price}{" "}
+                                                {t("currency") || "ج.م"}
                                               </span>
-                                              {a.price && (
-                                                <span>
-                                                  +{a.price}{" "}
-                                                  {t("currency") || "ج.م"}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ),
-                                        )}
-                                      </div>
-                                    )}
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
 
                                   {item.note && (
                                     <div className="ml-10 text-xs italic text-gray-400">
@@ -1967,6 +2006,7 @@ export default function ProfilePage() {
                             {t("currency") || "ج.م"}
                           </span>
                         </div>
+
                         <div className="flex justify-between text-sm text-gray-500">
                           <span>{t("deliveryFee") || "رسوم التوصيل"}</span>
                           <span>
@@ -2075,13 +2115,14 @@ export default function ProfilePage() {
                     cancelReasons.map((reason: any) => (
                       <label
                         key={reason.id}
-                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === reason.id
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                          selectedReasonId === reason.id
                             ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
                             : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
-                          }`}
+                        }`}
                       >
                         <span className="text-sm text-gray-800 dark:text-zinc-200">
-                          {t(reason.name) || reason.name}
+                          {(isRtl ? reason.nameAr : reason.name) || reason.name}
                         </span>
                         <input
                           type="radio"

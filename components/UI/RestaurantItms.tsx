@@ -622,7 +622,9 @@ export default function RestaurantItms({
         setPendingCartPayload(payload);
         setShowConflictDialog(true);
       } else if (status === 400) {
-        toast.error("بيانات غير صحيحة");
+        const errorMsg = error.response.data.error.message|| "حدث خطأ ما، حاول مرة أخرى";
+        toast.error(errorMsg);
+      
       } else if (status === 401) {
         toast.error(t("loginFirst"));
       } else if (error?.response) {

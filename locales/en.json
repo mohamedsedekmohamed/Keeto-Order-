@@ -20,6 +20,7 @@
   "orderShouldBeReady":" Order should be ready in",
   "orderedAt":"Ordered at",
   "terms": "Terms & Conditions",
+  "cancellationReason":"Cancellation Reason",
   "favorites": "Favorites",
   "orderTracking": "Order Tracking",
   "cancelOrder": "Cancel Order",
