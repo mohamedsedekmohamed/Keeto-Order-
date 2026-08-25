@@ -109,7 +109,17 @@ export default function Checkout() {
   const isAppleRelayEmail = (email?: string | null) =>
     !!email && /@privaterelay\.appleid\.com$/i.test(email.trim());
 
+  // The email-pattern check runs on every render because it's derived from
+  // profileUser, but the relay email never changes — so if the refetch after
+  // saving is slow, cached, or the server hasn't caught up yet, the same
+  // pattern check fires again and reopens the popup right after the user
+  // saved. usernameConfirmed is a one-way local latch: the moment the save
+  // succeeds we flip it and never re-run the email-pattern check again for
+  // the rest of this session, regardless of what profileUser looks like.
+  const [usernameConfirmed, setUsernameConfirmed] = useState(false);
+
   const showUsernamePopup =
+    !usernameConfirmed &&
     !!profileUser &&
     isAppleRelayEmail(profileUser.email) &&
     !profileUser.username;
@@ -244,7 +254,13 @@ export default function Checkout() {
     return (
       <UsernamePopup
         initialUsername={profileUser?.username || profileUser?.name || ""}
-        onSuccess={refetchProfile}
+        onSuccess={() => {
+          // Close the popup immediately and permanently for this session —
+          // don't wait on / depend on the refetch to confirm it, since a
+          // slow or stale GET is exactly what was reopening the popup.
+          setUsernameConfirmed(true);
+          refetchProfile();
+        }}
       />
     );
   }
