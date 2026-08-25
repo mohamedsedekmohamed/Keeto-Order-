@@ -45,7 +45,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-type CartItem = { totalPrice: string | number; [key: string]: any };
+type CartItem = { totalPrice: string | number;[key: string]: any };
 
 export default function Checkout() {
   const [orderNote, setOrderNote] = useState("");
@@ -298,11 +298,10 @@ export default function Checkout() {
               <button
                 key={type.id}
                 onClick={() => setOrderType(type.id as any)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                  activeOrderType === type.id
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${activeOrderType === type.id
                     ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
                     : "border-gray-100 dark:border-zinc-800 text-gray-500"
-                }`}
+                  }`}
               >
                 <type.icon size={24} />
                 <span className="text-xs font-bold">{type.label}</span>
@@ -338,13 +337,12 @@ export default function Checkout() {
                   <div
                     key={addr.id}
                     onClick={() => setSelectedAddress(addr.id)}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                      selectedAddress === addr.id
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedAddress === addr.id
                         ? addr.isDeliverable
                           ? "border-yellow-400 bg-white dark:bg-zinc-900"
                           : "border-red-400 bg-red-50 dark:bg-red-950/20"
                         : "border-gray-100 dark:border-zinc-800"
-                    } ${!addr.isDeliverable && "opacity-80"}`}
+                      } ${!addr.isDeliverable && "opacity-80"}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl mt-1">
@@ -391,11 +389,10 @@ export default function Checkout() {
               <div
                 key={branch.id}
                 onClick={() => setSelectedBranch(branch.id)}
-                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  selectedBranch === branch.id
+                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedBranch === branch.id
                     ? "border-yellow-400 bg-white dark:bg-zinc-900"
                     : "border-gray-100 dark:border-zinc-800"
-                }`}
+                  }`}
               >
                 <div>
                   <p className="font-bold">{branch.name}</p>
@@ -427,11 +424,10 @@ export default function Checkout() {
                 <div
                   key={method.id}
                   onClick={() => setSelectedPayment(method.id)}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
-                    selectedPayment === method.id
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedPayment === method.id
                       ? "border-yellow-400 bg-white dark:bg-zinc-900"
                       : "border-gray-100 dark:border-zinc-800"
-                  }`}
+                    }`}
                 >
                   <div className="flex-1">
                     <p className="font-bold">{displayName}</p>
@@ -527,9 +523,8 @@ export default function Checkout() {
             <span className="text-base">{t("confirmAndPay")}</span>
             <ArrowLeft
               size={20}
-              className={`transition-transform duration-300 group-hover:-translate-x-1 ${
-                t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""
-              }`}
+              className={`transition-transform duration-300 group-hover:-translate-x-1 ${t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""
+                }`}
             />
           </div>
         )}
@@ -559,7 +554,7 @@ export default function Checkout() {
 interface PhonePopupProps {
   initialPhone: string;
   initialAlternatePhone: string;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 function PhonePopup({
@@ -580,7 +575,10 @@ function PhonePopup({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!phone.trim() || !alternatePhone.trim()) {
+    const trimmedPhone = phone.trim();
+    const trimmedAlternatePhone = alternatePhone.trim();
+
+    if (!trimmedPhone || !trimmedAlternatePhone) {
       return toast.error(
         t("dir") === "rtl"
           ? "يرجى إدخال رقم الهاتف ورقم الهاتف البديل."
@@ -590,13 +588,16 @@ function PhonePopup({
 
     try {
       await postProfile(
-        { phone, alternatePhone },
+        { phone: trimmedPhone, alternatePhone: trimmedAlternatePhone },
         null,
         t("dir") === "rtl"
           ? "تم تحديث بيانات الهاتف بنجاح"
           : "Phone details updated successfully",
       );
-      onSuccess();
+      // Wait for the profile refetch to resolve before returning — avoids
+      // the popup staying on screen (or flashing back) on slow connections
+      // because the fresh phone/alternatePhone hasn't landed in state yet.
+      await onSuccess();
     } catch {
       // Error toast already handled inside usePut
     }
@@ -690,7 +691,7 @@ function PhonePopup({
 
 interface UsernamePopupProps {
   initialUsername: string;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
@@ -706,7 +707,9 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim()) {
+    const trimmedUsername = username.trim();
+
+    if (!trimmedUsername) {
       return toast.error(
         t("dir") === "rtl"
           ? "يرجى إدخال اسم المستخدم."
@@ -716,13 +719,17 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
 
     try {
       await postProfile(
-        { username },
+        { username: trimmedUsername },
         null,
         t("dir") === "rtl"
           ? "تم تحديث اسم المستخدم بنجاح"
           : "Username updated successfully",
       );
-      onSuccess();
+      // Wait for the profile refetch to resolve before returning — on a
+      // slow/mobile connection, firing this without awaiting means the
+      // popup can still be on screen (or briefly flash back) because
+      // profileUser.username hasn't landed in state yet.
+      await onSuccess();
     } catch {
       // Error toast already handled inside usePut
     }
@@ -1084,7 +1091,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       );
       onClose();
       onSuccess(response?.data?.data?.id || response?.data?.id);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -1136,7 +1143,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                 </p>
 
                 {navigator.userAgent.includes("FBAN") ||
-                navigator.userAgent.includes("FBAV") ? (
+                  navigator.userAgent.includes("FBAV") ? (
                   <div className="space-y-3">
                     <p>
                       {t("dir") === "rtl"
