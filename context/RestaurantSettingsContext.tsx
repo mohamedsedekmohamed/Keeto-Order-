@@ -17,6 +17,10 @@ export interface RestaurantSettings {
   secondColor?: string;
   firstTextColor?: string;
   secondTextColor?: string;
+  textFirstColor?: string;
+  textSecondColor?: string;
+  text_first_color?: string;
+  text_second_color?: string;
   [key: string]: any;
 }
 
@@ -34,6 +38,8 @@ export interface RestaurantSettingsContextType {
   secondColor: string;
   firstTextColor: string;
   secondTextColor: string;
+  textFirstColor: string;
+  textSecondColor: string;
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -44,6 +50,8 @@ export interface RestaurantSettingsContextType {
     secondaryText: { color: string };
     firstTextColor: { color: string };
     secondTextColor: { color: string };
+    textFirstColor: { color: string };
+    textSecondColor: { color: string };
     mainButton: { backgroundColor: string; color: string };
     accentBorder: { borderColor: string };
   };
@@ -176,15 +184,25 @@ export function RestaurantSettingsProvider({
   const secondColor = darkenColor(firstColor, 18);
 
 
-  const firstTextColor = isValidColor(settings?.firstTextColor)
-    ? (settings?.firstTextColor as string)
+  const rawFirstTextColor =
+    settings?.textFirstColor ??
+    settings?.firstTextColor ??
+    settings?.text_first_color ??
+    settings?.first_text_color;
+
+  const firstTextColor = isValidColor(rawFirstTextColor)
+    ? (rawFirstTextColor as string)
     : DEFAULT_FIRST_TEXT_COLOR;
 
-  const secondTextColor = isValidColor(settings?.secondTextColor)
-    ? (settings?.secondTextColor as string)
+  const rawSecondTextColor =
+    settings?.textSecondColor ??
+    settings?.secondTextColor ??
+    settings?.text_second_color ??
+    settings?.second_text_color;
+
+  const secondTextColor = isValidColor(rawSecondTextColor)
+    ? (rawSecondTextColor as string)
     : firstTextColor; // Fallback to firstTextColor
-
-
 
   // Apply CSS variables dynamically to the document root
   useEffect(() => {
@@ -195,6 +213,8 @@ export function RestaurantSettingsProvider({
     root.style.setProperty("--theme-second-color", secondColor);
     root.style.setProperty("--theme-first-text-color", firstTextColor);
     root.style.setProperty("--theme-second-text-color", secondTextColor);
+    root.style.setProperty("--theme-text-first-color", firstTextColor);
+    root.style.setProperty("--theme-text-second-color", secondTextColor);
 
     // Common aliases for flexible usage
     root.style.setProperty("--theme-main-color", firstColor);
@@ -205,6 +225,8 @@ export function RestaurantSettingsProvider({
     root.style.setProperty("--color-theme-second", secondColor);
     root.style.setProperty("--color-theme-first-text", firstTextColor);
     root.style.setProperty("--color-theme-second-text", secondTextColor);
+    root.style.setProperty("--color-theme-text-first", firstTextColor);
+    root.style.setProperty("--color-theme-text-second", secondTextColor);
   }, [firstColor, secondColor, firstTextColor, secondTextColor]);
 
   const themeStyles = useMemo(
@@ -215,6 +237,8 @@ export function RestaurantSettingsProvider({
       secondaryText: { color: secondTextColor },
       firstTextColor: { color: firstTextColor },
       secondTextColor: { color: secondTextColor },
+      textFirstColor: { color: firstTextColor },
+      textSecondColor: { color: secondTextColor },
       mainButton: {
         backgroundColor: firstColor,
         color: firstTextColor,
@@ -237,6 +261,8 @@ export function RestaurantSettingsProvider({
       secondColor,
       firstTextColor,
       secondTextColor,
+      textFirstColor: firstTextColor,
+      textSecondColor: secondTextColor,
       isLoading,
       error,
       refetch,
@@ -272,6 +298,8 @@ export function useRestaurantSettings() {
       secondColor: DEFAULT_FIRST_COLOR,
       firstTextColor: DEFAULT_FIRST_TEXT_COLOR,
       secondTextColor: DEFAULT_FIRST_TEXT_COLOR,
+      textFirstColor: DEFAULT_FIRST_TEXT_COLOR,
+      textSecondColor: DEFAULT_FIRST_TEXT_COLOR,
       isLoading: false,
       error: null,
       refetch: async () => {},
@@ -282,13 +310,14 @@ export function useRestaurantSettings() {
         secondaryText: { color: DEFAULT_FIRST_TEXT_COLOR },
         firstTextColor: { color: DEFAULT_FIRST_TEXT_COLOR },
         secondTextColor: { color: DEFAULT_FIRST_TEXT_COLOR },
+        textFirstColor: { color: DEFAULT_FIRST_TEXT_COLOR },
+        textSecondColor: { color: DEFAULT_FIRST_TEXT_COLOR },
         mainButton: {
           backgroundColor: DEFAULT_FIRST_COLOR,
           color: DEFAULT_FIRST_TEXT_COLOR,
         },
         accentBorder: { borderColor: DEFAULT_FIRST_COLOR },
       },
-
     };
   }
   return context;

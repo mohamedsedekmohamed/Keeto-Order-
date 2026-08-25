@@ -11,6 +11,9 @@ export interface CartItem {
   cartId: string; // الـ ID الخاص بصف الاسترجاع/التعديل في السيرفر
   foodId: string; // الـ ID الخاص بالوجبة نفسها
   name: string;
+  nameAr: string;
+  description: string;
+  descriptionAr: string;
   image: string;
   restaurantId: string;
   restaurantName: string;

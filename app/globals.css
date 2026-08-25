@@ -10,6 +10,8 @@
   --theme-second-color: #eab308;
   --theme-first-text-color: #000000;
   --theme-second-text-color: #ffffff;
+  --theme-text-first-color: #000000;
+  --theme-text-second-color: #ffffff;
 }
 
 /* 2. تغيير الميديا كويري إلى كلاس .dark ليتفاعل مع next-themes */
@@ -25,6 +27,8 @@
   --color-theme-second: var(--theme-second-color);
   --color-theme-first-text: var(--theme-first-text-color);
   --color-theme-second-text: var(--theme-second-text-color);
+  --color-theme-text-first: var(--theme-text-first-color);
+  --color-theme-text-second: var(--theme-text-second-color);
   --color-yellow-300: var(--theme-first-color);
   --color-yellow-400: var(--theme-first-color);
   --color-yellow-500: var(--theme-second-color);
@@ -37,13 +41,13 @@
 .bg-theme-first,
 .bg-theme-main {
   background-color: var(--theme-first-color) !important;
-  color: var(--theme-first-text-color);
+  color: var(--theme-first-text-color) !important;
 }
 
 .hover\:bg-theme-second:hover,
 .hover\:bg-theme-hover:hover {
   background-color: var(--theme-second-color) !important;
-  color: var(--theme-second-text-color);
+  color: var(--theme-second-text-color) !important;
 }
 
 .text-theme-first,
@@ -56,11 +60,13 @@
   color: var(--theme-second-color) !important;
 }
 
-.text-theme-first-text {
+.text-theme-first-text,
+.text-theme-text-first {
   color: var(--theme-first-text-color) !important;
 }
 
-.text-theme-second-text {
+.text-theme-second-text,
+.text-theme-text-second {
   color: var(--theme-second-text-color) !important;
 }
 
@@ -84,14 +90,28 @@
 /* Global automatic replacement of yellow palette with theme */
 /* ========================================================= */
 .bg-yellow-400,
-.bg-yellow-500 {
+.bg-yellow-500,
+[class*="from-yellow-400"],
+[class*="from-yellow-500"] {
   background-color: var(--theme-first-color) !important;
   color: var(--theme-first-text-color) !important;
 }
 
+.bg-yellow-400 *,
+.bg-yellow-500 *,
+.bg-theme-first *,
+.bg-theme-main *,
+.btn-theme-main *,
+[class*="from-yellow-400"] *,
+[class*="from-yellow-500"] * {
+  color: inherit;
+}
+
 .hover\:bg-yellow-500:hover,
 .hover\:bg-yellow-600:hover,
-.group:hover .group-hover\:bg-yellow-400 {
+.group:hover .group-hover\:bg-yellow-400,
+[class*="hover:from-yellow-500"]:hover,
+[class*="hover:to-yellow-600"]:hover {
   background-color: var(--theme-second-color) !important;
   color: var(--theme-second-text-color) !important;
 }

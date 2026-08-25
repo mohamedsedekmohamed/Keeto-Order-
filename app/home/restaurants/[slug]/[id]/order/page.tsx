@@ -274,7 +274,7 @@ export default function Cart() {
 
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-100">
-                    {item.name}
+                    {isRtl ? item.nameAr || item.name : item.name}
                   </h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
                     <span className="font-bold text-yellow-600 dark:text-yellow-500">

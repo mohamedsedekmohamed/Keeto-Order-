@@ -277,7 +277,7 @@ export default function Checkout() {
       </h2>
       <button
         onClick={() => router.back()}
-        className="flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md active:scale-95 text-white mb-6"
+        className="flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md active:scale-95 text-theme-first-text mb-6"
       >
         <ChevronLeft className="w-6 h-6 transform rotate-0 rtl:rotate-180" />
       </button>
@@ -321,7 +321,7 @@ export default function Checkout() {
             </h3>
             <button
               onClick={() => setShowAddressPopup(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors"
             >
               <Plus size={16} />
               {t("add-address")}
@@ -514,7 +514,7 @@ export default function Checkout() {
       <button
         disabled={isSubmitting || isOrderBlocked}
         onClick={handleConfirmOrder}
-        className="relative flex items-center justify-center w-full max-w-2xl gap-3 px-6 py-4 overflow-hidden font-bold text-gray-900 transition-all duration-300 shadow-lg group bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl shadow-yellow-400/30 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-xl hover:shadow-yellow-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="relative flex items-center justify-center w-full max-w-2xl gap-3 px-6 py-4 overflow-hidden font-bold text-theme-first-text transition-all duration-300 shadow-lg group bg-yellow-400 hover:bg-yellow-500 rounded-2xl shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="absolute inset-0 transition duration-500 opacity-0 group-hover:opacity-100 bg-white/10 blur-xl" />
         {isSubmitting ? (
@@ -661,7 +661,7 @@ function PhonePopup({
           <button
             type="submit"
             disabled={isSavingProfile}
-            className="w-full py-3.5 mt-2 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
+            className="w-full py-3.5 mt-2 font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
           >
             {isSavingProfile && <Loader2 size={16} className="animate-spin" />}
             {isSavingProfile
@@ -767,7 +767,7 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
           <button
             type="submit"
             disabled={isSavingProfile}
-            className="w-full py-3.5 mt-2 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
+            className="w-full py-3.5 mt-2 font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
           >
             {isSavingProfile && <Loader2 size={16} className="animate-spin" />}
             {isSavingProfile
@@ -1296,7 +1296,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             <button
               type="submit"
               disabled={postingAddress || isLocating}
-              className="flex-1 py-3 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
+              className="flex-1 py-3 font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
             >
               {postingAddress && <Loader2 size={16} className="animate-spin" />}
               {postingAddress ? t("saving") : t("add-address-btn")}
