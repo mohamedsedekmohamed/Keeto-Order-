@@ -152,6 +152,13 @@ export default function RestaurantItms({
     null,
   );
 
+  // ── Recommended foods popup states ────────────────────────────────
+  const [recommendedFoods, setRecommendedFoods] = useState<any[]>([]);
+  const [showRecommendedModal, setShowRecommendedModal] = useState(false);
+  const [addingRecommendedId, setAddingRecommendedId] = useState<string | null>(
+    null,
+  );
+
   // ── Fulfillment states ────────────────────────────────────────────
   const [showFulfillmentDialog, setShowFulfillmentDialog] = useState(false);
   const [fulfillmentMode, setFulfillmentMode] = useState<
@@ -575,6 +582,60 @@ export default function RestaurantItms({
     }
   };
 
+  // ── Recommended foods ──────────────────────────────────────────────
+  const fetchRecommendedFoods = async (foodId: string) => {
+    if (!foodId) return;
+    try {
+      const res = await api.get(`/api/user/recommended-foods/${foodId}`);
+      const foods = res?.data?.data?.data;
+      if (Array.isArray(foods) && foods.length > 0) {
+        setRecommendedFoods(foods);
+        setShowRecommendedModal(true);
+      }
+    } catch (e) {
+      console.error("Error fetching recommended foods:", e);
+    }
+  };
+
+  const handleAddRecommendedToCart = async (food: any) => {
+    if (!token) {
+      toast.error(t("loginFirst"));
+      router.push("/auth/sign-in/?callbackSlug=" + restaurantSlug);
+      return;
+    }
+    try {
+      setAddingRecommendedId(food.id);
+      await api.post("/api/user/cart", { foodId: food.id, quantity: 1 });
+      const newExpiry = Date.now() + 60 * 60 * 1000;
+      localStorage.setItem("cart-expiry", newExpiry.toString());
+
+      toast.success(t("addedToCart"));
+      onCartUpdated();
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 409) {
+        // Same residual-cart conflict as the main add-to-cart flow
+        setPendingCartPayload({ foodId: food.id, quantity: 1 });
+        setShowConflictDialog(true);
+        setShowRecommendedModal(false);
+      } else if (status === 401) {
+        toast.error(t("loginFirst"));
+      } else if (error?.response) {
+        toast.error(
+          isRtl ? "حدث خطأ ما، حاول مرة أخرى" : "Something went wrong",
+        );
+      } else {
+        toast.error(
+          isRtl
+            ? "تحقق من الاتصال بالإنترنت"
+            : "Check your internet connection",
+        );
+      }
+    } finally {
+      setAddingRecommendedId(null);
+    }
+  };
+
   // Execution function that makes the API call
   const executeAddToCart = async (
     fulfillmentData: { addressId?: string; branchId?: string } = {},
@@ -612,19 +673,21 @@ export default function RestaurantItms({
 
       toast.success(t("addedToCart"));
       onCartUpdated();
+      const addedFoodId = selectedItem.id;
       setSelectedItem(null);
       setShowFulfillmentDialog(false);
       setFulfillmentMode(null);
       setSelectedFulfillmentId("");
+      fetchRecommendedFoods(addedFoodId);
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 409) {
         setPendingCartPayload(payload);
         setShowConflictDialog(true);
       } else if (status === 400) {
-        const errorMsg = error.response.data.error.message|| "حدث خطأ ما، حاول مرة أخرى";
+        const errorMsg =
+          error.response.data.error.message || "حدث خطأ ما، حاول مرة أخرى";
         toast.error(errorMsg);
-      
       } else if (status === 401) {
         toast.error(t("loginFirst"));
       } else if (error?.response) {
@@ -698,7 +761,9 @@ export default function RestaurantItms({
       onCartUpdated();
       setShowConflictDialog(false);
       setPendingCartPayload(null);
+      const addedFoodId = selectedItem?.id || pendingCartPayload?.foodId;
       setSelectedItem(null);
+      if (addedFoodId) fetchRecommendedFoods(addedFoodId);
     } catch {
       toast.error("حدث خطأ أثناء تحديث السلة");
     } finally {
@@ -1567,6 +1632,108 @@ export default function RestaurantItms({
                   className="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 font-bold py-3 rounded-xl transition-all border border-zinc-200/40 dark:border-zinc-700/30"
                 >
                   {isRtl ? "إلغاء" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── RECOMMENDED FOODS POPUP ── */}
+        {/* ── RECOMMENDED FOODS POPUP ── */}
+        {showRecommendedModal && recommendedFoods.length > 0 && (
+          <div className="fixed inset-0 z-[130] flex items-end justify-center p-0 sm:items-center sm:p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full sm:max-w-md max-h-[85vh] flex flex-col bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+              <div className="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
+                <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+                  {isRtl ? "قد يعجبك أيضاً" : "You might also like"}
+                </h3>
+                <button
+                  onClick={() => setShowRecommendedModal(false)}
+                  className="p-2 text-zinc-400 transition-colors bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+                {recommendedFoods.map((food) => {
+                  const price = parseFloat(food.price || "0");
+                  const hasDisc =
+                    food.discountValue !== null &&
+                    food.discountValue !== undefined &&
+                    food.discountValue !== "";
+                  const finalPrice = hasDisc
+                    ? food.discountType === "percentage"
+                      ? price - (price * parseFloat(food.discountValue)) / 100
+                      : price - parseFloat(food.discountValue)
+                    : price;
+
+                  return (
+                    <div
+                      key={food.id}
+                      onClick={() => {
+                        if (food.isOutOfStock) return;
+                        setShowRecommendedModal(false);
+                        handleItemClick(food);
+                      }}
+                      className={`flex items-center p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl ${
+                        food.isOutOfStock
+                          ? "opacity-60 cursor-not-allowed"
+                          : "cursor-pointer hover:border-yellow-400/50 transition-colors"
+                      }`}
+                    >
+                      <div className="relative flex-shrink-0 w-16 h-16 overflow-hidden rounded-xl bg-white dark:bg-zinc-800">
+                        <img
+                          src={food.image}
+                          alt={food.name}
+                          className={`object-cover w-full h-full ${
+                            food.isOutOfStock ? "grayscale opacity-60" : ""
+                          }`}
+                        />
+                      </div>
+                      <div className={`flex-1 ${isRtl ? "mr-3" : "ml-3"}`}>
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                          {isRtl ? food.nameAr || food.name : food.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm font-bold text-yellow-500">
+                            {finalPrice.toFixed(2)} E£
+                          </span>
+                          {hasDisc && (
+                            <span className="text-xs line-through text-zinc-400">
+                              {price.toFixed(2)} E£
+                            </span>
+                          )}
+                        </div>
+                        {food.isOutOfStock && (
+                          <span className="text-[10px] font-black text-red-500">
+                            {isRtl ? "نفذت الكمية" : "Out of Stock"}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (food.isOutOfStock) return;
+                          setShowRecommendedModal(false);
+                          handleItemClick(food);
+                        }}
+                        disabled={food.isOutOfStock}
+                        className="flex items-center justify-center flex-shrink-0 p-2.5 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl disabled:opacity-50 w-9 h-9"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
+                <button
+                  onClick={() => setShowRecommendedModal(false)}
+                  className="w-full py-3 font-bold transition-colors text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  {isRtl ? "إغلاق" : "Close"}
                 </button>
               </div>
             </div>

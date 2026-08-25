@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Receipt,
   ChevronLeft,
+  Truck,
 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../../../../../context/LanguageContext";
@@ -141,6 +142,19 @@ export default function Cart() {
   }, [deleteData, dispatch, t, restaurantId]);
 
   const totalPrice = Number(cartData?.data?.data?.totalSummary?.subtotal || 0);
+  const freeDelivery = cartData?.data?.data?.totalSummary?.freeDelivery;
+  const isFreeDeliveryEligible = freeDelivery?.isEligible ?? false;
+  const freeDeliveryMinOrder = Number(freeDelivery?.minOrderAmount || 0);
+  const freeDeliveryRemaining = Number(freeDelivery?.remainingAmount || 0);
+  const freeDeliveryProgress =
+    freeDeliveryMinOrder > 0
+      ? Math.min(
+          100,
+          ((freeDeliveryMinOrder - freeDeliveryRemaining) /
+            freeDeliveryMinOrder) *
+            100,
+        )
+      : 100;
 
   // دوال التعامل مع الـ API
   const handleQuantityChange = async (
@@ -341,6 +355,69 @@ export default function Cart() {
             {totalPrice} {t("currency")}
           </span>
         </div>
+
+        {freeDelivery && (
+          <div
+            className={`flex flex-col gap-2 p-4 mb-4 rounded-2xl ${
+              isFreeDeliveryEligible
+                ? "bg-green-50 dark:bg-green-500/10"
+                : "bg-yellow-50 dark:bg-yellow-500/10"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Truck
+                size={18}
+                className={
+                  isFreeDeliveryEligible
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-yellow-600 dark:text-yellow-500"
+                }
+              />
+              {isFreeDeliveryEligible ? (
+                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  {t("freeDeliveryUnlocked") || "You've got free delivery!"}
+                </span>
+              ) : (
+                <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-500">
+                  {t("addMoreForFreeDelivery") ||
+                    `Add ${freeDeliveryRemaining} ${t("currency")} more to get free delivery`}
+                </span>
+              )}
+            </div>
+
+            {!isFreeDeliveryEligible && (
+              <>
+                <p className="text-xs text-gray-500 dark:text-zinc-400">
+                  {t("freeDeliveryMinOrderNote") ||
+                    `Free delivery on orders over ${freeDeliveryMinOrder} ${t("currency")}`}
+                </p>
+                <div className="w-full h-2 overflow-hidden rounded-full bg-yellow-100 dark:bg-zinc-800">
+                  <div
+                    className="h-full transition-all duration-500 bg-yellow-400 rounded-full"
+                    style={{ width: `${freeDeliveryProgress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-zinc-300">
+                  <span>
+                    {freeDeliveryMinOrder - freeDeliveryRemaining} /{" "}
+                    {freeDeliveryMinOrder} {t("currency")}
+                  </span>
+                  <span className="text-yellow-600 dark:text-yellow-500">
+                    -{freeDeliveryRemaining} {t("currency")}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => router.back()}
+                  className="flex items-center justify-center gap-2 py-2 mt-2 text-sm font-bold transition-colors rounded-xl bg-white/70 dark:bg-zinc-900/40 hover:bg-white dark:hover:bg-zinc-900/70 text-gray-700 dark:text-zinc-200"
+                >
+                  <ChevronLeft className="w-4 h-4 transform rotate-0 rtl:rotate-180" />
+                  <span>{t("backToShop") || "Back to shop"}</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between mb-6">
           <span className="text-lg font-bold text-gray-900 dark:text-white">
