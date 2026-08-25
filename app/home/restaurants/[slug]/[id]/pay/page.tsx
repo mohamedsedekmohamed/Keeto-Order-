@@ -103,9 +103,13 @@ export default function Checkout() {
 
   // Apple's "Hide My Email" sign-in gives the user a random relay address like
   // thc44djrm9@privaterelay.appleid.com instead of their real email, and no
-  // real name either. We only ask for a username to fill that gap — and only
-  // once ever: as soon as profileUser.username is set, this stays false for
+  // real name either. We only ask for a name to fill that gap — and only
+  // once ever: as soon as profileUser.name is set, this stays false for
   // good, even though the relay email itself never changes.
+  // NOTE: the profile model has no separate "username" field — the actual
+  // /api/user/profile PUT endpoint (see the account/profile page) reads/writes
+  // "name". The popup below is still called UsernamePopup/username in the UI
+  // copy since that's what we ask the user for, but it maps to profile.name.
   const isAppleRelayEmail = (email?: string | null) =>
     !!email && /@privaterelay\.appleid\.com$/i.test(email.trim());
 
@@ -122,7 +126,7 @@ export default function Checkout() {
     !usernameConfirmed &&
     !!profileUser &&
     isAppleRelayEmail(profileUser.email) &&
-    !profileUser.username;
+    !profileUser.name;
 
   // Derived directly from the fetched profile — no local state/effect needed.
   // Once refetchProfile() pulls the updated phone fields, this recomputes
@@ -247,13 +251,14 @@ export default function Checkout() {
       </div>
     );
 
-  // Apple private-relay email means no real username came through sign-in.
+  // Apple private-relay email means no real name came through sign-in.
   // Ask for one — but only ever once, since showUsernamePopup goes false
-  // permanently the moment profileUser.username is saved.
+  // permanently the moment profileUser.name is saved (and stays false all
+  // session via usernameConfirmed once the save succeeds).
   if (showUsernamePopup) {
     return (
       <UsernamePopup
-        initialUsername={profileUser?.username || profileUser?.name || ""}
+        initialUsername={profileUser?.name || ""}
         onSuccess={() => {
           // Close the popup immediately and permanently for this session —
           // don't wait on / depend on the refetch to confirm it, since a
@@ -701,7 +706,7 @@ function PhonePopup({
 // relay address (e.g. thc44djrm9@privaterelay.appleid.com) — that sign-in
 // flow also skips giving us a real name, so we collect a username here.
 // Gated to run only once ever per user: see showUsernamePopup, which goes
-// false permanently as soon as profileUser.username is saved. Uses the
+// false permanently as soon as profileUser.name is saved. Uses the
 // same /api/user/profile endpoint (via usePut) to save the update.
 // ─────────────────────────────────────────────
 
@@ -735,7 +740,7 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
 
     try {
       await postProfile(
-        { username: trimmedUsername },
+        { name: trimmedUsername },
         null,
         t("dir") === "rtl"
           ? "تم تحديث اسم المستخدم بنجاح"
@@ -744,7 +749,7 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
       // Wait for the profile refetch to resolve before returning — on a
       // slow/mobile connection, firing this without awaiting means the
       // popup can still be on screen (or briefly flash back) because
-      // profileUser.username hasn't landed in state yet.
+      // profileUser.name hasn't landed in state yet.
       await onSuccess();
     } catch {
       // Error toast already handled inside usePut
