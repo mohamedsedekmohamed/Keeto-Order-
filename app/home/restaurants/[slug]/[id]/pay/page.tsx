@@ -104,14 +104,27 @@ export default function Checkout() {
   // Apple's "Hide My Email" sign-in gives the user a random relay address like
   // thc44djrm9@privaterelay.appleid.com instead of their real email, and no
   // real name either. We only ask for a name to fill that gap — and only
-  // once ever: as soon as profileUser.name is set, this stays false for
-  // good, even though the relay email itself never changes.
+  // once ever: as soon as a REAL profileUser.name is set, this stays false
+  // for good, even though the relay email itself never changes.
   // NOTE: the profile model has no separate "username" field — the actual
   // /api/user/profile PUT endpoint (see the account/profile page) reads/writes
   // "name". The popup below is still called UsernamePopup/username in the UI
   // copy since that's what we ask the user for, but it maps to profile.name.
   const isAppleRelayEmail = (email?: string | null) =>
     !!email && /@privaterelay\.appleid\.com$/i.test(email.trim());
+
+  // The backend auto-fills profile.name from the relay email's local part
+  // (e.g. email "thc44djrm9@privaterelay.appleid.com" -> name "thc44djrm9")
+  // when there's no real name from Apple. So "!profileUser.name" is never
+  // true for these accounts — name is always populated, just with junk.
+  // Detect that specific case by checking whether name matches the local
+  // part of the relay email, rather than guessing at a generic pattern.
+  const isPlaceholderName = (name?: string | null, email?: string | null) => {
+    const trimmedName = name?.trim();
+    if (!trimmedName) return true;
+    const localPart = email?.split("@")[0]?.trim();
+    return !!localPart && trimmedName.toLowerCase() === localPart.toLowerCase();
+  };
 
   // The email-pattern check runs on every render because it's derived from
   // profileUser, but the relay email never changes — so if the refetch after
@@ -126,7 +139,7 @@ export default function Checkout() {
     !usernameConfirmed &&
     !!profileUser &&
     isAppleRelayEmail(profileUser.email) &&
-    !profileUser.name;
+    isPlaceholderName(profileUser.name, profileUser.email);
 
   // Derived directly from the fetched profile — no local state/effect needed.
   // Once refetchProfile() pulls the updated phone fields, this recomputes
@@ -253,12 +266,16 @@ export default function Checkout() {
 
   // Apple private-relay email means no real name came through sign-in.
   // Ask for one — but only ever once, since showUsernamePopup goes false
-  // permanently the moment profileUser.name is saved (and stays false all
-  // session via usernameConfirmed once the save succeeds).
+  // permanently the moment a real profileUser.name is saved (and stays
+  // false all session via usernameConfirmed once the save succeeds).
   if (showUsernamePopup) {
     return (
       <UsernamePopup
-        initialUsername={profileUser?.name || ""}
+        // Don't pre-fill with the placeholder relay-derived name (e.g.
+        // "thc44djrm9") — that's exactly the junk value we're asking the
+        // user to replace, and showing it back to them as a "suggestion"
+        // is misleading.
+        initialUsername=""
         onSuccess={() => {
           // Close the popup immediately and permanently for this session —
           // don't wait on / depend on the refetch to confirm it, since a
