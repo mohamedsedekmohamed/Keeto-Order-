@@ -79,11 +79,13 @@ export default function Home() {
   const router = useRouter();
 
   const restaurantName = params?.slug as string;
-  const basePath = `/home/restaurants/${restaurantName}`;
+  const { restaurant, isLoading, isError } = useRestaurant();
+  const restaurantId = (params?.id as string) || restaurant?.id || "";
+  const basePath = restaurantId
+    ? `/home/restaurants/${restaurantName}/${restaurantId}`
+    : `/home/restaurants/${restaurantName}`;
   const token =
     typeof window !== "undefined" ? localStorage.getItem(`token_${restaurantName}`) : null;
-
-  const { restaurant, isLoading, isError } = useRestaurant();
 
   /* ---------------- RATING LOGIC ---------------- */
   const [showRating, setShowRating] = useState(false);
