@@ -81,7 +81,9 @@ export default function Home() {
   const restaurantName = params?.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
   const token =
-    typeof window !== "undefined" ? localStorage.getItem(`token_${restaurantName}`) : null;
+    typeof window !== "undefined"
+      ? localStorage.getItem(`token_${restaurantName}`)
+      : null;
 
   const { restaurant, isLoading, isError } = useRestaurant();
 
@@ -90,37 +92,38 @@ export default function Home() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
-  
   // Only fetch history when user is logged in AND restaurant is loaded
   const { data: historyRes } = useGet<any>(
     token && restaurant?.id
-    ? `/api/user/order/history?restaurantId=${restaurant.id}`
-    : null,
+      ? `/api/user/order/history?restaurantId=${restaurant.id}`
+      : null,
   );
-  
+
   const historyOrders: any[] = historyRes?.data?.data || [];
   //const orderId = historyOrders.length > 0 ? historyOrders[0].orderId : null;
-  
+
   // Find the most recent delivered order
   const deliveredOrder = historyOrders.find(
     (order) => order.status?.toLowerCase() === "delivered",
   );
-  
+
   useEffect(() => {
     if (!token || !restaurant?.id || !deliveredOrder) return;
-    
+
     const sessionKey = `rating_modal_seen_order_${deliveredOrder.orderId}`;
     const hasSeen = sessionStorage.getItem(sessionKey);
     if (hasSeen) return;
-    
+
     const timer = setTimeout(() => {
       setShowRating(true);
       sessionStorage.setItem(sessionKey, "true");
     }, 1500);
-    
+
     return () => clearTimeout(timer);
   }, [restaurant?.id, token, deliveredOrder?.orderId]);
-  const { postData, loading: isSubmitting } = usePost(`/api/user/order/${deliveredOrder?.orderId}/rate`);
+  const { postData, loading: isSubmitting } = usePost(
+    `/api/user/order/${deliveredOrder?.orderId}/rate`,
+  );
 
   const handleSubmitRating = async () => {
     if (rating === 0) return;
@@ -135,7 +138,6 @@ export default function Home() {
       setRating(0);
       setComment("");
     } catch (err) {
-     
       console.error("Rating submission failed:", err);
     }
   };
@@ -298,6 +300,11 @@ export default function Home() {
           </div>
         )}
       </div>
+      <Link href={`${basePath}/policy`} className="w-full max-w-md px-6 mt-6">
+        <h3 className="font-bold text-gray-900 text-center mb-2.5 dark:text-white">
+          {t("privacyandsupport")}
+        </h3>
+      </Link>
 
       {/* RATING MODAL */}
       <AnimatePresence>
