@@ -159,6 +159,8 @@
   "callDeliveryMan":"اتصل برجل التوصيل ",
   "subtotal": "المجموع الفرعي",
   "cancellationReason":"سبب الإلغاء",
+  "invalidAlternatePhone":" رقم الهاتف البديل يجب أن يكون 11 رقم و يبدأ ب 01",
+  "invalidPhone": " رقم الهاتف يجب أن يكون 11 رقم ويبدأ ب 01",
   "backToShop":"العودة للتسوق",
   "freeDeliveryUnlocked": "تم تفعيل التوصيل المجاني",
   "addMoreForFreeDelivery": "أضف المزيد للحصول على التوصيل المجاني",

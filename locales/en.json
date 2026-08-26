@@ -21,6 +21,8 @@
   "orderedAt":"Ordered at",
   "terms": "Terms & Conditions",
   "backToShop":"Back to Shop",
+  "invalidPhone": "phone number must be 11 and start with 01 ",
+  "invalidAlternatePhone":"alternate phone number must be 11 and start with 01",
   "freeDeliveryUnlocked": "Free delivery unlocked",
   "addMoreForFreeDelivery":"add More for Free Delivery",
   "freeDeliveryMinOrderNote":"Add more items to your cart to unlock free delivery. The minimum order amount for free delivery is",

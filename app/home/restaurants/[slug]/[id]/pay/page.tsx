@@ -655,6 +655,19 @@ function PhonePopup({
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
 
+  const phoneRegex = /^01\d{9}$/; // 11 digits, must start with 01
+
+  // Phone / alternate phone: digits only, max 11 characters.
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(e.target.value.replace(/\D/g, "").slice(0, 11));
+  };
+
+  const handleAlternatePhoneChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setAlternatePhone(e.target.value.replace(/\D/g, "").slice(0, 11));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -666,6 +679,22 @@ function PhonePopup({
         t("dir") === "rtl"
           ? "يرجى إدخال رقم الهاتف ورقم الهاتف البديل."
           : "Please enter both your phone and alternate phone numbers.",
+      );
+    }
+
+    if (!phoneRegex.test(trimmedPhone)) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "رقم الهاتف يجب أن يتكون من 11 رقمًا ويبدأ بـ 01"
+          : "Phone number must be 11 digits and start with 01.",
+      );
+    }
+
+    if (!phoneRegex.test(trimmedAlternatePhone)) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01"
+          : "Alternate phone number must be 11 digits and start with 01.",
       );
     }
 
@@ -712,8 +741,11 @@ function PhonePopup({
             </label>
             <input
               type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={11}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={handlePhoneChange}
               placeholder={
                 t("dir") === "rtl" ? "أدخل رقم الهاتف" : "Enter phone number"
               }
@@ -730,8 +762,11 @@ function PhonePopup({
             </label>
             <input
               type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={11}
               value={alternatePhone}
-              onChange={(e) => setAlternatePhone(e.target.value)}
+              onChange={handleAlternatePhoneChange}
               placeholder={
                 t("dir") === "rtl"
                   ? "أدخل رقم الهاتف البديل"

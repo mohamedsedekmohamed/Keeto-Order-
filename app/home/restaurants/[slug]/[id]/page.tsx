@@ -81,7 +81,7 @@ export default function Home() {
   const restaurantName = params?.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    typeof window !== "undefined" ? localStorage.getItem(`token_${restaurantName}`) : null;
 
   const { restaurant, isLoading, isError } = useRestaurant();
 
@@ -90,16 +90,17 @@ export default function Home() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
-  const { postData, loading: isSubmitting } = usePost("/api/user/rating");
-
+  
   // Only fetch history when user is logged in AND restaurant is loaded
   const { data: historyRes } = useGet<any>(
     token && restaurant?.id
-      ? `/api/user/order/history?restaurantId=${restaurant.id}`
-      : null,
+    ? `/api/user/order/history?restaurantId=${restaurant.id}`
+    : null,
   );
-
+  
   const historyOrders: any[] = historyRes?.data?.data || [];
+  const orderId = historyOrders.length > 0 ? historyOrders[0].orderId : null;
+  const { postData, loading: isSubmitting } = usePost(`/api/user/order/${orderId}/rate`);
 
   // Find the most recent delivered order
   const deliveredOrder = historyOrders.find(

@@ -337,10 +337,11 @@ function PrepCountdown({
 
   return (
     <div
-      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${isDone
+      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${
+        isDone
           ? "bg-green-500/10 text-green-600 dark:text-green-400"
           : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
-        } ${className}`}
+      } ${className}`}
     >
       <Clock size={12} />
       {isDone
@@ -475,7 +476,7 @@ export default function ProfilePage() {
         console.error("Error fetching order details:", error);
         toast.error(
           t("errorFetchingDetails") ||
-          "Error pulling item data configurations.",
+            "Error pulling item data configurations.",
         );
         setSelectedOrderId(null);
       } finally {
@@ -522,9 +523,9 @@ export default function ProfilePage() {
       );
       setCancelReasons(
         response.data?.data?.data?.reasons ||
-        response.data?.data?.reasons ||
-        response.data?.reasons ||
-        [],
+          response.data?.data?.reasons ||
+          response.data?.reasons ||
+          [],
       );
     } catch (error) {
       console.error("Error fetching cancel reasons:", error);
@@ -681,14 +682,41 @@ export default function ProfilePage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Phone / alternate phone: digits only, max 11 characters.
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numericValue = value.replace(/\D/g, "").slice(0, 11);
+    setFormData((prev) => ({ ...prev, [name]: numericValue }));
+  };
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const phoneDigits = formData.phone.replace(/\D/g, "");
+    const altPhoneDigits = formData.alternatePhone.replace(/\D/g, "");
+    const phoneRegex = /^01\d{9}$/; // 11 digits, must start with 01
+
+    if (!phoneRegex.test(phoneDigits)) {
+      toast.error(
+        t("invalidPhone") || "رقم الهاتف يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
+      );
+      return;
+    }
+
+    if (formData.alternatePhone && !phoneRegex.test(altPhoneDigits)) {
+      toast.error(
+        t("invalidAlternatePhone") ||
+          "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
+      );
+      return;
+    }
+
     try {
       await updateProfile(
         {
           name: formData.name,
-          phone: formData.phone,
-          alternatePhone: formData.alternatePhone,
+          phone: phoneDigits,
+          alternatePhone: altPhoneDigits,
         },
         null,
         t("updateSuccess") || "تم تحديث البيانات بنجاح!",
@@ -895,10 +923,11 @@ export default function ProfilePage() {
     return (
       <button
         onClick={() => toggleTab(tabKey)}
-        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${isOpen
+        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${
+          isOpen
             ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
             : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
-          }`}
+        }`}
       >
         <div className="flex items-center gap-3">
           {icon}
@@ -906,8 +935,9 @@ export default function ProfilePage() {
         </div>
         <ChevronDown
           size={18}
-          className={`transform transition-transform duration-300 ${isOpen ? "rotate-180" : ""
-            }`}
+          className={`transform transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
         />
       </button>
     );
@@ -1077,8 +1107,11 @@ export default function ProfilePage() {
                               type="tel"
                               name="phone"
                               required
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={11}
                               value={formData.phone}
-                              onChange={handleProfileChange}
+                              onChange={handlePhoneChange}
                               className="w-full py-3 text-sm transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-xl ps-10 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
                             />
                           </div>
@@ -1098,8 +1131,11 @@ export default function ProfilePage() {
                             <input
                               type="tel"
                               name="alternatePhone"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={11}
                               value={formData.alternatePhone}
-                              onChange={handleProfileChange}
+                              onChange={handlePhoneChange}
                               className="w-full py-3 text-sm transition-all border-2 border-transparent outline-none bg-gray-100/50 dark:bg-zinc-800/40 rounded-xl ps-10 dark:text-white focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400"
                             />
                           </div>
@@ -1107,8 +1143,6 @@ export default function ProfilePage() {
                       </div>
 
                       <div className="pt-4 flex items-center justify-between">
-
-
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
@@ -1404,10 +1438,11 @@ export default function ProfilePage() {
                         {userData.addresses?.map((address) => (
                           <div
                             key={address.id}
-                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${editingAddressId === address.id
+                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${
+                              editingAddressId === address.id
                                 ? "ring-2 ring-yellow-400/50 border-yellow-400"
                                 : "hover:border-yellow-400/50"
-                              }`}
+                            }`}
                           >
                             <div>
                               <div className="flex items-center justify-between mb-3">
@@ -1591,20 +1626,22 @@ export default function ProfilePage() {
                     <div className="flex p-1 bg-gray-100 dark:bg-zinc-800/60 rounded-2xl">
                       <button
                         onClick={() => setOrderSubTab("active")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "active"
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "active"
                             ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
                             : "text-gray-500 dark:text-zinc-400"
-                          }`}
+                        }`}
                       >
                         <Clock size={16} />
                         {t("activeOrders") || "الطلبات النشطة"}
                       </button>
                       <button
                         onClick={() => setOrderSubTab("history")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "history"
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "history"
                             ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
                             : "text-gray-500 dark:text-zinc-400"
-                          }`}
+                        }`}
                       >
                         <History size={16} />
                         {t("orderHistory") || "سجل الطلبات"}
@@ -1640,7 +1677,7 @@ export default function ProfilePage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <h4 className="font-bold text-gray-900 dark:text-white truncate">
-                                  {order.restaurantName}
+                                  {isRtl? order.restaurantNameAr: order.restaurantName}
                                 </h4>
                                 <span className="text-[10px] font-bold px-2 py-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 rounded-lg uppercase whitespace-nowrap">
                                   {t(order.status) || order.status}
@@ -1714,9 +1751,9 @@ export default function ProfilePage() {
                           <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
                             {orderSubTab === "active"
                               ? t("noActiveOrdersDesc") ||
-                              "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
+                                "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
                               : t("noHistoryOrdersDesc") ||
-                              "لا يوجد سجل طلبات سابقة لهذا المطعم."}
+                                "لا يوجد سجل طلبات سابقة لهذا المطعم."}
                           </p>
                         </div>
                       )}
@@ -1829,7 +1866,7 @@ export default function ProfilePage() {
                           </div>
                           <div>
                             <h2 className="text-xl font-black">
-                              {selectedOrder.restaurantName}
+                              {isRtl ? selectedOrder.restaurantNameAr : selectedOrder.restaurantName}
                             </h2>
                             <p className="text-xs text-gray-400">
                               {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
@@ -1917,7 +1954,9 @@ export default function ProfilePage() {
                                         {item.quantity || 1}x
                                       </span>
                                       <span className="text-sm font-bold">
-                                        {item.foodName || item.name}
+                                        {(isRtl
+                                          ? item.foodNameAr
+                                          : item.foodName) || item.name}
                                       </span>
                                     </div>
                                     <span className="text-sm font-black">
@@ -1928,51 +1967,51 @@ export default function ProfilePage() {
 
                                   {(parsedVariations.length > 0 ||
                                     parsedAddons.length > 0) && (
-                                      <div className="ml-10 flex flex-col gap-1">
-                                        {parsedVariations.map(
-                                          (v: any, vi: number) => (
-                                            <div
-                                              key={`v-${vi}`}
-                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                            >
+                                    <div className="ml-10 flex flex-col gap-1">
+                                      {parsedVariations.map(
+                                        (v: any, vi: number) => (
+                                          <div
+                                            key={`v-${vi}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              •{" "}
+                                              {v.optionName ||
+                                                v.name ||
+                                                t("variation")}
+                                            </span>
+                                            {v.additionalPrice && (
                                               <span>
-                                                •{" "}
-                                                {v.optionName ||
-                                                  v.name ||
-                                                  t("variation")}
+                                                +{v.additionalPrice}{" "}
+                                                {t("currency") || "ج.م"}
                                               </span>
-                                              {v.additionalPrice && (
-                                                <span>
-                                                  +{v.additionalPrice}{" "}
-                                                  {t("currency") || "ج.م"}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ),
-                                        )}
-                                        {parsedAddons.map(
-                                          (a: any, ai: number) => (
-                                            <div
-                                              key={`a-${ai}`}
-                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                            >
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                      {parsedAddons.map(
+                                        (a: any, ai: number) => (
+                                          <div
+                                            key={`a-${ai}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              +{" "}
+                                              {(isArabic ? a.nameAr : a.name) ||
+                                                a.name ||
+                                                t("addon")}
+                                            </span>
+                                            {a.price && (
                                               <span>
-                                                +{" "}
-                                                {(isArabic ? a.nameAr : a.name) ||
-                                                  a.name ||
-                                                  t("addon")}
+                                                +{a.price}{" "}
+                                                {t("currency") || "ج.م"}
                                               </span>
-                                              {a.price && (
-                                                <span>
-                                                  +{a.price}{" "}
-                                                  {t("currency") || "ج.م"}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ),
-                                        )}
-                                      </div>
-                                    )}
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
 
                                   {item.note && (
                                     <div className="ml-10 text-xs italic text-gray-400">
@@ -2103,10 +2142,11 @@ export default function ProfilePage() {
                     cancelReasons.map((reason: any) => (
                       <label
                         key={reason.id}
-                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === reason.id
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                          selectedReasonId === reason.id
                             ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
                             : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
-                          }`}
+                        }`}
                       >
                         <span className="text-sm text-gray-800 dark:text-zinc-200">
                           {(isRtl ? reason.nameAr : reason.name) || reason.name}
