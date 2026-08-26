@@ -306,6 +306,49 @@ export default function RestaurantItms({
     return "online_order_web";
   };
 
+  // ── Remembered fulfillment choice (address/branch) ─────────────────
+  // Persisted per-restaurant so the fulfillment dialog doesn't have to
+  // ask again on every add-to-cart. It's only reused when the stored
+  // address/branch is still valid for the item being added — otherwise
+  // it's discarded and the dialog asks again.
+  const fulfillmentStorageKey = `fulfillment_choice_${restaurantSlug}`;
+
+  const getStoredFulfillment = (): {
+    mode: "delivery" | "takeaway";
+    id: string;
+  } | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(fulfillmentStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        parsed &&
+        (parsed.mode === "delivery" || parsed.mode === "takeaway") &&
+        typeof parsed.id === "string" &&
+        parsed.id
+      ) {
+        return parsed;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setStoredFulfillment = (mode: "delivery" | "takeaway", id: string) => {
+    if (typeof window === "undefined" || !id) return;
+    localStorage.setItem(
+      fulfillmentStorageKey,
+      JSON.stringify({ mode, id }),
+    );
+  };
+
+  const clearStoredFulfillment = () => {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(fulfillmentStorageKey);
+  };
+
   const { data: checkoutData } = useGet<any>(
     `/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`,
   );
@@ -697,6 +740,15 @@ export default function RestaurantItms({
 
       toast.success(t("addedToCart"));
       onCartUpdated();
+
+      // Remember this address/branch choice so the fulfillment dialog
+      // doesn't need to ask again next time it's still valid.
+      if (fulfillmentData.addressId) {
+        setStoredFulfillment("delivery", fulfillmentData.addressId);
+      } else if (fulfillmentData.branchId) {
+        setStoredFulfillment("takeaway", fulfillmentData.branchId);
+      }
+
       const addedFoodId = selectedItem.id;
       setSelectedItem(null);
       setShowFulfillmentDialog(false);
@@ -753,6 +805,30 @@ export default function RestaurantItms({
       selectedItem.unavailableBranches &&
       selectedItem.unavailableBranches.length > 0
     ) {
+      // Try to reuse a previously chosen address/branch instead of
+      // asking again — but only if it's still valid for THIS item
+      // (i.e. still deliverable / still an active branch it's sold at).
+      const stored = getStoredFulfillment();
+      if (stored) {
+        if (
+          stored.mode === "delivery" &&
+          deliverableAddresses.some((a: any) => a.id === stored.id)
+        ) {
+          await executeAddToCart({ addressId: stored.id });
+          return;
+        }
+        if (
+          stored.mode === "takeaway" &&
+          availableBranches.some((b: any) => b.id === stored.id)
+        ) {
+          await executeAddToCart({ branchId: stored.id });
+          return;
+        }
+        // Stored choice no longer applies to this item — drop it and
+        // fall through to asking again.
+        clearStoredFulfillment();
+      }
+
       setShowFulfillmentDialog(true);
       return;
     }
