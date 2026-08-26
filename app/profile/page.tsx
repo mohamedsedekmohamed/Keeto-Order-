@@ -1387,6 +1387,7 @@ export default function ProfilePage() {
                             value={addressForm.landmark}
                             onChange={handleAddressChange}
                             className="w-full p-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none text-sm dark:text-white focus:ring-2 focus:ring-yellow-400"
+                            required
                           />
                         </div>
 
@@ -1493,6 +1494,7 @@ export default function ProfilePage() {
                                     {t("landmark") || "علامة مميزة"}:{" "}
                                     {address.landmark}
                                   </p>
+                                  
                                 )}
                               </div>
                             </div>

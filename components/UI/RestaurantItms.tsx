@@ -26,6 +26,7 @@ import {
   VariationOption,
   MenuCategory,
   useRestaurant,
+  useRestaurantSettings,
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
@@ -82,6 +83,7 @@ export default function RestaurantItms({
 
   // ── Restaurant context ────────────────────────────────────────────
   const { restaurant } = useRestaurant();
+  const { firstColor, textFirstColor } = useRestaurantSettings();
 
   // ── Auth ──────────────────────────────────────────────────────────
   const { getToken } = useToken();
@@ -450,6 +452,28 @@ export default function RestaurantItms({
   }, []);
 
   // ── Item modal helpers ────────────────────────────────────────────
+  // The "recommended foods" (upsell) endpoint returns a lighter summary
+  // object per food (no variations/addons, and price fields computed
+  // differently than the main menu). To open the SAME "choose it" dialog
+  // used everywhere else with the item's real, full data, we look the
+  // food up in the already-loaded `menu` (which has the full MenuItem
+  // shape) and prefer that over the summary object from the recommended
+  // endpoint. Falls back to the summary object if it isn't found there.
+  const findFoodInMenu = (foodId: string): MenuItem | undefined => {
+    if (!Array.isArray(menu)) return undefined;
+    for (const cat of menu) {
+      const match = (cat.foods || []).find((f: any) => f.id === foodId);
+      if (match) return match as MenuItem;
+    }
+    return undefined;
+  };
+
+  const openItemModalById = (food: any) => {
+    if (food.isOutOfStock) return;
+    setShowRecommendedModal(false);
+    handleItemClick(findFoodInMenu(food.id) || food);
+  };
+
   const handleItemClick = (item: MenuItem) => {
     if ((item as any).isOutOfStock) {
       toast.error(
@@ -876,7 +900,11 @@ export default function RestaurantItms({
                   e.stopPropagation();
                   handleItemClick(item);
                 }}
-                className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl"
+                className="p-2 transition-all duration-200 rounded-xl cursor-pointer shadow-sm active:scale-95 flex items-center justify-center"
+                style={{
+                  backgroundColor: firstColor,
+                  color: textFirstColor,
+                }}
               >
                 <Plus size={18} />
               </div>
@@ -1642,7 +1670,10 @@ export default function RestaurantItms({
         {/* ── RECOMMENDED FOODS POPUP ── */}
         {showRecommendedModal && recommendedFoods.length > 0 && (
           <div className="fixed inset-0 z-[130] flex items-end justify-center p-0 sm:items-center sm:p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full sm:max-w-md max-h-[85vh] flex flex-col bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+            <div
+              className="w-full sm:max-w-md max-h-[85vh] flex flex-col bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+              style={{ ["--brand-color" as any]: firstColor }}
+            >
               <div className="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
                 <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100">
                   {isRtl ? "قد يعجبك أيضاً" : "You might also like"}
@@ -1671,15 +1702,11 @@ export default function RestaurantItms({
                   return (
                     <div
                       key={food.id}
-                      onClick={() => {
-                        if (food.isOutOfStock) return;
-                        setShowRecommendedModal(false);
-                        handleItemClick(food);
-                      }}
+                      onClick={() => openItemModalById(food)}
                       className={`flex items-center p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl ${
                         food.isOutOfStock
                           ? "opacity-60 cursor-not-allowed"
-                          : "cursor-pointer hover:border-yellow-400/50 transition-colors"
+                          : "cursor-pointer hover:border-[var(--brand-color)] transition-colors"
                       }`}
                     >
                       <div className="relative flex-shrink-0 w-16 h-16 overflow-hidden rounded-xl bg-white dark:bg-zinc-800">
@@ -1696,7 +1723,10 @@ export default function RestaurantItms({
                           {isRtl ? food.nameAr || food.name : food.name}
                         </h4>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-bold text-yellow-500">
+                          <span
+                            className="text-sm font-bold"
+                            style={{ color: firstColor }}
+                          >
                             {finalPrice.toFixed(2)} E£
                           </span>
                           {hasDisc && (
@@ -1714,12 +1744,14 @@ export default function RestaurantItms({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (food.isOutOfStock) return;
-                          setShowRecommendedModal(false);
-                          handleItemClick(food);
+                          openItemModalById(food);
                         }}
                         disabled={food.isOutOfStock}
-                        className="flex items-center justify-center flex-shrink-0 p-2.5 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl disabled:opacity-50 w-9 h-9"
+                        className="flex items-center justify-center flex-shrink-0 p-2.5 transition-all rounded-xl disabled:opacity-50 w-9 h-9 shadow-sm active:scale-95"
+                        style={{
+                          backgroundColor: firstColor,
+                          color: textFirstColor,
+                        }}
                       >
                         <Plus size={16} />
                       </button>

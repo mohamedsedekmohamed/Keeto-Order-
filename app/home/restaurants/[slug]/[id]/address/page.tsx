@@ -519,6 +519,7 @@ const AddressPage = () => {
                 value={form.landmark}
                 onChange={handleChange}
                 className={`col-span-2 ${inputClass}`}
+                required
               />
             </div>
           </div>

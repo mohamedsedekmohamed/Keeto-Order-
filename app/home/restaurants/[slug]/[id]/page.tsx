@@ -99,28 +99,28 @@ export default function Home() {
   );
   
   const historyOrders: any[] = historyRes?.data?.data || [];
-  const orderId = historyOrders.length > 0 ? historyOrders[0].orderId : null;
-  const { postData, loading: isSubmitting } = usePost(`/api/user/order/${orderId}/rate`);
-
+  //const orderId = historyOrders.length > 0 ? historyOrders[0].orderId : null;
+  
   // Find the most recent delivered order
   const deliveredOrder = historyOrders.find(
     (order) => order.status?.toLowerCase() === "delivered",
   );
-
+  
   useEffect(() => {
     if (!token || !restaurant?.id || !deliveredOrder) return;
-
+    
     const sessionKey = `rating_modal_seen_order_${deliveredOrder.orderId}`;
     const hasSeen = sessionStorage.getItem(sessionKey);
     if (hasSeen) return;
-
+    
     const timer = setTimeout(() => {
       setShowRating(true);
       sessionStorage.setItem(sessionKey, "true");
     }, 1500);
-
+    
     return () => clearTimeout(timer);
   }, [restaurant?.id, token, deliveredOrder?.orderId]);
+  const { postData, loading: isSubmitting } = usePost(`/api/user/order/${deliveredOrder?.orderId}/rate`);
 
   const handleSubmitRating = async () => {
     if (rating === 0) return;
@@ -135,7 +135,7 @@ export default function Home() {
       setRating(0);
       setComment("");
     } catch (err) {
-      router.push("/auth/sign-in");
+     
       console.error("Rating submission failed:", err);
     }
   };

@@ -30,6 +30,7 @@
   "favorites": "Favorites",
   "orderTracking": "Order Tracking",
   "cancelOrder": "Cancel Order",
+  "gotIt":"Got it",
   "cancelReason": "Cancel Reason",
   "noReasonsAvailable": "No reasons available",
   "confirmCancel":" Confirm Cancel",

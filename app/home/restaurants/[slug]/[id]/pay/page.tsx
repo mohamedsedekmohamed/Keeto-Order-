@@ -1407,6 +1407,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
               value={addressForm.landmark}
               onChange={handleInputChange}
               className={`col-span-2 ${inputClass}`}
+              required
             />
           </div>
 
