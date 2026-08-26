@@ -4,79 +4,23 @@ import RestaurantCard from "@/components/UI/RestaurantCard";
 import RestaurantHeader from "@/components/UI/RestaurantHeader";
 import RestaurantItms from "@/components/UI/RestaurantItms";
 import Link from "next/link";
-import { ShoppingBasket, X } from "lucide-react";
+import { ShoppingBasket } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import {
-  useRestaurant,
-  useMenu,
-  useRestaurantSettings,
-} from "@/context/RestaurantContext";
+import { useRestaurant, useMenu } from "@/context/RestaurantContext";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useRef, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
 import { useToken } from "@/context/TokenContext";
 import { setRestaurantId } from "@/context/Restaurantid";
-import useGet from "@/app/hooks/useGet";
 
 import api from "@/api/api";
 import LogoNav from "@/components/LogoNav";
 import NewKeetaLogo from "@/public/PicWhite.jpeg";
 
-// ─────────────────────────────────────────────
-// Restaurant Promo Popup
-// GET /api/user/popup/{restaurantId} — shown once per browser session per
-// restaurant. Uses sessionStorage (not localStorage) so it reappears on a
-// fresh visit/tab but never twice within the same session once dismissed.
-// ─────────────────────────────────────────────
-
-interface RestaurantPopup {
-  id: string;
-  Title: string;
-  TitleAr: string;
-  TitleFr: string;
-  description: string;
-  descriptionAr: string;
-  descriptionFr: string;
-  image: string;
-  imageAr: string;
-  imageFr: string;
-  type: string;
-  startDate: string;
-  endDate: string;
-}
-
-interface PopupApiResponse {
-  success: boolean;
-  data: {
-    message: string;
-    data: RestaurantPopup[];
-  };
-}
-
-function getLocalizedPopupField(
-  popup: RestaurantPopup,
-  field: "Title" | "description" | "image",
-  lang: string,
-) {
-  if (lang === "ar")
-    return popup[`${field}Ar` as keyof RestaurantPopup] || popup[field];
-  if (lang === "fr")
-    return popup[`${field}Fr` as keyof RestaurantPopup] || popup[field];
-  return popup[field];
-}
-
-// Popup images may come back as raw base64 or as a ready-to-use URL/data
-// URI — normalize so <img src> always gets something renderable.
-function toImageSrc(value?: string) {
-  if (!value) return "";
-  if (value.startsWith("data:") || value.startsWith("http")) return value;
-  return `data:image/png;base64,${value}`;
-}
-
 export default function Restaurant() {
   const params = useParams();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const dispatch = useAppDispatch();
   const restaurantName = params.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
@@ -131,45 +75,6 @@ export default function Restaurant() {
 
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
   const { menu, isLoading: menuLoading } = useMenu();
-  const { firstColor, textFirstColor } = useRestaurantSettings();
-
-  // Active promo popup for this restaurant. Skips the request until we
-  // actually have a restaurant id to avoid firing on "/api/user/popup/undefined".
-  const { data: popupResponse } = useGet(
-    restaurant?.id ? `/api/user/popup/${restaurant.id}` : null,
-  ) as { data: PopupApiResponse | null };
-
-  const activePopup: RestaurantPopup | null =
-    popupResponse?.data?.data?.[0] ?? null;
-
-  const [showPromoPopup, setShowPromoPopup] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !activePopup) return;
-    const dismissedKey = `promo_popup_dismissed_${activePopup.id}`;
-    const alreadyDismissed = sessionStorage.getItem(dismissedKey);
-    if (!alreadyDismissed) {
-      setShowPromoPopup(true);
-    }
-  }, [activePopup?.id]);
-
-  const handleClosePromoPopup = () => {
-    if (activePopup && typeof window !== "undefined") {
-      sessionStorage.setItem(`promo_popup_dismissed_${activePopup.id}`, "1");
-    }
-    setShowPromoPopup(false);
-  };
-
-  const lang = language || "en";
-  const popupTitle = activePopup
-    ? getLocalizedPopupField(activePopup, "Title", lang)
-    : "";
-  const popupDescription = activePopup
-    ? getLocalizedPopupField(activePopup, "description", lang)
-    : "";
-  const popupImage = activePopup
-    ? toImageSrc(getLocalizedPopupField(activePopup, "image", lang))
-    : "";
 
   // ✅ Extract the actual items array safely, handling both direct arrays and nested cart objects
   const rawItemsArray = Array.isArray(cartItems)
@@ -277,61 +182,6 @@ export default function Restaurant() {
             {t("view-cart")}
           </span>
         </Link>
-      )}
-
-      {/* Restaurant promo popup — shown once per session, dismissible */}
-      {showPromoPopup && activePopup && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={handleClosePromoPopup}
-        >
-          <div
-            className="relative w-full max-w-sm overflow-hidden bg-white shadow-2xl dark:bg-zinc-900 rounded-3xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={handleClosePromoPopup}
-              aria-label={t("close") || "Close"}
-              className="absolute z-10 flex items-center justify-center w-8 h-8 text-white transition-colors rounded-full top-3 right-3 bg-black/40 hover:bg-black/60"
-            >
-              <X size={18} />
-            </button>
-
-            {popupImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={popupImage}
-                alt={popupTitle}
-                className="object-cover w-full h-48"
-              />
-            )}
-
-            <div className="p-6">
-              <h3
-                className="mb-2 text-xl font-black text-zinc-900 dark:text-white"
-                style={{ color: firstColor }}
-              >
-                {popupTitle}
-              </h3>
-              {popupDescription && (
-                <p className="mb-6 text-sm text-gray-600 dark:text-zinc-400">
-                  {popupDescription}
-                </p>
-              )}
-
-              <button
-                onClick={handleClosePromoPopup}
-                className="w-full py-3 text-sm font-bold transition-all rounded-xl active:scale-95 shadow-md"
-                style={{
-                  backgroundColor: firstColor,
-                  color: textFirstColor,
-                }}
-              >
-                {t("gotIt") || "Got it"}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

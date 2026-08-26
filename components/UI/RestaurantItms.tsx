@@ -26,7 +26,6 @@ import {
   VariationOption,
   MenuCategory,
   useRestaurant,
-  useRestaurantSettings,
 } from "@/context/RestaurantContext";
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
@@ -83,7 +82,6 @@ export default function RestaurantItms({
 
   // ── Restaurant context ────────────────────────────────────────────
   const { restaurant } = useRestaurant();
-  const { firstColor, textFirstColor } = useRestaurantSettings();
 
   // ── Auth ──────────────────────────────────────────────────────────
   const { getToken } = useToken();
@@ -878,11 +876,7 @@ export default function RestaurantItms({
                   e.stopPropagation();
                   handleItemClick(item);
                 }}
-                className="p-2 transition-all duration-200 rounded-xl cursor-pointer shadow-sm active:scale-95 flex items-center justify-center"
-                style={{
-                  backgroundColor: firstColor,
-                  color: textFirstColor,
-                }}
+                className="p-2 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl"
               >
                 <Plus size={18} />
               </div>
@@ -1702,10 +1696,7 @@ export default function RestaurantItms({
                           {isRtl ? food.nameAr || food.name : food.name}
                         </h4>
                         <div className="flex items-center gap-2 mt-1">
-                          <span
-                            className="text-sm font-bold"
-                            style={{ color: firstColor }}
-                          >
+                          <span className="text-sm font-bold text-yellow-500">
                             {finalPrice.toFixed(2)} E£
                           </span>
                           {hasDisc && (
@@ -1728,11 +1719,7 @@ export default function RestaurantItms({
                           handleItemClick(food);
                         }}
                         disabled={food.isOutOfStock}
-                        className="flex items-center justify-center flex-shrink-0 p-2.5 transition-all rounded-xl disabled:opacity-50 w-9 h-9 shadow-sm active:scale-95"
-                        style={{
-                          backgroundColor: firstColor,
-                          color: textFirstColor,
-                        }}
+                        className="flex items-center justify-center flex-shrink-0 p-2.5 text-white transition-colors bg-gray-900 dark:bg-yellow-400 dark:text-zinc-900 rounded-xl disabled:opacity-50 w-9 h-9"
                       >
                         <Plus size={16} />
                       </button>
