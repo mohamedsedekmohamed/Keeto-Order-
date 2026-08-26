@@ -19,6 +19,7 @@ import {
   X,
   FileText,
   AlertCircle,
+  Tag,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -49,6 +50,20 @@ type CartItem = { totalPrice: string | number; [key: string]: any };
 
 export default function Checkout() {
   const [orderNote, setOrderNote] = useState("");
+
+  // Coupon: checked separately from the checkout submission itself, via
+  // /api/user/coupon/check, so the user gets discount feedback (or an
+  // error like "expired"/"not applicable") before they ever hit Confirm.
+  // appliedCoupon holds the last successfully-checked response; editing
+  // the code input after a successful check clears it so a stale discount
+  // can't silently carry over to a code the user hasn't re-validated.
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discount: number;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
   const { t } = useLanguage();
   const router = useRouter();
   const params = useParams();
@@ -148,6 +163,9 @@ export default function Checkout() {
     !!profileUser && (!profileUser.phone || !profileUser.alternatePhone);
 
   const { postData, loading: isSubmitting } = usePost();
+  const { postData: postCouponCheck, loading: isCheckingCoupon } = usePost(
+    "/api/user/coupon/check",
+  );
 
   const data = checkoutData?.data?.data;
   const paymentMethods = data?.paymentMethods || [];
@@ -224,9 +242,11 @@ export default function Checkout() {
   // Modified: Extract service fee from the root data object
   const serviceFee = Number(data?.serviceFee) || 0;
 
+  const couponDiscount = appliedCoupon?.discount || 0;
+
   const total = useMemo(() => {
-    return subtotal + deliveryFee + serviceFee;
-  }, [subtotal, deliveryFee, serviceFee]);
+    return Math.max(0, subtotal + deliveryFee + serviceFee - couponDiscount);
+  }, [subtotal, deliveryFee, serviceFee, couponDiscount]);
 
   useEffect(() => {
     if (data?.addresses?.length > 0 && !selectedAddress) {
@@ -236,6 +256,71 @@ export default function Checkout() {
       setSelectedPayment(paymentMethods[0].id);
     }
   }, [data, selectedAddress, selectedPayment, paymentMethods]);
+
+  // A coupon's discount can depend on deliveryFee (e.g. "free delivery"
+  // style codes), which itself changes when the user switches order type
+  // or picks a different address. Rather than let a stale discount from a
+  // different deliveryFee silently apply, drop the applied coupon whenever
+  // deliveryFee changes and make the user re-check it. The code stays in
+  // the input so they can just hit "Apply" again.
+  const isFirstDeliveryFeeRender = useRef(true);
+  useEffect(() => {
+    if (isFirstDeliveryFeeRender.current) {
+      isFirstDeliveryFeeRender.current = false;
+      return;
+    }
+    if (appliedCoupon) {
+      setAppliedCoupon(null);
+      setCouponError(
+        t("dir") === "rtl"
+          ? "تغيرت تفاصيل الطلب، يرجى إعادة تطبيق الكوبون"
+          : "Order details changed — please re-apply your coupon",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryFee]);
+
+  const handleCheckCoupon = async () => {
+    const trimmedCode = couponCode.trim();
+    if (!trimmedCode) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "يرجى إدخال كود الكوبون"
+          : "Please enter a coupon code",
+      );
+    }
+    if (!params.id) return;
+
+    setCouponError(null);
+
+    try {
+      const res: any = await postCouponCheck({
+        code: trimmedCode,
+        restaurantId: params.id,
+        deliveryFee,
+        subtotal,
+      });
+
+      const result = res?.data?.data || res?.data || res;
+      const discount = Number(result?.discount ?? result?.discountAmount ?? 0);
+
+      setAppliedCoupon({ code: trimmedCode, discount });
+      toast.success(
+        t("dir") === "rtl" ? "تم تطبيق الكوبون بنجاح" : "Coupon applied",
+      );
+    } catch (err: any) {
+      // usePost already toasts the server's error message; just reflect
+      // it inline next to the field and make sure no stale discount lingers.
+      setAppliedCoupon(null);
+      setCouponError(err?.message || null);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError(null);
+  };
 
   const handleConfirmOrder = async () => {
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
@@ -266,6 +351,7 @@ export default function Checkout() {
           : null,
       branchId: activeOrderType === "takeaway" ? selectedBranch || null : null,
       note: orderNote,
+      couponCode: appliedCoupon?.code || null,
     };
 
     try {
@@ -525,6 +611,80 @@ export default function Checkout() {
         />
       </section>
 
+      {/* Coupon */}
+      <section className="mb-6 bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+        <h3 className="flex items-center gap-2 mb-4 text-lg font-bold">
+          <Tag size={20} className="text-yellow-500" />{" "}
+          {t("dir") === "rtl" ? "كود الخصم" : "Coupon Code"}
+        </h3>
+
+        {appliedCoupon ? (
+          <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-400 rounded-xl text-theme-first-text">
+                <CheckCircle2 size={18} />
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 dark:text-white">
+                  {appliedCoupon.code}
+                </p>
+                <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                  {t("dir") === "rtl"
+                    ? `تم خصم ${appliedCoupon.discount} ${t("egp")}`
+                    : `${appliedCoupon.discount} ${t("egp")} off applied`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveCoupon}
+              className="p-2 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20 transition-colors"
+              aria-label={
+                t("dir") === "rtl" ? "إزالة الكوبون" : "Remove coupon"
+              }
+            >
+              <X size={18} className="text-yellow-700 dark:text-yellow-400" />
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value);
+                  // Any edit invalidates the previously shown error — the
+                  // user hasn't re-checked this new code yet.
+                  if (couponError) setCouponError(null);
+                }}
+                placeholder={
+                  t("dir") === "rtl" ? "أدخل كود الكوبون" : "Enter coupon code"
+                }
+                className="flex-1 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm uppercase"
+              />
+              <button
+                type="button"
+                onClick={handleCheckCoupon}
+                disabled={isCheckingCoupon || !couponCode.trim()}
+                className="px-5 py-3 font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-sm shrink-0"
+              >
+                {isCheckingCoupon && (
+                  <Loader2 size={16} className="animate-spin" />
+                )}
+                {t("dir") === "rtl" ? "تطبيق" : "Apply"}
+              </button>
+            </div>
+            {couponError && (
+              <div className="flex items-center gap-1.5 mt-2 text-red-500">
+                <AlertCircle size={14} />
+                <p className="text-xs font-bold">{couponError}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* 5. Order Summary */}
       <section className="mb-8 p-5 rounded-2xl border-2 border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
         <h3 className="flex items-center gap-2 mb-4 text-lg font-bold text-gray-900 dark:text-white">
@@ -576,6 +736,19 @@ export default function Checkout() {
               {serviceFee} {t("egp")}
             </span>
           </div>
+
+          {appliedCoupon && couponDiscount > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-1.5">
+                <Tag size={14} className="text-yellow-500" />
+                {t("dir") === "rtl" ? "الخصم" : "Discount"} (
+                {appliedCoupon.code})
+              </span>
+              <span className="text-green-600 dark:text-green-400 font-bold">
+                -{couponDiscount} {t("egp")}
+              </span>
+            </div>
+          )}
 
           <hr className="border-gray-200 dark:border-zinc-800 my-2" />
 
