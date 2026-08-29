@@ -156,11 +156,21 @@ export default function Checkout() {
     isAppleRelayEmail(profileUser.email) &&
     isPlaceholderName(profileUser.name, profileUser.email);
 
+  // Egyptian mobile format: exactly 11 digits, must start with "01".
+  // Used to validate the phone/alternatePhone values as they already
+  // come back from the profile API (not just whether they exist).
+  const isValidEgyptPhone = (value?: string | null): boolean =>
+    !!value && /^01\d{9}$/.test(value.trim());
+
   // Derived directly from the fetched profile — no local state/effect needed.
   // Once refetchProfile() pulls the updated phone fields, this recomputes
   // to false on the next render automatically.
+  // Triggers the popup if either field is missing on the profile OR if a
+  // value exists but is not a valid 11-digit number starting with "01".
   const showPhonePopup =
-    !!profileUser && (!profileUser.phone || !profileUser.alternatePhone);
+    !!profileUser &&
+    (!isValidEgyptPhone(profileUser.phone) ||
+      !isValidEgyptPhone(profileUser.alternatePhone));
 
   const { postData, loading: isSubmitting } = usePost();
   const { postData: postCouponCheck, loading: isCheckingCoupon } = usePost(
@@ -400,8 +410,8 @@ export default function Checkout() {
   }
 
   // Phone / alternate phone are required before checkout can proceed.
-  // If either is missing on the profile, close out the checkout screen
-  // and force the user to complete them first.
+  // If either is missing OR not a valid 11-digit "01..." number on the
+  // profile, close out the checkout screen and force the user to fix it.
   if (showPhonePopup) {
     return (
       <PhonePopup

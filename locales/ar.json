@@ -170,6 +170,8 @@
   "freeDeliveryMinOrderNote": "أضف المزيد من العناصر إلى سلتك لفتح التوصيل المجاني. الحد الأدنى لمبلغ الطلب للحصول على التوصيل المجاني هو",
   "remainingPrepTime": "الوقت المتبقي للتحضير",  
   "orderShouldBeReady":"سيكون طلبك جاهزًا في وقت قصير",
+  "phoneMustBe11Digits":"رقم الهاتف يجب أن يكون 11 رقم",
+  "phoneMustStartWith01":"رقم الهاتف يجب أن يبدأ ب 01",
   "addressTitle":"اسم العنوان ",
   "orderedAt":"تم الطلب في",
   "total": "الإجمالي الكلي",

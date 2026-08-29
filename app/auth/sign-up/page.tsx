@@ -37,6 +37,7 @@ declare global {
 function SignUpForm() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setToken } = useToken();
@@ -87,10 +88,36 @@ function SignUpForm() {
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
   );
+  // Egyptian mobile numbers: exactly 11 digits, must start with "01"
+  const validatePhone = (value: string): string | null => {
+    if (!value) return t("phoneRequired") || "Phone number is required";
+    if (!/^\d+$/.test(value)) {
+      return t("phoneDigitsOnly") || "Phone number must contain digits only";
+    }
+    if (!value.startsWith("01")) {
+      return t("phoneMustStartWith01") || "Phone number must start with 01";
+    }
+    if (value.length !== 11) {
+      return (
+        t("phoneMustBe11Digits") || "Phone number must be exactly 11 digits"
+      );
+    }
+    return null;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
+
+    if (name === "phone") {
+      // Keep digits only and cap at 11 characters as the user types
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 11);
+      setFormData((prev) => ({ ...prev, phone: digitsOnly }));
+      setPhoneError(validatePhone(digitsOnly));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
   const handleSuccessAuth = (token: string) => {
@@ -102,6 +129,13 @@ function SignUpForm() {
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const phoneValidationError = validatePhone(formData.phone);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      return;
+    }
+
     try {
       await signupWithCredentials(
         { ...formData, restaurantId },
@@ -204,15 +238,29 @@ function SignUpForm() {
                   />
                 </div>
                 <input
-                  type="text"
+                  type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  onBlur={() => setPhoneError(validatePhone(formData.phone))}
                   required
+                  inputMode="numeric"
+                  maxLength={11}
+                  pattern="01[0-9]{9}"
                   placeholder="01000000000"
-                  className="w-full py-4 text-gray-900 transition-all border-2 border-transparent outline-none bg-gray-100/50 rounded-2xl ps-12 pe-4 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/10"
+                  aria-invalid={!!phoneError}
+                  className={`w-full py-4 text-gray-900 transition-all border-2 outline-none bg-gray-100/50 rounded-2xl ps-12 pe-4 dark:bg-zinc-800/40 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-zinc-800 focus:ring-4 ${
+                    phoneError
+                      ? "border-red-400 focus:border-red-400 focus:ring-red-400/10"
+                      : "border-transparent focus:border-yellow-400 focus:ring-yellow-400/10"
+                  }`}
                 />
               </div>
+              {phoneError && (
+                <p className="mt-1.5 ms-1 text-xs font-semibold text-red-500">
+                  {phoneError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -276,7 +324,12 @@ function SignUpForm() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            disabled={isSubmitting || isGoogleSubmitting || isAppleLoading}
+            disabled={
+              isSubmitting ||
+              isGoogleSubmitting ||
+              isAppleLoading ||
+              !!validatePhone(formData.phone)
+            }
             className="relative flex items-center justify-center w-full py-4.5 mt-6 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl hover:bg-yellow-500 shadow-xl shadow-yellow-400/20 group disabled:opacity-70 disabled:cursor-not-allowed"
           >
             <span className="flex items-center gap-2">
