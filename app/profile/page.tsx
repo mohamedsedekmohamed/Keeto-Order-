@@ -570,6 +570,21 @@ export default function ProfilePage() {
     }
   };
 
+  // Display-only relabel: takeaway orders are picked up, not delivered, so
+  // once one reaches "out_for_delivery" it reads as "Ready" to the user
+  // instead of the delivery wording. The underlying status value and all
+  // its logic (delivery-man block, cancellation rules, final-status
+  // checks, etc.) are untouched — this only changes what text is shown.
+  const getOrderStatusLabel = (order: any) => {
+    if (
+      order?.orderType === "takeaway" &&
+      order?.status === "out_for_delivery"
+    ) {
+      return t("ready") || (isRtl ? "جاهز" : "Ready");
+    }
+    return t(order?.status) || order?.status;
+  };
+
   const isCancellationAllowed = (status: string) => {
     const normalizedStatus = status?.toLowerCase();
     const forbiddenStatuses = [
@@ -1494,7 +1509,6 @@ export default function ProfilePage() {
                                     {t("landmark") || "علامة مميزة"}:{" "}
                                     {address.landmark}
                                   </p>
-                                  
                                 )}
                               </div>
                             </div>
@@ -1679,10 +1693,12 @@ export default function ProfilePage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <h4 className="font-bold text-gray-900 dark:text-white truncate">
-                                  {isRtl? order.restaurantNameAr: order.restaurantName}
+                                  {isRtl
+                                    ? order.restaurantNameAr
+                                    : order.restaurantName}
                                 </h4>
                                 <span className="text-[10px] font-bold px-2 py-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 rounded-lg uppercase whitespace-nowrap">
-                                  {t(order.status) || order.status}
+                                  {getOrderStatusLabel(order)}
                                 </span>
                               </div>
                               <p className="text-[11px] text-gray-400 mt-0.5">
@@ -1868,7 +1884,9 @@ export default function ProfilePage() {
                           </div>
                           <div>
                             <h2 className="text-xl font-black">
-                              {isRtl ? selectedOrder.restaurantNameAr : selectedOrder.restaurantName}
+                              {isRtl
+                                ? selectedOrder.restaurantNameAr
+                                : selectedOrder.restaurantName}
                             </h2>
                             <p className="text-xs text-gray-400">
                               {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
@@ -2086,7 +2104,7 @@ export default function ProfilePage() {
                               {t("orderStatus") || "حالة الطلب"}
                             </p>
                             <p className="text-lg font-black leading-none">
-                              {t(selectedOrder.status) || selectedOrder.status}
+                              {getOrderStatusLabel(selectedOrder)}
                             </p>
                           </div>
                         </div>

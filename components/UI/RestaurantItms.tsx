@@ -160,6 +160,20 @@ export default function RestaurantItms({
   const [addingRecommendedId, setAddingRecommendedId] = useState<string | null>(
     null,
   );
+  // Per-item selection state for the upselling ("You might also like")
+  // dialog — each recommended food gets its own quantity / variations /
+  // addons so the whole thing can be configured and added to cart right
+  // there, without opening the separate item modal.
+  const [recommendedSelections, setRecommendedSelections] = useState<
+    Record<
+      string,
+      {
+        quantity: number;
+        selectedOptions: Record<string, string[]>;
+        selectedAddons: string[];
+      }
+    >
+  >({});
 
   // ── Fulfillment states ────────────────────────────────────────────
   const [showFulfillmentDialog, setShowFulfillmentDialog] = useState(false);
@@ -338,10 +352,7 @@ export default function RestaurantItms({
 
   const setStoredFulfillment = (mode: "delivery" | "takeaway", id: string) => {
     if (typeof window === "undefined" || !id) return;
-    localStorage.setItem(
-      fulfillmentStorageKey,
-      JSON.stringify({ mode, id }),
-    );
+    localStorage.setItem(fulfillmentStorageKey, JSON.stringify({ mode, id }));
   };
 
   const clearStoredFulfillment = () => {
@@ -497,11 +508,11 @@ export default function RestaurantItms({
   // ── Item modal helpers ────────────────────────────────────────────
   // The "recommended foods" (upsell) endpoint returns a lighter summary
   // object per food (no variations/addons, and price fields computed
-  // differently than the main menu). To open the SAME "choose it" dialog
-  // used everywhere else with the item's real, full data, we look the
-  // food up in the already-loaded `menu` (which has the full MenuItem
-  // shape) and prefer that over the summary object from the recommended
-  // endpoint. Falls back to the summary object if it isn't found there.
+  // differently than the main menu). To show full item data (variations,
+  // addons, description) in the upselling dialog, we look the food up in
+  // the already-loaded `menu` (which has the full MenuItem shape) and
+  // prefer that over the summary object from the recommended endpoint.
+  // Falls back to the summary object if it isn't found there.
   const findFoodInMenu = (foodId: string): MenuItem | undefined => {
     if (!Array.isArray(menu)) return undefined;
     for (const cat of menu) {
@@ -509,12 +520,6 @@ export default function RestaurantItms({
       if (match) return match as MenuItem;
     }
     return undefined;
-  };
-
-  const openItemModalById = (food: any) => {
-    if (food.isOutOfStock) return;
-    setShowRecommendedModal(false);
-    handleItemClick(findFoodInMenu(food.id) || food);
   };
 
   const handleItemClick = (item: MenuItem) => {
@@ -650,18 +655,135 @@ export default function RestaurantItms({
   };
 
   // ── Recommended foods ──────────────────────────────────────────────
+  // Build the default selection (quantity 1, required single-selection
+  // variations pre-picked, no addons) for one recommended food — mirrors
+  // handleItemClick's init logic but keyed per-food instead of global.
+  const initRecommendedSelection = (food: any) => {
+    const init: Record<string, string[]> = {};
+    (food.variations || []).forEach((v: Variation) => {
+      init[v.id] =
+        v.selectionType === "single" && v.isRequired && v.options.length > 0
+          ? [v.options[0].id]
+          : [];
+    });
+    return {
+      quantity: 1,
+      selectedOptions: init,
+      selectedAddons: [] as string[],
+    };
+  };
+
   const fetchRecommendedFoods = async (foodId: string) => {
     if (!foodId) return;
     try {
       const res = await api.get(`/api/user/recommended-foods/${foodId}`);
       const foods = res?.data?.data?.data;
       if (Array.isArray(foods) && foods.length > 0) {
-        setRecommendedFoods(foods);
+        // The recommended endpoint returns a lightweight summary (no
+        // variations/addons). Prefer the full item from the already
+        // loaded menu so the upselling card can show everything and let
+        // the user pick variations/addons inline.
+        const fullFoods = foods.map((f: any) => findFoodInMenu(f.id) || f);
+        setRecommendedFoods(fullFoods);
+        setRecommendedSelections((prev) => {
+          const next = { ...prev };
+          fullFoods.forEach((f: any) => {
+            next[f.id] = initRecommendedSelection(f);
+          });
+          return next;
+        });
         setShowRecommendedModal(true);
       }
     } catch (e) {
       console.error("Error fetching recommended foods:", e);
     }
+  };
+
+  const handleRecommendedOptionSelect = (
+    food: any,
+    variation: Variation,
+    option: VariationOption,
+  ) => {
+    if (!token) {
+      toast.error(t("loginFirst"));
+      return;
+    }
+    setRecommendedSelections((prev) => {
+      const sel = prev[food.id] || initRecommendedSelection(food);
+      const cur = sel.selectedOptions[variation.id] || [];
+      let nextOptions: string[];
+
+      if (variation.selectionType === "single") {
+        nextOptions = cur.includes(option.id) ? [] : [option.id];
+      } else if (cur.includes(option.id)) {
+        nextOptions = cur.filter((id) => id !== option.id);
+      } else if (variation.max !== null && cur.length >= variation.max) {
+        nextOptions = cur;
+      } else {
+        nextOptions = [...cur, option.id];
+      }
+
+      return {
+        ...prev,
+        [food.id]: {
+          ...sel,
+          selectedOptions: {
+            ...sel.selectedOptions,
+            [variation.id]: nextOptions,
+          },
+        },
+      };
+    });
+  };
+
+  const handleRecommendedAddonToggle = (food: any, addonId: string) => {
+    if (!token) {
+      toast.error(t("loginFirst"));
+      return;
+    }
+    setRecommendedSelections((prev) => {
+      const sel = prev[food.id] || initRecommendedSelection(food);
+      const nextAddons = sel.selectedAddons.includes(addonId)
+        ? sel.selectedAddons.filter((id) => id !== addonId)
+        : [...sel.selectedAddons, addonId];
+      return { ...prev, [food.id]: { ...sel, selectedAddons: nextAddons } };
+    });
+  };
+
+  const handleRecommendedQuantityChange = (foodId: string, delta: number) => {
+    setRecommendedSelections((prev) => {
+      const sel = prev[foodId];
+      if (!sel) return prev;
+      return {
+        ...prev,
+        [foodId]: { ...sel, quantity: Math.max(1, sel.quantity + delta) },
+      };
+    });
+  };
+
+  const calculateRecommendedItemPrice = (food: any) => {
+    const sel = recommendedSelections[food.id];
+    if (!sel) return getEffectivePrice(food);
+    let total = getEffectivePrice(food);
+
+    Object.entries(sel.selectedOptions).forEach(([vId, optIds]) => {
+      const v = food.variations?.find((x: any) => x.id === vId);
+      if (v)
+        optIds.forEach((oId) => {
+          const o = v.options.find((x: any) => x.id === oId);
+          if (o) total += parseFloat(o.additionalPrice || "0");
+        });
+    });
+
+    if (Array.isArray(food.addons)) {
+      food.addons.forEach((addon: AddonItem) => {
+        if (sel.selectedAddons.includes(addon.id)) {
+          total += parseFloat(addon.price || "0");
+        }
+      });
+    }
+
+    return total * sel.quantity;
   };
 
   const handleAddRecommendedToCart = async (food: any) => {
@@ -670,21 +792,74 @@ export default function RestaurantItms({
       router.push("/auth/sign-in/?callbackSlug=" + restaurantSlug);
       return;
     }
+
+    const sel =
+      recommendedSelections[food.id] || initRecommendedSelection(food);
+
+    const missingRequiredVariation = (food.variations || []).some(
+      (variation: Variation) =>
+        variation.isRequired &&
+        (!sel.selectedOptions[variation.id] ||
+          sel.selectedOptions[variation.id].length === 0),
+    );
+    if (missingRequiredVariation) {
+      toast.error(
+        isRtl
+          ? "يرجى اختيار جميع الخيارات المطلوبة"
+          : "Please select all required options",
+      );
+      return;
+    }
+
+    const variations = Object.entries(sel.selectedOptions).flatMap(
+      ([vId, optIds]) =>
+        optIds.map((oId) => ({ variationId: vId, optionId: oId })),
+    );
+    const addons = (food.addons || [])
+      .filter((addon: AddonItem) => sel.selectedAddons.includes(addon.id))
+      .map((addon: AddonItem) => ({
+        addonId: addon.id,
+        name: addon.name,
+        price: addon.price,
+      }));
+
+    const payload = {
+      foodId: food.id,
+      quantity: sel.quantity,
+      variations,
+      addons,
+      note: "",
+    };
+
     try {
       setAddingRecommendedId(food.id);
-      await api.post("/api/user/cart", { foodId: food.id, quantity: 1 });
+      await api.post("/api/user/cart", payload);
       const newExpiry = Date.now() + 60 * 60 * 1000;
       localStorage.setItem("cart-expiry", newExpiry.toString());
 
       toast.success(t("addedToCart"));
       onCartUpdated();
+
+      // Reset this item's picks back to defaults but keep the upselling
+      // dialog open so the user can keep browsing / add more items.
+      setRecommendedSelections((prev) => ({
+        ...prev,
+        [food.id]: initRecommendedSelection(food),
+      }));
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 409) {
-        // Same residual-cart conflict as the main add-to-cart flow
-        setPendingCartPayload({ foodId: food.id, quantity: 1 });
+        // Same residual-cart conflict as the main add-to-cart flow. The
+        // conflict dialog renders at a lower z-index than this modal, so
+        // it needs the upselling dialog out of the way to be visible.
+        setPendingCartPayload(payload);
         setShowConflictDialog(true);
         setShowRecommendedModal(false);
+      } else if (status === 400) {
+        const errorMsg =
+          error.response?.data?.error?.message ||
+          (isRtl ? "حدث خطأ ما، حاول مرة أخرى" : "Something went wrong");
+        toast.error(errorMsg);
       } else if (status === 401) {
         toast.error(t("loginFirst"));
       } else if (error?.response) {
@@ -1762,75 +1937,254 @@ export default function RestaurantItms({
                 </button>
               </div>
 
-              <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
                 {recommendedFoods.map((food) => {
                   const price = parseFloat(food.price || "0");
-                  const hasDisc =
-                    food.discountValue !== null &&
-                    food.discountValue !== undefined &&
-                    food.discountValue !== "";
+                  const hasDisc = hasDiscount(food);
                   const finalPrice = hasDisc
                     ? food.discountType === "percentage"
                       ? price - (price * parseFloat(food.discountValue)) / 100
                       : price - parseFloat(food.discountValue)
                     : price;
 
+                  const sel =
+                    recommendedSelections[food.id] ||
+                    initRecommendedSelection(food);
+                  const isAdding = addingRecommendedId === food.id;
+
                   return (
                     <div
                       key={food.id}
-                      onClick={() => openItemModalById(food)}
-                      className={`flex items-center p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl ${
-                        food.isOutOfStock
-                          ? "opacity-60 cursor-not-allowed"
-                          : "cursor-pointer hover:border-[var(--brand-color)] transition-colors"
+                      className={`bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden ${
+                        food.isOutOfStock ? "opacity-60" : ""
                       }`}
                     >
-                      <div className="relative flex-shrink-0 w-16 h-16 overflow-hidden rounded-xl bg-white dark:bg-zinc-800">
-                        <img
-                          src={food.image}
-                          alt={food.name}
-                          className={`object-cover w-full h-full ${
-                            food.isOutOfStock ? "grayscale opacity-60" : ""
-                          }`}
-                        />
-                      </div>
-                      <div className={`flex-1 ${isRtl ? "mr-3" : "ml-3"}`}>
-                        <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 line-clamp-1">
-                          {isRtl ? food.nameAr || food.name : food.name}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span
-                            className="text-sm font-bold"
-                            style={{ color: firstColor }}
-                          >
-                            {finalPrice.toFixed(2)} E£
-                          </span>
-                          {hasDisc && (
-                            <span className="text-xs line-through text-zinc-400">
-                              {price.toFixed(2)} E£
+                      {/* ── Header: image + name + price ── */}
+                      <div className="flex items-center p-3 gap-3">
+                        <div className="relative flex-shrink-0 w-16 h-16 overflow-hidden rounded-xl bg-white dark:bg-zinc-800">
+                          <img
+                            src={food.image}
+                            alt={food.name}
+                            className={`object-cover w-full h-full ${
+                              food.isOutOfStock ? "grayscale opacity-60" : ""
+                            }`}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                            {isRtl ? food.nameAr || food.name : food.name}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span
+                              className="text-sm font-bold"
+                              style={{ color: firstColor }}
+                            >
+                              {finalPrice.toFixed(2)} E£
+                            </span>
+                            {hasDisc && (
+                              <span className="text-xs line-through text-zinc-400">
+                                {price.toFixed(2)} E£
+                              </span>
+                            )}
+                          </div>
+                          {food.isOutOfStock && (
+                            <span className="text-[10px] font-black text-red-500">
+                              {isRtl ? "نفذت الكمية" : "Out of Stock"}
                             </span>
                           )}
                         </div>
-                        {food.isOutOfStock && (
-                          <span className="text-[10px] font-black text-red-500">
-                            {isRtl ? "نفذت الكمية" : "Out of Stock"}
-                          </span>
-                        )}
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openItemModalById(food);
-                        }}
-                        disabled={food.isOutOfStock}
-                        className="flex items-center justify-center flex-shrink-0 p-2.5 transition-all rounded-xl disabled:opacity-50 w-9 h-9 shadow-sm active:scale-95"
-                        style={{
-                          backgroundColor: firstColor,
-                          color: textFirstColor,
-                        }}
-                      >
-                        <Plus size={16} />
-                      </button>
+
+                      {!food.isOutOfStock && (
+                        <div className="px-3 pb-3 space-y-3">
+                          {food.description && (
+                            <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                              {isRtl
+                                ? food.descriptionAr || food.description
+                                : food.description}
+                            </p>
+                          )}
+
+                          {/* ── Variations ── */}
+                          {Array.isArray(food.variations) &&
+                            food.variations.length > 0 &&
+                            food.variations.map((variation: Variation) => (
+                              <div key={`rec-variation-${variation.id}`}>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                                    {isRtl ? variation.nameAr : variation.name}
+                                  </span>
+                                  {variation.isRequired && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-black text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-100/40 dark:border-red-900/30">
+                                      {isRtl ? "مطلوب" : "Required"}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {Array.isArray(variation.options) &&
+                                    variation.options.map((option) => {
+                                      const isSelected = (
+                                        sel.selectedOptions[variation.id] || []
+                                      ).includes(option.id);
+                                      return (
+                                        <label
+                                          key={`rec-option-${option.id}`}
+                                          onClick={() =>
+                                            handleRecommendedOptionSelect(
+                                              food,
+                                              variation,
+                                              option,
+                                            )
+                                          }
+                                          className={`flex items-center justify-between px-3 py-2 border rounded-xl cursor-pointer transition-all select-none ${
+                                            isSelected
+                                              ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 ring-1 ring-yellow-400"
+                                              : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              type={
+                                                variation.selectionType ===
+                                                "single"
+                                                  ? "radio"
+                                                  : "checkbox"
+                                              }
+                                              name={`rec-${food.id}-${variation.id}`}
+                                              checked={isSelected}
+                                              readOnly
+                                              className="w-4 h-4 accent-yellow-400"
+                                            />
+                                            <span
+                                              className={`text-xs ${
+                                                isSelected
+                                                  ? "font-black text-zinc-950 dark:text-zinc-50"
+                                                  : "font-semibold text-zinc-600 dark:text-zinc-400"
+                                              }`}
+                                            >
+                                              {isRtl
+                                                ? option.nameAr
+                                                : option.name}
+                                            </span>
+                                          </div>
+                                          {parseFloat(option.additionalPrice) >
+                                            0 && (
+                                            <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400">
+                                              + {option.additionalPrice} E£
+                                            </span>
+                                          )}
+                                        </label>
+                                      );
+                                    })}
+                                </div>
+                              </div>
+                            ))}
+
+                          {/* ── Addons ── */}
+                          {Array.isArray(food.addons) &&
+                            food.addons.length > 0 && (
+                              <div>
+                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1.5">
+                                  {isRtl ? "الإضافات" : "Add-ons"}
+                                </span>
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {food.addons.map((addon: AddonItem) => {
+                                    const isAddonSelected =
+                                      sel.selectedAddons.includes(addon.id);
+                                    return (
+                                      <label
+                                        key={`rec-addon-${addon.id}`}
+                                        className={`flex items-center justify-between px-3 py-2 border rounded-xl cursor-pointer transition-all select-none ${
+                                          isAddonSelected
+                                            ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 ring-1 ring-yellow-400"
+                                            : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={isAddonSelected}
+                                            onChange={() =>
+                                              handleRecommendedAddonToggle(
+                                                food,
+                                                addon.id,
+                                              )
+                                            }
+                                            className="w-4 h-4 accent-yellow-400"
+                                          />
+                                          <span
+                                            className={`text-xs ${
+                                              isAddonSelected
+                                                ? "font-black text-zinc-950 dark:text-zinc-50"
+                                                : "font-semibold text-zinc-600 dark:text-zinc-400"
+                                            }`}
+                                          >
+                                            {isRtl ? addon.nameAr : addon.name}
+                                          </span>
+                                        </div>
+                                        {parseFloat(addon.price) > 0 && (
+                                          <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400">
+                                            + {addon.price} E£
+                                          </span>
+                                        )}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                          {/* ── Quantity + Add to cart ── */}
+                          <div className="flex items-center justify-between gap-3 pt-1">
+                            <div className="flex items-center gap-2 p-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl">
+                              <button
+                                onClick={() =>
+                                  handleRecommendedQuantityChange(food.id, -1)
+                                }
+                                className="flex items-center justify-center w-7 h-7 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 rounded-lg transition-all active:scale-90"
+                              >
+                                <Minus size={14} strokeWidth={2.5} />
+                              </button>
+                              <span className="w-5 text-sm font-black text-center text-zinc-800 dark:text-zinc-100 tabular-nums">
+                                {sel.quantity}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  handleRecommendedQuantityChange(food.id, 1)
+                                }
+                                className="flex items-center justify-center w-7 h-7 text-zinc-900 bg-yellow-400 hover:bg-yellow-500 rounded-lg transition-all active:scale-90"
+                              >
+                                <Plus size={14} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => handleAddRecommendedToCart(food)}
+                              disabled={isAdding}
+                              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                              style={{
+                                backgroundColor: firstColor,
+                                color: textFirstColor,
+                              }}
+                            >
+                              {isAdding ? (
+                                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <>
+                                  <Plus size={14} strokeWidth={2.5} />
+                                  {(() => {
+                                    const label = t("addToCart");
+                                    const totalPrice =
+                                      calculateRecommendedItemPrice(
+                                        food,
+                                      ).toFixed(2);
+                                    return `${label} · ${totalPrice} E£`;
+                                  })()}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
