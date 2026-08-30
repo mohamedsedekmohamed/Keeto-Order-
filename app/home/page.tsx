@@ -1,12 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { RefreshCw, Utensils, LayoutGrid, Store, ChevronRight } from "lucide-react";
+import {
+  RefreshCw,
+  Utensils,
+  LayoutGrid,
+  Store,
+  ChevronRight,
+  Search,
+  X,
+} from "lucide-react";
 import useGet from "@/app/hooks/useGet";
 import { useLanguage } from "../../context/LanguageContext";
 import Loading from "@/components/Loading";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 
 // --- دالة تحويل الاسم لـ Slug نظيف ---
@@ -21,8 +29,16 @@ const slugify = (text: string) => {
     .replace(/\-\-+/g, "-");
 };
 
-interface Cuisine { id: string; name: string; image: string; }
-interface Category { id: string; name: string; image: string; }
+interface Cuisine {
+  id: string;
+  name: string;
+  image: string;
+}
+interface Category {
+  id: string;
+  name: string;
+  image: string;
+}
 interface Restaurant {
   id: string;
   name: string;
@@ -46,19 +62,32 @@ interface HomeData {
 export default function HomePage() {
   const { t, language } = useLanguage();
   const isRtl = language === "العربية";
-  
+
   const { data, loading, error, refetch } = useGet<HomeData>("/api/user/home");
   const content = data?.data?.data;
+
+  const [restaurantSearch, setRestaurantSearch] = useState("");
+
+  const filteredRestaurants = useMemo(() => {
+    const list = content?.restaurants || [];
+    const query = restaurantSearch.trim().toLowerCase();
+    if (!query) return list;
+    return list.filter((restaurant) => {
+      const name = (restaurant.name || "").toLowerCase();
+      const address = (restaurant.address || "").toLowerCase();
+      return name.includes(query) || address.includes(query);
+    });
+  }, [content?.restaurants, restaurantSearch]);
 
   // --- حفظ الـ ID والاسم الأصلي بدقة مقابل الـ Slug النظيف ---
   useEffect(() => {
     if (content?.restaurants) {
       const slugMap = content.restaurants.reduce(
         (acc, r) => {
-          const cleanSlug = slugify(r.name); 
+          const cleanSlug = slugify(r.name);
           acc[cleanSlug] = {
             id: r.id,
-            originalName: r.name // مثل: "Mata'am Wast Albalad"
+            originalName: r.name, // مثل: "Mata'am Wast Albalad"
           };
           return acc;
         },
@@ -81,7 +110,9 @@ export default function HomePage() {
           <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 text-red-500 bg-red-100 dark:bg-red-500/10 rounded-2xl">
             <RefreshCw size={32} />
           </div>
-          <p className="mb-6 font-bold text-gray-900 dark:text-white">{error}</p>
+          <p className="mb-6 font-bold text-gray-900 dark:text-white">
+            {error}
+          </p>
           <button
             onClick={refetch}
             className="flex items-center gap-2 px-8 py-3 mx-auto font-black text-gray-900 transition-all bg-yellow-400 shadow-lg rounded-2xl hover:bg-yellow-500 shadow-yellow-400/20"
@@ -108,7 +139,9 @@ export default function HomePage() {
           >
             {t("hello")} <span className="text-yellow-400">👋</span>
           </motion.h1>
-          <p className="font-medium text-gray-500 dark:text-zinc-400">{t("welcomeBack")}</p>
+          <p className="font-medium text-gray-500 dark:text-zinc-400">
+            {t("welcomeBack")}
+          </p>
         </header>
 
         {/* Cuisines Section */}
@@ -122,7 +155,11 @@ export default function HomePage() {
 
           <div className="flex gap-6 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
             {content?.cuisines?.map((cuisine, index) => (
-              <Link key={cuisine.id} href={`/home/cuisines/${cuisine.id}`} className="block flex-shrink-0">
+              <Link
+                key={cuisine.id}
+                href={`/home/cuisines/${cuisine.id}`}
+                className="block flex-shrink-0"
+              >
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -136,7 +173,9 @@ export default function HomePage() {
                       className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 flex items-end justify-center p-4 bg-gradient-to-t from-black/90 via-black/20 to-transparent">
-                      <span className="font-bold tracking-wide text-center text-white">{cuisine.name}</span>
+                      <span className="font-bold tracking-wide text-center text-white">
+                        {cuisine.name}
+                      </span>
                     </div>
                   </div>
                 </motion.div>
@@ -156,7 +195,11 @@ export default function HomePage() {
 
           <div className="flex gap-5 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
             {content?.categories?.map((category, index) => (
-              <Link key={category.id} href={`/home/categories/${category.id}`} className="block flex-shrink-0 w-36 sm:w-40">
+              <Link
+                key={category.id}
+                href={`/home/categories/${category.id}`}
+                className="block flex-shrink-0 w-36 sm:w-40"
+              >
                 <motion.div
                   whileHover={{ y: -8 }}
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -183,10 +226,41 @@ export default function HomePage() {
 
         {/* Restaurants Section */}
         <section className="space-y-6">
-          <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-            <Store size={24} className="text-yellow-400" />
-            {t("restaurants") || "المطاعم"}
-          </h2>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
+              <Store size={24} className="text-yellow-400" />
+              {t("restaurants") || "المطاعم"}
+            </h2>
+
+            <div className="relative w-full sm:w-72">
+              <Search
+                size={18}
+                className={`absolute top-1/2 -translate-y-1/2 text-gray-400 ${
+                  isRtl ? "right-4" : "left-4"
+                }`}
+              />
+              <input
+                type="text"
+                value={restaurantSearch}
+                onChange={(e) => setRestaurantSearch(e.target.value)}
+                placeholder={t("searchRestaurants") || "ابحث عن مطعم..."}
+                className={`w-full py-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm font-medium text-gray-800 dark:text-zinc-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/40 transition-all ${
+                  isRtl ? "pr-11 pl-9" : "pl-11 pr-9"
+                }`}
+              />
+              {restaurantSearch && (
+                <button
+                  type="button"
+                  onClick={() => setRestaurantSearch("")}
+                  className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 ${
+                    isRtl ? "left-3" : "right-3"
+                  }`}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </div>
 
           {content?.restaurants?.length === 0 ? (
             <motion.div
@@ -194,11 +268,23 @@ export default function HomePage() {
               animate={{ opacity: 1 }}
               className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
             >
-              <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">{t("noRestaurants")}</p>
+              <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
+                {t("noRestaurants")}
+              </p>
+            </motion.div>
+          ) : filteredRestaurants.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
+            >
+              <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
+                {t("noRestaurantsMatch") || "لا توجد نتائج مطابقة للبحث"}
+              </p>
             </motion.div>
           ) : (
             <div className="flex gap-6 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
-              {content?.restaurants?.map((restaurant, index) => {
+              {filteredRestaurants.map((restaurant, index) => {
                 const restaurantSlug = slugify(restaurant.name);
 
                 return (
@@ -247,7 +333,10 @@ export default function HomePage() {
                           </span>
 
                           <div className="flex items-center justify-center w-10 h-10 text-gray-400 transition-colors rounded-xl bg-gray-50 dark:bg-zinc-800 group-hover:bg-yellow-400 group-hover:text-gray-900">
-                            <ChevronRight size={20} className={isRtl ? "" : "rotate-180"} />
+                            <ChevronRight
+                              size={20}
+                              className={isRtl ? "" : "rotate-180"}
+                            />
                           </div>
                         </div>
                       </div>

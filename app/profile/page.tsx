@@ -412,6 +412,7 @@ export default function ProfilePage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedReasonId, setSelectedReasonId] = useState<string>("");
   const [cancelReasons, setCancelReasons] = useState<any[]>([]);
+  const [customCancelReason, setCustomCancelReason] = useState<string>("");
 
   const {
     data: profileResponse,
@@ -517,6 +518,8 @@ export default function ProfilePage() {
   }, [activeTab, orderSubTab, selectedOrderId, refetchActiveOrders]);
   const handleOpenCancelModal = async () => {
     setShowCancelModal(true);
+    setSelectedReasonId("");
+    setCustomCancelReason("");
     try {
       const response = await api.get(
         `/api/user/order/select?restaurantId=${restaurantId}&orderSource=${getOrderSource()}`,
@@ -540,14 +543,28 @@ export default function ProfilePage() {
       return;
     }
 
+    const isOtherReason = selectedReasonId === "other";
+
+    if (isOtherReason && !customCancelReason.trim()) {
+      toast.error(t("pleaseWriteReason") || "برجاء كتابة سبب الإلغاء");
+      return;
+    }
+
     setUpdatingOrderStatus(true);
     try {
+      const payload: Record<string, any> = {
+        status: "cancelled",
+      };
+
+      if (isOtherReason) {
+        payload.customReason = customCancelReason.trim();
+      } else {
+        payload.cancelReasonId = selectedReasonId;
+      }
+
       const response = await api.put(
         `/api/user/order/${selectedOrderId}/cancel`,
-        {
-          status: "cancelled",
-          cancelReasonId: selectedReasonId,
-        },
+        payload,
       );
 
       if (response.data.success || response.status === 200) {
@@ -557,6 +574,7 @@ export default function ProfilePage() {
         setShowCancelModal(false);
         setSelectedOrderId(null);
         setSelectedReasonId("");
+        setCustomCancelReason("");
         refetchActiveOrders?.();
         refetchHistoryOrders?.();
       } else {
@@ -2157,7 +2175,7 @@ export default function ProfilePage() {
                     "برجاء اختيار سبب الإلغاء قبل المتابعة"}
                 </p>
 
-                <div className="w-full space-y-2 max-h-[200px] overflow-y-auto pr-1 mb-6">
+                <div className="w-full space-y-2 max-h-[200px] overflow-y-auto pr-1 mb-3">
                   {cancelReasons.length > 0 ? (
                     cancelReasons.map((reason: any) => (
                       <label
@@ -2186,18 +2204,61 @@ export default function ProfilePage() {
                       {t("noReasonsAvailable") || "لا توجد أسباب متاحة"}
                     </p>
                   )}
+
+                  <label
+                    className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                      selectedReasonId === "other"
+                        ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                        : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                    }`}
+                  >
+                    <span className="text-sm text-gray-800 dark:text-zinc-200">
+                      {t("otherReason") || "أخرى"}
+                    </span>
+                    <input
+                      type="radio"
+                      name="cancelReason"
+                      value="other"
+                      checked={selectedReasonId === "other"}
+                      onChange={() => setSelectedReasonId("other")}
+                      className="w-4 h-4 accent-red-500 cursor-pointer"
+                    />
+                  </label>
                 </div>
+
+                {selectedReasonId === "other" && (
+                  <div className="w-full mb-6">
+                    <textarea
+                      value={customCancelReason}
+                      onChange={(e) => setCustomCancelReason(e.target.value)}
+                      placeholder={
+                        t("writeYourReason") || "برجاء كتابة سبب الإلغاء"
+                      }
+                      rows={3}
+                      className="w-full p-3 text-sm rounded-2xl border border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900 text-gray-800 dark:text-zinc-200 resize-none focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                )}
 
                 <div className="flex gap-3 w-full">
                   <button
-                    onClick={() => setShowCancelModal(false)}
+                    onClick={() => {
+                      setShowCancelModal(false);
+                      setSelectedReasonId("");
+                      setCustomCancelReason("");
+                    }}
                     className="flex-1 py-3 text-sm font-bold text-gray-500 bg-gray-100 dark:bg-zinc-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
                   >
                     {t("back") || "تراجع"}
                   </button>
                   <button
                     onClick={handleCancelOrderSubmit}
-                    disabled={updatingOrderStatus || !selectedReasonId}
+                    disabled={
+                      updatingOrderStatus ||
+                      !selectedReasonId ||
+                      (selectedReasonId === "other" &&
+                        !customCancelReason.trim())
+                    }
                     className="flex-1 py-3 text-sm font-bold text-white bg-red-600 rounded-2xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-red-600/10 flex items-center justify-center gap-2"
                   >
                     {updatingOrderStatus ? (
