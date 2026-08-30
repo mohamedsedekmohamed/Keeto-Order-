@@ -2014,7 +2014,7 @@ export default function ProfilePage() {
                                           >
                                             <span>
                                               •{" "}
-                                              {v.optionName ||
+                                              {(isRtl ? v.optionNameAr : v.optionName) ||
                                                 v.name ||
                                                 t("variation")}
                                             </span>
