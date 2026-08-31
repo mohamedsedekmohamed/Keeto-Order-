@@ -357,7 +357,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
   const isArabic = String(language).toLowerCase() === "ar";
   const callbackSlug = searchParams.get("callbackSlug");
@@ -371,6 +370,15 @@ export default function ProfilePage() {
   const [storedRestaurantId, setStoredRestaurantId] = useState<string | null>(
     null,
   );
+  const hasTab = searchParams.has("tab");
+
+  const handleNavigation = () => {
+  if (!hasTab) {
+    router.back();
+  } else {
+    router.push(`/home/restaurants/${restaurantSlug}/restaurant`);
+  }
+};
   useEffect(() => {
     if (restaurantSlug) {
       setStoredRestaurantId(getRestaurantId(restaurantSlug));
@@ -383,10 +391,30 @@ export default function ProfilePage() {
     setMounted(true);
   }, []);
 
-  // Active Tab State (can be null if all are closed, or one of the sections)
-  const [activeTab, setActiveTab] = useState<
-    "general" | "addresses" | "favorites" | "tracking" | null
-  >(null);
+  // Active Tab State (can be null if all are closed, or one of the sections).
+  // Reads the initial value from ?tab=... so links like
+  // /profile?tab=tracking (e.g. the post-checkout redirect) actually open
+  // the right section instead of always landing with everything closed.
+  const VALID_TABS = ["general", "addresses", "favorites", "tracking"] as const;
+  type TabKey = (typeof VALID_TABS)[number];
+  const isValidTab = (value: string | null): value is TabKey =>
+    !!value && (VALID_TABS as readonly string[]).includes(value);
+
+  const [activeTab, setActiveTab] = useState<TabKey | null>(() => {
+    const tabParam = searchParams.get("tab");
+    return isValidTab(tabParam) ? tabParam : null;
+  });
+
+  // If the "tab" query param changes after mount (e.g. the user is
+  // redirected here again from checkout while already on this page,
+  // so no fresh mount happens), keep activeTab in sync with it.
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (isValidTab(tabParam) && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const toggleTab = (
     tab: "general" | "addresses" | "favorites" | "tracking",
@@ -405,7 +433,12 @@ export default function ProfilePage() {
   const [orderSubTab, setOrderSubTab] = useState<"active" | "history">(
     "active",
   );
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  // Picks up ?orderId=... (set by the checkout redirect) so the order that
+  // was just placed opens automatically instead of the user having to find
+  // it in the list themselves.
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
+    () => searchParams.get("orderId") || null,
+  );
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
   const [updatingOrderStatus, setUpdatingOrderStatus] = useState(false);
@@ -982,7 +1015,7 @@ export default function ProfilePage() {
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-yellow-500/5 blur-[130px] rounded-full pointer-events-none" />
 
       <button
-        onClick={() => router.back()}
+        onClick={ handleNavigation}
         className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 start-4 active:scale-95 text-white"
       >
         <ChevronLeft
@@ -1715,9 +1748,19 @@ export default function ProfilePage() {
                                     ? order.restaurantNameAr
                                     : order.restaurantName}
                                 </h4>
-                                <span className="text-[10px] font-bold px-2 py-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 rounded-lg uppercase whitespace-nowrap">
-                                  {getOrderStatusLabel(order)}
-                                </span>
+                                {isFinalOrderStatus(order.status) ? (
+                                  <span className="text-[10px] font-bold px-2 py-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 rounded-lg uppercase whitespace-nowrap">
+                                    {getOrderStatusLabel(order)}
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg uppercase whitespace-nowrap">
+                                    <span className="relative flex w-1.5 h-1.5">
+                                      <span className="absolute inline-flex w-full h-full bg-green-500 rounded-full opacity-75 animate-ping" />
+                                      <span className="relative inline-flex w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                    </span>
+                                    {getOrderStatusLabel(order)}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-[11px] text-gray-400 mt-0.5">
                                 {t("dailyOrderNumber") || "رقم الطلب"} :{" "}
@@ -2014,7 +2057,9 @@ export default function ProfilePage() {
                                           >
                                             <span>
                                               •{" "}
-                                              {(isRtl ? v.optionNameAr : v.optionName) ||
+                                              {(isRtl
+                                                ? v.optionNameAr
+                                                : v.optionName) ||
                                                 v.name ||
                                                 t("variation")}
                                             </span>
@@ -2114,11 +2159,23 @@ export default function ProfilePage() {
 
                       <div className="p-5 bg-yellow-400 rounded-[2rem] text-gray-900 flex items-center justify-between shadow-lg shadow-yellow-400/20">
                         <div className="flex items-center gap-4">
-                          <div className="p-3 bg-white/20 rounded-2xl">
+                          <div className="relative p-3 bg-white/20 rounded-2xl">
                             <ReceiptText size={24} />
+                            {!isFinalOrderStatus(selectedOrder.status) && (
+                              <span className="absolute -top-1 -right-1 flex w-3 h-3">
+                                <span className="absolute inline-flex w-full h-full bg-green-500 rounded-full opacity-75 animate-ping" />
+                                <span className="relative inline-flex w-3 h-3 bg-green-500 border-2 border-yellow-400 rounded-full" />
+                              </span>
+                            )}
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase font-black opacity-60">
+                            <p className="text-[10px] uppercase font-black opacity-60 flex items-center gap-1.5">
+                              {!isFinalOrderStatus(selectedOrder.status) && (
+                                <span className="relative flex w-1.5 h-1.5">
+                                  <span className="absolute inline-flex w-full h-full bg-green-500 rounded-full opacity-75 animate-ping" />
+                                  <span className="relative inline-flex w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                </span>
+                              )}
                               {t("orderStatus") || "حالة الطلب"}
                             </p>
                             <p className="text-lg font-black leading-none">

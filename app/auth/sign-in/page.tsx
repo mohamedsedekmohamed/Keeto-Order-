@@ -86,7 +86,7 @@ export default function SignIn() {
   const handleSuccessAuth = (token: string) => {
     setToken(token, callbackSlug);
     const redirectPath = callbackSlug
-      ? `/home/restaurants/${callbackSlug}`
+      ? `/home/restaurants/${callbackSlug}/restaurant`
       : "/";
     router.push(redirectPath);
   };

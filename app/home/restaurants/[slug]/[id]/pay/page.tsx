@@ -367,7 +367,7 @@ export default function Checkout() {
     try {
       await postData(payload, "/api/user/order/checkout");
       toast.success(t("orderSuccess"));
-      router.push(`${basePath}`);
+     router.push(`/profile?tab=tracking&callbackSlug=${restaurantName}`);
     } catch {
       toast.error(t("orderFailed"));
     }
