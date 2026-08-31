@@ -5,6 +5,7 @@ import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
+import { getRestaurantId } from "@/context/Restaurantid";
 import {
   MapPin,
   CreditCard,
@@ -46,7 +47,20 @@ if (typeof window !== "undefined") {
   });
 }
 
-type CartItem = { totalPrice: string | number; [key: string]: any };
+type CartItem = {
+  cartId?: string;
+  foodId?: string;
+  name: string;
+  nameAr?: string;
+  quantity?: number;
+  unitPrice?: number;
+  originalUnitPrice?: number;
+  totalPrice: string | number;
+  originalTotalPrice?: number;
+  priceChanged?: boolean;
+  isAvailable?: boolean;
+  [key: string]: any;
+};
 
 export default function Checkout() {
   const [orderNote, setOrderNote] = useState("");
@@ -65,10 +79,18 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState<string | null>(null);
 
   const { t } = useLanguage();
+  const isRtl = t("dir") === "rtl";
   const router = useRouter();
   const params = useParams();
   const restaurantName = params.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
+
+  // The real restaurant.id (UUID) — the route only gives us the slug, so
+  // this is the value set on the menu page after fetching restaurant
+  // details (see utils/restaurantId.ts). Not available on the server (or
+  // before the menu page has ever run for this restaurant), so every use
+  // below has to tolerate it being null.
+  const restaurantId = getRestaurantId(restaurantName);
 
   const [orderType, setOrderType] = useState<
     "delivery" | "takeaway" | "dine_in"
@@ -80,7 +102,7 @@ export default function Checkout() {
   const [showAddressPopup, setShowAddressPopup] = useState(false);
 
   const { data: scheduleRes, loading: isLoadingSchedule } = useGet<any>(
-    `/api/user/restaurants/resturant-schedules/${params.id}`,
+    `/api/user/restaurants/resturant-schedules/${restaurantId}`,
   );
   const scheduleData = scheduleRes?.data?.data;
   const canDeliveryNow: boolean = scheduleData?.canDeliveryNow ?? true;
@@ -102,11 +124,25 @@ export default function Checkout() {
     loading: isLoadingCheckout,
     refetch,
   } = useGet<any>(
-    `/api/user/order/select?restaurantId=${params.id}&orderSource=${getOrderSource()}`,
+    `/api/user/order/select?restaurantId=${restaurantId}&orderSource=${getOrderSource()}`,
   );
 
-  const { data: cartRes, loading: isLoadingCart } =
-    useGet<any>("/api/user/cart");
+  // /api/user/cart needs restaurantId + serviceModule always, plus
+  // branchId/addressId only when relevant (takeaway -> branch, delivery ->
+  // address) — built with URLSearchParams so the optional ones don't show
+  // up as "branchId=undefined" in the query string.
+  const cartQuery = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (restaurantId) qs.set("restaurantId", restaurantId);
+    qs.set("serviceModule", orderType);
+    if (selectedBranch) qs.set("branchId", selectedBranch);
+    if (selectedAddress) qs.set("addressId", selectedAddress);
+    return qs.toString();
+  }, [restaurantId, orderType, selectedBranch, selectedAddress]);
+
+  const { data: cartRes, loading: isLoadingCart } = useGet<any>(
+    `/api/user/cart?${cartQuery}`,
+  );
 
   const {
     data: profileRes,
@@ -194,6 +230,24 @@ export default function Checkout() {
       0,
     );
   }, [rawCartData, cartItems]);
+
+  // The cart endpoint re-prices items against whichever branch/address is
+  // currently selected (a food's price or discount can differ per branch).
+  // `priceChanged` on an item, and `originalTotalPrice` vs `totalPrice`,
+  // tell us exactly which lines shifted and by how much so we can surface
+  // that to the user before they confirm — rather than silently charging a
+  // different total than what they added to cart at.
+  const priceChangedItems = useMemo(
+    () => cartItems.filter((item) => item.priceChanged),
+    [cartItems],
+  );
+
+  const cartTotalSummary = rawCartData?.totalSummary;
+  const originalSubtotal = Number(
+    cartTotalSummary?.originalSubtotal ?? subtotal,
+  );
+  const hasPriceChanges =
+    !!rawCartData?.hasPriceChanges || priceChangedItems.length > 0;
 
   const currentAddress = useMemo(() => {
     return data?.addresses?.find((addr: any) => addr.id === selectedAddress);
@@ -290,6 +344,30 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryFee]);
 
+  // Prices can also shift because of a re-price at the currently selected
+  // branch/address (surfaced above via hasPriceChanges/priceChangedItems),
+  // which changes subtotal without necessarily touching deliveryFee. A
+  // coupon discount was checked against the OLD subtotal, so it needs to be
+  // invalidated here too — same "keep the code, drop the stale discount"
+  // pattern as the deliveryFee effect above.
+  const isFirstPriceChangeRender = useRef(true);
+  useEffect(() => {
+    if (isFirstPriceChangeRender.current) {
+      isFirstPriceChangeRender.current = false;
+      return;
+    }
+    if (!hasPriceChanges) return;
+    if (appliedCoupon) {
+      setAppliedCoupon(null);
+      setCouponError(
+        t("dir") === "rtl"
+          ? "تغيرت أسعار بعض الأصناف، يرجى إعادة تطبيق الكوبون"
+          : "Some item prices changed — please re-apply your coupon",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPriceChanges, subtotal]);
+
   const handleCheckCoupon = async () => {
     const trimmedCode = couponCode.trim();
     if (!trimmedCode) {
@@ -299,14 +377,14 @@ export default function Checkout() {
           : "Please enter a coupon code",
       );
     }
-    if (!params.id) return;
+    if (!restaurantId) return;
 
     setCouponError(null);
 
     try {
       const res: any = await postCouponCheck({
         code: trimmedCode,
-        restaurantId: params.id,
+        restaurantId,
         deliveryFee,
         subtotal,
       });
@@ -367,7 +445,7 @@ export default function Checkout() {
     try {
       await postData(payload, "/api/user/order/checkout");
       toast.success(t("orderSuccess"));
-     router.push(`/profile?tab=tracking&callbackSlug=${restaurantName}`);
+      router.push(`/profile?tab=tracking&callbackSlug=${restaurantName}`);
     } catch {
       toast.error(t("orderFailed"));
     }
@@ -694,6 +772,86 @@ export default function Checkout() {
           </div>
         )}
       </section>
+
+      {/* Price Change Alert — surfaces items whose price differs for the
+          currently selected branch/address, before the user confirms */}
+      {hasPriceChanges && (
+        <section className="mb-6 p-4 rounded-2xl border-2 border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20">
+          <div className="flex items-start gap-2.5 mb-3">
+            <AlertCircle
+              size={18}
+              className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+            />
+            <div>
+              <p className="font-bold text-sm text-amber-900 dark:text-amber-300">
+                {isRtl
+                  ? "تغيرت أسعار بعض الأصناف"
+                  : "Some item prices have changed"}
+              </p>
+              <p className="text-xs font-medium text-amber-800/80 dark:text-amber-400/80 mt-0.5">
+                {isRtl
+                  ? "الأسعار قد تختلف حسب الفرع أو العنوان الذي اخترته."
+                  : "Prices can differ based on the branch or address you selected."}
+              </p>
+            </div>
+          </div>
+
+          {priceChangedItems.length > 0 && (
+            <div className="space-y-2">
+              {priceChangedItems.map((item) => {
+                const itemName = isRtl && item.nameAr ? item.nameAr : item.name;
+                const oldPrice = Number(
+                  item.originalTotalPrice ?? item.totalPrice,
+                );
+                const newPrice = Number(item.totalPrice);
+                const isIncrease = newPrice > oldPrice;
+
+                return (
+                  <div
+                    key={item.cartId || item.foodId}
+                    className="flex items-center justify-between gap-3 text-xs font-semibold bg-white/60 dark:bg-black/20 rounded-xl px-3 py-2"
+                  >
+                    <span className="text-amber-950 dark:text-amber-200 truncate">
+                      {itemName}
+                      {item.quantity && item.quantity > 1
+                        ? ` ×${item.quantity}`
+                        : ""}
+                    </span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <span className="line-through text-amber-600/60 dark:text-amber-500/50">
+                        {oldPrice} {t("egp")}
+                      </span>
+                      <span
+                        className={
+                          isIncrease
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-green-600 dark:text-green-400"
+                        }
+                      >
+                        {newPrice} {t("egp")}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {originalSubtotal !== subtotal && (
+            <div className="flex items-center justify-between text-xs font-bold mt-3 pt-3 border-t border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300">
+              <span>{isRtl ? "الإجمالي الجديد" : "New subtotal"}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="line-through text-amber-600/60 dark:text-amber-500/50 font-medium">
+                  {originalSubtotal} {t("egp")}
+                </span>
+                <span>
+                  {subtotal} {t("egp")}
+                </span>
+              </span>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 5. Order Summary */}
       <section className="mb-8 p-5 rounded-2xl border-2 border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
