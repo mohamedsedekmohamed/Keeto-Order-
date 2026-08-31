@@ -281,7 +281,8 @@ export default function RestaurantItms({
     const q = searchQuery.toLowerCase();
     return dynamicItems.filter(
       (f) =>
-        f.name.toLowerCase().includes(q) || f.nameAr.toLowerCase().includes(q),
+        (f.name ?? "").toLowerCase().includes(q) ||
+        (f.nameAr ?? "").toLowerCase().includes(q),
     );
   }, [dynamicItems, searchQuery]);
 
