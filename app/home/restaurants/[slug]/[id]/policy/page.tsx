@@ -6,19 +6,21 @@ import useGet from "@/app/hooks/useGet"; // adjust path as needed
 import { getRestaurantId } from "@/context/Restaurantid"; // adjust path as needed
 import { ChevronLeft } from "lucide-react";
 
+type PolicyItem = {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  restaurantId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type PolicyResponse = {
   success: boolean;
   data: {
     message: string;
-    data: {
-      id: string;
-      title: string;
-      description: string;
-      type: string;
-      restaurantId: string;
-      createdAt: string;
-      updatedAt: string;
-    };
+    data: PolicyItem[];
   };
 };
 
@@ -144,12 +146,21 @@ export default function PolicyPage() {
     restaurantId ? `/api/user/policy/${restaurantId}` : null,
   );
 
-  const policy = data?.data?.data;
+  const policies = data?.data?.data ?? [];
 
-  const { nodes, toc } = useMemo(() => {
-    if (!policy?.description) return { nodes: [], toc: [] };
-    return parsePolicyBody(policy.description, policy.title);
-  }, [policy?.description, policy?.title]);
+  // The API returns every policy for this restaurant in one array (Support,
+  // Return Policy, Delivery Policy, etc.). We render all of them on the page
+  // as separate sections rather than picking just one.
+  const sections = useMemo(() => {
+    const usedSectionIds = new Set<string>();
+    return policies.map((p) => {
+      let sectionId = slugify(p.title);
+      while (usedSectionIds.has(sectionId)) sectionId = `${sectionId}-2`;
+      usedSectionIds.add(sectionId);
+      const { nodes, toc } = parsePolicyBody(p.description, p.title);
+      return { ...p, sectionId, nodes, toc };
+    });
+  }, [policies]);
 
   // Modern Skeleton Loader
   if (loading || !restaurantId) {
@@ -227,7 +238,7 @@ export default function PolicyPage() {
   }
 
   // Modern Empty State
-  if (!policy) {
+  if (policies.length === 0) {
     return (
       <main className="flex min-h-[70vh] items-center justify-center bg-slate-50/50 px-4 py-12">
         <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
@@ -257,15 +268,6 @@ export default function PolicyPage() {
     );
   }
 
-  const formattedDate = new Date(policy.updatedAt).toLocaleDateString(
-    undefined,
-    {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    },
-  );
-
   return (
     <main className="min-h-screen scroll-smooth bg-slate-50/50 py-10 px-4 sm:px-6 lg:py-16">
       <button
@@ -276,104 +278,146 @@ export default function PolicyPage() {
       </button>
 
       <div className="mx-auto max-w-3xl">
-        {/* Main Card Container */}
-        <article className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-10">
-          {/* Header Section */}
-          <header className="border-b border-slate-100 pb-6 sm:pb-8">
-            <span className="mb-3 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-600">
-              {slug} Policy
-            </span>
+        <span className="mb-4 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-600">
+          {slug} Policies
+        </span>
 
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
-              {policy.title}
-            </h1>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4 text-slate-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Last updated {formattedDate}
-              </span>
-            </div>
-          </header>
-
-          {/* Table of contents */}
-          {toc.length > 1 && (
-            <nav
-              aria-label="Sections"
-              className="mt-6 rounded-xl border border-slate-100 bg-slate-50/60 p-4 sm:mt-8 sm:p-5"
-            >
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                On this page
-              </p>
-              <ol className="grid gap-1.5 sm:grid-cols-2">
-                {toc.map((item, i) => (
-                  <li key={item.id}>
-                    <a
-                      href={`#${item.id}`}
-                      className="flex gap-2 rounded-md px-2 py-1 text-sm text-slate-600 transition-colors hover:bg-white hover:text-slate-900"
-                    >
-                      <span className="text-slate-400">{i + 1}.</span>
-                      <span>{item.text}</span>
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-          )}
-
-          {/* Content Body Section */}
-          <div className="prose prose-slate max-w-none pt-6 sm:pt-8">
-            {nodes.length > 0 ? (
-              nodes.map((node, i) => {
-                if (node.type === "h2") {
-                  return (
-                    <h2
-                      key={i}
-                      id={node.id}
-                      className="scroll-mt-6 border-t border-slate-100 pt-6 text-lg font-semibold text-slate-900 first:border-0 first:pt-0 sm:text-xl"
-                    >
-                      {node.text}
-                    </h2>
-                  );
-                }
-                if (node.type === "h3") {
-                  return (
-                    <h3
-                      key={i}
-                      className="mt-5 text-sm font-semibold text-slate-800 sm:text-base"
-                    >
-                      {node.text}
-                    </h3>
-                  );
-                }
-                return (
-                  <p
-                    key={i}
-                    className="mt-3 text-sm leading-relaxed text-slate-700 sm:text-base sm:leading-8"
+        {/* Page-level nav across every policy for this restaurant */}
+        {sections.length > 1 && (
+          <nav
+            aria-label="Policies"
+            className="mb-6 rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5"
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              On this page
+            </p>
+            <ol className="grid gap-1.5 sm:grid-cols-2">
+              {sections.map((s, i) => (
+                <li key={s.id}>
+                  <a
+                    href={`#${s.sectionId}`}
+                    className="flex gap-2 rounded-md px-2 py-1 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                   >
-                    {node.text}
+                    <span className="text-slate-400">{i + 1}.</span>
+                    <span>{s.title}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+
+        {/* One card per policy */}
+        {sections.map((s) => {
+          const formattedDate = new Date(s.updatedAt).toLocaleDateString(
+            undefined,
+            {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            },
+          );
+
+          return (
+            <article
+              key={s.id}
+              id={s.sectionId}
+              className="mb-6 scroll-mt-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-10"
+            >
+              {/* Header Section */}
+              <header className="border-b border-slate-100 pb-6 sm:pb-8">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
+                  {s.title}
+                </h1>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+                  <span className="flex items-center gap-1.5">
+                    <svg
+                      className="h-4 w-4 text-slate-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Last updated {formattedDate}
+                  </span>
+                </div>
+              </header>
+
+              {/* Table of contents within this policy */}
+              {s.toc.length > 1 && (
+                <nav
+                  aria-label={`${s.title} sections`}
+                  className="mt-6 rounded-xl border border-slate-100 bg-slate-50/60 p-4 sm:mt-8 sm:p-5"
+                >
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    In this section
                   </p>
-                );
-              })
-            ) : (
-              <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 sm:text-base sm:leading-8">
-                {decodePolicyText(policy.description)}
+                  <ol className="grid gap-1.5 sm:grid-cols-2">
+                    {s.toc.map((item, i) => (
+                      <li key={item.id}>
+                        <a
+                          href={`#${item.id}`}
+                          className="flex gap-2 rounded-md px-2 py-1 text-sm text-slate-600 transition-colors hover:bg-white hover:text-slate-900"
+                        >
+                          <span className="text-slate-400">{i + 1}.</span>
+                          <span>{item.text}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+
+              {/* Content Body Section */}
+              <div className="prose prose-slate max-w-none pt-6 sm:pt-8">
+                {s.nodes.length > 0 ? (
+                  s.nodes.map((node, i) => {
+                    if (node.type === "h2") {
+                      return (
+                        <h2
+                          key={i}
+                          id={node.id}
+                          className="scroll-mt-6 border-t border-slate-100 pt-6 text-lg font-semibold text-slate-900 first:border-0 first:pt-0 sm:text-xl"
+                        >
+                          {node.text}
+                        </h2>
+                      );
+                    }
+                    if (node.type === "h3") {
+                      return (
+                        <h3
+                          key={i}
+                          className="mt-5 text-sm font-semibold text-slate-800 sm:text-base"
+                        >
+                          {node.text}
+                        </h3>
+                      );
+                    }
+                    return (
+                      <p
+                        key={i}
+                        className="mt-3 text-sm leading-relaxed text-slate-700 sm:text-base sm:leading-8"
+                      >
+                        {node.text}
+                      </p>
+                    );
+                  })
+                ) : (
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 sm:text-base sm:leading-8">
+                    {decodePolicyText(s.description)}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </article>
+            </article>
+          );
+        })}
       </div>
     </main>
   );
