@@ -12,6 +12,7 @@ import {
   FileText,
   MapPin,
   Store,
+  Truck,
   CheckCircle2,
   AlertCircle,
   Navigation,
@@ -1075,6 +1076,21 @@ export default function RestaurantItms({
       onCartUpdated();
       setShowConflictDialog(false);
       setPendingCartPayload(null);
+
+      // Same post-success cleanup as executeAddToCart: this conflict can be
+      // reached while the fulfillment dialog is still open behind it (the
+      // out-of-stock -> pick address/branch -> 409 residual-cart flow), so
+      // it needs to be closed and the choice persisted here too — otherwise
+      // it's left open and nothing gets saved to fulfillmentStorageKey.
+      if (pendingCartPayload.addressId) {
+        setStoredFulfillment("delivery", pendingCartPayload.addressId);
+      } else if (pendingCartPayload.branchId) {
+        setStoredFulfillment("takeaway", pendingCartPayload.branchId);
+      }
+      setShowFulfillmentDialog(false);
+      setFulfillmentMode(null);
+      setSelectedFulfillmentId("");
+
       const addedFoodId = selectedItem?.id || pendingCartPayload?.foodId;
       setSelectedItem(null);
       if (addedFoodId) fetchRecommendedFoods(addedFoodId);
@@ -1771,7 +1787,7 @@ export default function RestaurantItms({
 
         {/* ── 409 CONFLICT RESIDUAL CART REPLACEMENT DIALOG ── */}
         {showConflictDialog && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="fixed inset-0 z-[1110] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="w-full max-w-md p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-300">
               <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100 dark:border-amber-900/30">
                 <AlertTriangle size={28} />
@@ -1830,33 +1846,35 @@ export default function RestaurantItms({
               </div>
 
               {/* Mode Selection */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setFulfillmentMode("delivery");
-                    setSelectedFulfillmentId("");
-                  }}
-                  className={`flex-1 py-3 rounded-xl font-bold transition-all border ${
-                    fulfillmentMode === "delivery"
-                      ? "bg-yellow-400 text-zinc-950 border-yellow-400 shadow-md"
-                      : "bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"
-                  }`}
-                >
-                  {isRtl ? "توصيل" : "Delivery"}
-                </button>
-                <button
-                  onClick={() => {
-                    setFulfillmentMode("takeaway");
-                    setSelectedFulfillmentId("");
-                  }}
-                  className={`flex-1 py-3 rounded-xl font-bold transition-all border ${
-                    fulfillmentMode === "takeaway"
-                      ? "bg-yellow-400 text-zinc-950 border-yellow-400 shadow-md"
-                      : "bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"
-                  }`}
-                >
-                  {isRtl ? "استلام من الفرع" : "Takeaway"}
-                </button>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    id: "delivery" as const,
+                    label: isRtl ? "توصيل" : "Delivery",
+                    icon: Truck,
+                  },
+                  {
+                    id: "takeaway" as const,
+                    label: isRtl ? "استلام من الفرع" : "Takeaway",
+                    icon: Store,
+                  },
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => {
+                      setFulfillmentMode(mode.id);
+                      setSelectedFulfillmentId("");
+                    }}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                      fulfillmentMode === mode.id
+                        ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+                        : "border-zinc-100 dark:border-zinc-800 text-zinc-500"
+                    }`}
+                  >
+                    <mode.icon size={24} />
+                    <span className="text-xs font-bold">{mode.label}</span>
+                  </button>
+                ))}
               </div>
 
               {/* Dynamic List Rendering */}

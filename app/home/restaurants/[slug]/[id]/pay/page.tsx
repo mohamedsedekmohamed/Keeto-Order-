@@ -119,6 +119,41 @@ export default function Checkout() {
     return "online_order_web";
   };
 
+  // The out-of-stock dialog (on the menu page) writes the mode + address/
+  // branch the user picked there to localStorage as "fulfillment_choice_zzz"
+  // -> {"mode":"delivery"|"takeaway","id":"<addressId or branchId>"}. When
+  // checkout opens, we want to default to that same choice instead of
+  // always starting on delivery + the first saved address. If the key is
+  // missing, malformed, or doesn't match anything we get back from the API,
+  // this returns null and checkout falls back to its normal default
+  // behavior further below.
+  const getStoredFulfillmentChoice = (): {
+    mode: "delivery" | "takeaway";
+    id: string;
+  } | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("fulfillment_choice_zzz");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        (parsed?.mode === "delivery" || parsed?.mode === "takeaway") &&
+        typeof parsed?.id === "string" &&
+        parsed.id
+      ) {
+        return parsed;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Applied at most once, the first time addresses/branches are available —
+  // a ref rather than re-reading localStorage every render, so a manual
+  // change the user makes on this page afterward is never overwritten by it.
+  const appliedStoredChoiceRef = useRef(false);
+
   const {
     data: checkoutData,
     loading: isLoadingCheckout,
@@ -313,7 +348,36 @@ export default function Checkout() {
   }, [subtotal, deliveryFee, serviceFee, couponDiscount]);
 
   useEffect(() => {
-    if (data?.addresses?.length > 0 && !selectedAddress) {
+    // Tracks whether this same effect run already picked an address, so the
+    // fallback default-address logic below doesn't fire a second, later
+    // setSelectedAddress call that would clobber a just-applied stored
+    // choice (state updates from earlier in this effect aren't reflected in
+    // `selectedAddress` until the next render).
+    let addressHandledThisPass = !!selectedAddress;
+
+    if (!appliedStoredChoiceRef.current && data) {
+      appliedStoredChoiceRef.current = true;
+      const stored = getStoredFulfillmentChoice();
+
+      if (stored?.mode === "delivery") {
+        const match = data.addresses?.find((a: any) => a.id === stored.id);
+        if (match) {
+          setOrderType("delivery");
+          setSelectedAddress(stored.id);
+          addressHandledThisPass = true;
+        }
+      } else if (stored?.mode === "takeaway") {
+        const match = data.branches?.find((b: any) => b.id === stored.id);
+        if (match) {
+          setOrderType("takeaway");
+          setSelectedBranch(stored.id);
+        }
+      }
+      // No stored value, or it didn't match any address/branch we got back
+      // — fall straight through to the same default behavior as before.
+    }
+
+    if (data?.addresses?.length > 0 && !addressHandledThisPass) {
       setSelectedAddress(data.addresses[0].id);
     }
     if (paymentMethods.length > 0 && !selectedPayment) {
