@@ -896,9 +896,12 @@ export default function RestaurantItms({
         setShowConflictDialog(true);
         setShowRecommendedModal(false);
       } else if (status === 400) {
-        const errorMsg =
-          error.response?.data?.error?.message ||
-          (isRtl ? "حدث خطأ ما، حاول مرة أخرى" : "Something went wrong");
+        const rawMsg: string = error?.response?.data?.error?.message || "";
+        const errorMsg = isRtl
+          ? rawMsg.toLowerCase().includes("unavailable")
+            ? "هذا المنتج غير متوفر حاليًا في الفرع المحدد."
+            : "حدث خطأ ما، حاول مرة أخرى"
+          : rawMsg || "Something went wrong";
         toast.error(errorMsg);
       } else if (status === 401) {
         toast.error(t("loginFirst"));
@@ -976,15 +979,25 @@ export default function RestaurantItms({
         setPendingCartPayload(payload);
         setShowConflictDialog(true);
       } else if (status === 400) {
-        const errorMsg =
-          error.response.data.error.message || "حدث خطأ ما، حاول مرة أخرى";
+        const rawMsg: string = error?.response?.data?.error?.message || "";
+        const errorMsg = isRtl
+          ? rawMsg.toLowerCase().includes("unavailable")
+            ? "هذا المنتج غير متوفر حاليًا في الفرع المحدد."
+            : "حدث خطأ ما، حاول مرة أخرى"
+          : rawMsg || "Something went wrong";
         toast.error(errorMsg);
       } else if (status === 401) {
         toast.error(t("loginFirst"));
       } else if (error?.response) {
-        toast.error("حدث خطأ ما، حاول مرة أخرى");
+        toast.error(
+          isRtl ? "حدث خطأ ما، حاول مرة أخرى" : "Something went wrong",
+        );
       } else {
-        toast.error("تحقق من الاتصال بالإنترنت");
+        toast.error(
+          isRtl
+            ? "تحقق من الاتصال بالإنترنت"
+            : "Check your internet connection",
+        );
       }
     } finally {
       setLoading(false);
