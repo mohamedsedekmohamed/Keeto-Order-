@@ -122,22 +122,26 @@ export default function SignIn() {
     handleSuccessAuth(token);
   };
 
+  const processFacebookAuth = async (fbResponse: any) => {
+    try {
+      const accessToken = fbResponse?.authResponse?.accessToken;
+      if (!accessToken) return;
+      const response = await loginWithFacebook(
+        { token: accessToken, restaurantId },
+        null,
+        t("loginSuccess"),
+      );
+      handleAuthResponse(response);
+    } catch (error) {
+      console.error("Facebook Login Error", error);
+    }
+  };
+
   const handleFacebookLogin = () => {
     if (typeof window === "undefined" || !window.FB) return;
     window.FB.login(
-      async (fbResponse: any) => {
-        try {
-          const accessToken = fbResponse?.authResponse?.accessToken;
-          if (!accessToken) return;
-          const response = await loginWithFacebook(
-            { token: accessToken, restaurantId },
-            null,
-            t("loginSuccess"),
-          );
-          handleAuthResponse(response);
-        } catch (error) {
-          console.error("Facebook Login Error", error);
-        }
+      function (fbResponse: any) {
+        processFacebookAuth(fbResponse);
       },
       { scope: "email,public_profile" },
     );
