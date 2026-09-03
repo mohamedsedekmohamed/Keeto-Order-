@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import usePost from "@/app/hooks/usePost";
 import { useToken } from "@/context/TokenContext";
-import { useLanguage } from "../../../../context/LanguageContext";
+import { useLanguage } from "./LanguageContext";
 
 // Parses Facebook's redirect, which returns the token in the URL *hash*
 // (e.g. #access_token=...&state=...), not as a query string.
