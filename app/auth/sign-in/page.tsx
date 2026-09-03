@@ -34,8 +34,12 @@ const AppleIcon = ({ className }: { className?: string }) => (
 declare global {
   interface Window {
     AppleID: any;
+    FB: any;
+    fbAsyncInit: any;
   }
 }
+
+const FACEBOOK_APP_ID = "1057775750343232";
 
 export default function SignIn() {
   const { t } = useLanguage();
@@ -71,12 +75,26 @@ export default function SignIn() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    window.fbAsyncInit = function () {
+      window.FB.init({
+        appId: FACEBOOK_APP_ID,
+        cookie: true,
+        xfbml: false,
+        version: "v20.0",
+      });
+    };
+  }, []);
+
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
     "/api/user/auth/google",
   );
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
+  );
+  const { postData: loginWithFacebook, loading: isFacebookLoading } = usePost(
+    "/api/user/auth/facebook",
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,12 +122,37 @@ export default function SignIn() {
     handleSuccessAuth(token);
   };
 
+  const handleFacebookLogin = () => {
+    if (typeof window === "undefined" || !window.FB) return;
+    window.FB.login(
+      async (fbResponse: any) => {
+        try {
+          const accessToken = fbResponse?.authResponse?.accessToken;
+          if (!accessToken) return;
+          const response = await loginWithFacebook(
+            { token: accessToken, restaurantId },
+            null,
+            t("loginSuccess"),
+          );
+          handleAuthResponse(response);
+        } catch (error) {
+          console.error("Facebook Login Error", error);
+        }
+      },
+      { scope: "email,public_profile" },
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await postData({ ...formData, restaurantId }, null, t("loginSuccess"));
+      const response = await postData(
+        { ...formData, restaurantId },
+        null,
+        t("loginSuccess"),
+      );
       handleAuthResponse(response);
-    } catch { }
+    } catch {}
   };
 
   return (
@@ -119,6 +162,10 @@ export default function SignIn() {
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
         <Script
           src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"
+          strategy="afterInteractive"
+        />
+        <Script
+          src="https://connect.facebook.net/en_US/sdk.js"
           strategy="afterInteractive"
         />
 
@@ -173,7 +220,7 @@ export default function SignIn() {
                       );
                       handleAuthResponse(response);
                     }
-                  } catch { }
+                  } catch {}
                 }}
                 containerProps={{
                   style: {
@@ -236,6 +283,30 @@ export default function SignIn() {
               <AppleIcon className="w-5 h-5 dark:fill-white" />
               <span className="text-base font-bold text-gray-700 dark:text-white">
                 Apple
+              </span>
+            </button>
+
+            {/* Facebook Button */}
+            <button
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={isFacebookLoading}
+              className="h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isFacebookLoading ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="#1877F2"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M22 12.06C22 6.505 17.523 2 12 2S2 6.505 2 12.06c0 5.02 3.657 9.184 8.438 9.94v-7.03H7.898v-2.91h2.54V9.845c0-2.507 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.459h-1.26c-1.243 0-1.63.771-1.63 1.562v1.877h2.773l-.443 2.91h-2.33V22c4.781-.756 8.438-4.92 8.438-9.94z" />
+                </svg>
+              )}
+              <span className="text-base font-bold text-gray-700 dark:text-white">
+                Facebook
               </span>
             </button>
 
@@ -349,14 +420,26 @@ export default function SignIn() {
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    disabled={loading || isGoogleLoading || isAppleLoading}
-                    className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${loading || isGoogleLoading || isAppleLoading
-                      ? "opacity-70 cursor-not-allowed"
-                      : "hover:bg-yellow-500"
-                      }`}
+                    disabled={
+                      loading ||
+                      isGoogleLoading ||
+                      isAppleLoading ||
+                      isFacebookLoading
+                    }
+                    className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
+                      loading ||
+                      isGoogleLoading ||
+                      isAppleLoading ||
+                      isFacebookLoading
+                        ? "opacity-70 cursor-not-allowed"
+                        : "hover:bg-yellow-500"
+                    }`}
                   >
                     <span className="flex items-center gap-2">
-                      {loading || isGoogleLoading || isAppleLoading ? (
+                      {loading ||
+                      isGoogleLoading ||
+                      isAppleLoading ||
+                      isFacebookLoading ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>
