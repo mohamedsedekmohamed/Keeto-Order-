@@ -6,7 +6,7 @@ export const privacy: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-12">
         <header className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-950 tracking-tight mb-2">
-            MyDr.shrimpo
+            MyKeeto
           </h1>
           <p className="text-lg text-slate-500">Official Privacy Policy</p>
         </header>
@@ -18,7 +18,7 @@ export const privacy: React.FC = () => {
           <p className="text-sm text-slate-400 mb-6">Last updated: June 2026</p>
 
           <p className="mb-4">
-            Welcome to <strong>MyDr.shrimpo</strong>. We operate a food ordering
+            Welcome to <strong>MyKeeto</strong>. We operate a food ordering
             and delivery application available on Android and iOS devices. This
             Privacy Policy describes how your personal information is collected,
             used, and shared when you use our services.
@@ -82,7 +82,7 @@ export const privacy: React.FC = () => {
             3. Google API Disclosure
           </h3>
           <p className="mb-4">
-            MyDr.shrimpo's use and transfer to any other app of information
+            MyKeeto's use and transfer to any other app of information
             received from Google APIs will adhere to the{" "}
             <a
               href="https://developers.google.com/terms/api-services-user-data-policy"
@@ -112,13 +112,13 @@ export const privacy: React.FC = () => {
             delete your account and clear all associated data (including profile
             info, order logs, and wallet history). You can perform this action
             directly from the <strong>Profile Settings</strong> screen inside
-            the MyDr.shrimpo app, or by submitting a manual data deletion
+            the MyKeeto app, or by submitting a manual data deletion
             request to our support email.
           </p>
         </main>
 
         <footer className="text-center mt-12 text-sm text-slate-400">
-          <p>&copy; 2026 MyDr.shrimpo. All rights reserved.</p>
+          <p>&copy; 2026 MyKeeto. All rights reserved.</p>
         </footer>
       </div>
     </div>
