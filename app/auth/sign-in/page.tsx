@@ -37,10 +37,6 @@ declare global {
   }
 }
 
-const FACEBOOK_APP_ID = "1057775750343232";
-const FACEBOOK_REDIRECT_URI =
-  "https://orderfood.keeto.org/auth/facebook/callback";
-
 export default function SignIn() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -82,7 +78,6 @@ export default function SignIn() {
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
   );
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -107,22 +102,6 @@ export default function SignIn() {
     if (!token) return;
 
     handleSuccessAuth(token);
-  };
-
-  const handleFacebookLogin = () => {
-    if (typeof window === "undefined") return;
-    setIsFacebookLoading(true);
-    const state = encodeURIComponent(
-      JSON.stringify({ restaurantId, callbackSlug }),
-    );
-    const params = new URLSearchParams({
-      client_id: FACEBOOK_APP_ID,
-      redirect_uri: FACEBOOK_REDIRECT_URI,
-      response_type: "token",
-      scope: "email,public_profile",
-      state,
-    });
-    window.location.href = `https://www.facebook.com/v20.0/dialog/oauth?${params.toString()}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -264,30 +243,6 @@ export default function SignIn() {
               </span>
             </button>
 
-            {/* Facebook Button */}
-            <button
-              type="button"
-              onClick={handleFacebookLogin}
-              disabled={isFacebookLoading}
-              className="h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isFacebookLoading ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="#1877F2"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M22 12.06C22 6.505 17.523 2 12 2S2 6.505 2 12.06c0 5.02 3.657 9.184 8.438 9.94v-7.03H7.898v-2.91h2.54V9.845c0-2.507 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.459h-1.26c-1.243 0-1.63.771-1.63 1.562v1.877h2.773l-.443 2.91h-2.33V22c4.781-.756 8.438-4.92 8.438-9.94z" />
-                </svg>
-              )}
-              <span className="text-base font-bold text-gray-700 dark:text-white">
-                Facebook
-              </span>
-            </button>
-
             {/* Toggle Email Form Button */}
             <button
               type="button"
@@ -398,26 +353,15 @@ export default function SignIn() {
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    disabled={
-                      loading ||
-                      isGoogleLoading ||
-                      isAppleLoading ||
-                      isFacebookLoading
-                    }
+                    disabled={loading || isGoogleLoading || isAppleLoading}
                     className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
-                      loading ||
-                      isGoogleLoading ||
-                      isAppleLoading ||
-                      isFacebookLoading
+                      loading || isGoogleLoading || isAppleLoading
                         ? "opacity-70 cursor-not-allowed"
                         : "hover:bg-yellow-500"
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      {loading ||
-                      isGoogleLoading ||
-                      isAppleLoading ||
-                      isFacebookLoading ? (
+                      {loading || isGoogleLoading || isAppleLoading ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>
