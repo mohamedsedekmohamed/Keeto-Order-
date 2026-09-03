@@ -34,12 +34,12 @@ const AppleIcon = ({ className }: { className?: string }) => (
 declare global {
   interface Window {
     AppleID: any;
-    FB: any;
-    fbAsyncInit: any;
   }
 }
 
 const FACEBOOK_APP_ID = "1057775750343232";
+const FACEBOOK_REDIRECT_URI =
+  "https://orderfood.keeto.org/auth/facebook/callback";
 
 export default function SignIn() {
   const { t } = useLanguage();
@@ -75,17 +75,6 @@ export default function SignIn() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    window.fbAsyncInit = function () {
-      window.FB.init({
-        appId: FACEBOOK_APP_ID,
-        cookie: true,
-        xfbml: false,
-        version: "v20.0",
-      });
-    };
-  }, []);
-
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
     "/api/user/auth/google",
@@ -93,9 +82,7 @@ export default function SignIn() {
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
   );
-  const { postData: loginWithFacebook, loading: isFacebookLoading } = usePost(
-    "/api/user/auth/facebook",
-  );
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -122,29 +109,20 @@ export default function SignIn() {
     handleSuccessAuth(token);
   };
 
-  const processFacebookAuth = async (fbResponse: any) => {
-    try {
-      const accessToken = fbResponse?.authResponse?.accessToken;
-      if (!accessToken) return;
-      const response = await loginWithFacebook(
-        { token: accessToken, restaurantId },
-        null,
-        t("loginSuccess"),
-      );
-      handleAuthResponse(response);
-    } catch (error) {
-      console.error("Facebook Login Error", error);
-    }
-  };
-
   const handleFacebookLogin = () => {
-    if (typeof window === "undefined" || !window.FB) return;
-    window.FB.login(
-      function (fbResponse: any) {
-        processFacebookAuth(fbResponse);
-      },
-      { scope: "email,public_profile" },
+    if (typeof window === "undefined") return;
+    setIsFacebookLoading(true);
+    const state = encodeURIComponent(
+      JSON.stringify({ restaurantId, callbackSlug }),
     );
+    const params = new URLSearchParams({
+      client_id: FACEBOOK_APP_ID,
+      redirect_uri: FACEBOOK_REDIRECT_URI,
+      response_type: "token",
+      scope: "email,public_profile",
+      state,
+    });
+    window.location.href = `https://www.facebook.com/v20.0/dialog/oauth?${params.toString()}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -166,10 +144,6 @@ export default function SignIn() {
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
         <Script
           src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"
-          strategy="afterInteractive"
-        />
-        <Script
-          src="https://connect.facebook.net/en_US/sdk.js"
           strategy="afterInteractive"
         />
 
