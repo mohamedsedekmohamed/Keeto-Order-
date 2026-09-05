@@ -79,12 +79,12 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
   const next = () => setCurrent((i) => (i === images.length - 1 ? 0 : i + 1));
 
   return (
-    <div className="relative w-[92%] md:w-full max-w-4xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-md">
-      <div className="relative w-full h-48 bg-gray-100 md:h-64 dark:bg-zinc-800">
+    <div className="relative w-[96%] sm:w-[97%] md:w-full max-w-4xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-md">
+      <div className="relative w-full aspect-[3/2] sm:aspect-[16/9] md:aspect-[21/9] bg-gray-100 dark:bg-zinc-800">
         <img
           src={images[current].img}
           alt={`slide-${current}`}
-          className="object-cover w-full h-full transition-all duration-500"
+          className="absolute inset-0 object-cover w-full h-full transition-all duration-500"
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
@@ -215,9 +215,8 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
     const mapQuery = encodeURIComponent(
       selectedBranch?.address ||
-      selectedBranch?.addressAr ||
+        selectedBranch?.addressAr ||
         restaurant?.address ||
-
         restaurant?.name ||
         "Restaurant Location",
     );
@@ -248,11 +247,18 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
       setComment("");
       refetch();
     } catch (err) {
-      if (restaurantSlug) {
-        router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
-      } else {
-        router.push("/auth/sign-in");
+      const message = err instanceof Error ? err.message : "";
+
+      // usePost rewrites the backend's "No token provided" message to
+      // "Login please" before throwing, so check for that here.
+      if (message === "Login please") {
+        if (restaurantSlug) {
+          router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+        } else {
+          router.push("/auth/sign-in");
+        }
       }
+
       console.error(err);
     }
   };

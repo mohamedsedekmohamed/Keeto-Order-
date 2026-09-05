@@ -373,12 +373,12 @@ export default function ProfilePage() {
   const hasTab = searchParams.has("tab");
 
   const handleNavigation = () => {
-  if (!hasTab) {
-    router.back();
-  } else {
-    router.push(`/home/restaurants/${restaurantSlug}/restaurant`);
-  }
-};
+    if (!hasTab) {
+      router.back();
+    } else {
+      router.push(`/home/restaurants/${restaurantSlug}/restaurant`);
+    }
+  };
   useEffect(() => {
     if (restaurantSlug) {
       setStoredRestaurantId(getRestaurantId(restaurantSlug));
@@ -664,6 +664,70 @@ export default function ProfilePage() {
       "rejected",
     ];
     return !!normalizedStatus && finalStatuses.includes(normalizedStatus);
+  };
+
+  // Ordered steps for the visual order-status tracker (matches the
+  // "Pending / Confirmed / Preparing / Ready / Delivered" stepper design).
+  // Purely a display layer — doesn't touch any of the status logic above.
+  const ORDER_STATUS_STEPS: {
+    key: string;
+    labelFallbackEn: string;
+    labelFallbackAr: string;
+  }[] = [
+    {
+      key: "pending",
+      labelFallbackEn: "Pending",
+      labelFallbackAr: "قيد الانتظار",
+    },
+    {
+      key: "accepted",
+      labelFallbackEn: "Confirmed",
+      labelFallbackAr: "تم التأكيد",
+    },
+    {
+      key: "preparing",
+      labelFallbackEn: "Preparing",
+      labelFallbackAr: "قيد التحضير",
+    },
+    {
+      key: "out_for_delivery",
+      labelFallbackEn: "Ready",
+      labelFallbackAr: "جاهز",
+    },
+    {
+      key: "delivered",
+      labelFallbackEn: "Delivered",
+      labelFallbackAr: "تم التوصيل",
+    },
+  ];
+
+  // Maps a raw order status to its index within ORDER_STATUS_STEPS so the
+  // tracker knows which step is completed / current / upcoming.
+  const getOrderStatusStepIndex = (status: string | null | undefined) => {
+    const normalized = status?.toLowerCase();
+    const stepAliases: Record<string, number> = {
+      pending: 0,
+      accepted: 1,
+      confirmed: 1,
+      preparing: 2,
+      out_for_delivery: 3,
+      ready: 3,
+      delivered: 4,
+      completed: 4,
+    };
+    return normalized && normalized in stepAliases
+      ? stepAliases[normalized]
+      : 0;
+  };
+
+  const isCancelledOrderStatus = (status: string | null | undefined) => {
+    const normalized = status?.toLowerCase();
+    return (
+      !!normalized &&
+      ["cancelled", "canceled", "refund", "refunded", "rejected"].includes(
+        normalized,
+      )
+    );
   };
 
   const userData = profileResponse?.data?.data?.user;
@@ -1015,7 +1079,7 @@ export default function ProfilePage() {
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-yellow-500/5 blur-[130px] rounded-full pointer-events-none" />
 
       <button
-        onClick={ handleNavigation}
+        onClick={handleNavigation}
         className="absolute z-20 flex items-center justify-center w-10 h-10 transition-transform bg-yellow-400 rounded-full shadow-md -mt-2 top-4 start-4 active:scale-95 text-white"
       >
         <ChevronLeft
@@ -1993,6 +2057,81 @@ export default function ProfilePage() {
                             <p className="text-sm font-bold text-red-700 dark:text-red-300 leading-snug">
                               {selectedOrder.cancellation.reason}
                             </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {!isCancelledOrderStatus(selectedOrder.status) && (
+                        <div className="p-5 border border-gray-100 bg-gray-50 dark:bg-zinc-900/50 rounded-3xl dark:border-zinc-800">
+                          <h4 className="text-[11px] font-black text-gray-400 uppercase mb-5 flex items-center gap-2">
+                            <Truck size={14} />
+                            {t("orderStatus") || "حالة الطلب"}
+                          </h4>
+                          <div className="flex flex-col">
+                            {ORDER_STATUS_STEPS.map((step, idx) => {
+                              const currentIndex = getOrderStatusStepIndex(
+                                selectedOrder.status,
+                              );
+                              const isCompleted = idx < currentIndex;
+                              const isCurrent = idx === currentIndex;
+                              const isLast =
+                                idx === ORDER_STATUS_STEPS.length - 1;
+                              const label =
+                                t(step.key) ||
+                                (isRtl
+                                  ? step.labelFallbackAr
+                                  : step.labelFallbackEn);
+
+                              return (
+                                <div
+                                  key={step.key}
+                                  className="flex items-stretch gap-3"
+                                >
+                                  <div className="flex flex-col items-center">
+                                    <span
+                                      className={`flex items-center justify-center flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors ${
+                                        isCompleted
+                                          ? "bg-yellow-400 border-yellow-400"
+                                          : isCurrent
+                                            ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                                            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                                      }`}
+                                    >
+                                      {isCompleted && (
+                                        <CheckCircle2
+                                          size={12}
+                                          className="text-gray-900"
+                                          strokeWidth={3}
+                                        />
+                                      )}
+                                      {isCurrent && !isCompleted && (
+                                        <span className="w-2 h-2 bg-yellow-400 rounded-full" />
+                                      )}
+                                    </span>
+                                    {!isLast && (
+                                      <span
+                                        className={`w-0.5 flex-1 min-h-[24px] ${
+                                          isCompleted
+                                            ? "bg-yellow-400"
+                                            : "bg-gray-200 dark:bg-zinc-700"
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                  <p
+                                    className={`text-sm ${isLast ? "pb-0" : "pb-6"} ${
+                                      isCurrent
+                                        ? "font-black text-yellow-500"
+                                        : isCompleted
+                                          ? "font-bold text-gray-900 dark:text-white"
+                                          : "font-bold text-gray-300 dark:text-zinc-600"
+                                    }`}
+                                  >
+                                    {label}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

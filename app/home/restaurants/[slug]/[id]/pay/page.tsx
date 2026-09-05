@@ -348,12 +348,14 @@ export default function Checkout() {
   }, [subtotal, deliveryFee, serviceFee, couponDiscount]);
 
   useEffect(() => {
-    // Tracks whether this same effect run already picked an address, so the
-    // fallback default-address logic below doesn't fire a second, later
-    // setSelectedAddress call that would clobber a just-applied stored
-    // choice (state updates from earlier in this effect aren't reflected in
-    // `selectedAddress` until the next render).
+    // Tracks whether this same effect run already picked an address/branch,
+    // so the fallback default logic below doesn't fire a second, later
+    // setSelectedAddress/setSelectedBranch call that would clobber a
+    // just-applied stored choice (state updates from earlier in this effect
+    // aren't reflected in `selectedAddress`/`selectedBranch` until the next
+    // render).
     let addressHandledThisPass = !!selectedAddress;
+    let branchHandledThisPass = !!selectedBranch;
 
     if (!appliedStoredChoiceRef.current && data) {
       appliedStoredChoiceRef.current = true;
@@ -371,19 +373,26 @@ export default function Checkout() {
         if (match) {
           setOrderType("takeaway");
           setSelectedBranch(stored.id);
+          branchHandledThisPass = true;
         }
       }
       // No stored value, or it didn't match any address/branch we got back
       // — fall straight through to the same default behavior as before.
     }
 
-    if (data?.addresses?.length > 0 && !addressHandledThisPass) {
+    // Only auto-select when there's exactly one option. With multiple
+    // addresses/branches, leave nothing selected so the user has to pick
+    // explicitly instead of silently landing on the first item.
+    if (data?.addresses?.length === 1 && !addressHandledThisPass) {
       setSelectedAddress(data.addresses[0].id);
+    }
+    if (data?.branches?.length === 1 && !branchHandledThisPass) {
+      setSelectedBranch(data.branches[0].id);
     }
     if (paymentMethods.length > 0 && !selectedPayment) {
       setSelectedPayment(paymentMethods[0].id);
     }
-  }, [data, selectedAddress, selectedPayment, paymentMethods]);
+  }, [data, selectedAddress, selectedBranch, selectedPayment, paymentMethods]);
 
   // A coupon's discount can depend on deliveryFee (e.g. "free delivery"
   // style codes), which itself changes when the user switches order type
