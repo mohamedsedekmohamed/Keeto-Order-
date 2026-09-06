@@ -18,8 +18,6 @@ import {
   ChevronDown,
   MapPin,
   ShoppingBag,
-  Home,
-  Briefcase,
   Edit,
   Trash2,
   Navigation,
@@ -1578,17 +1576,10 @@ export default function ProfilePage() {
                             <div>
                               <div className="flex items-center justify-between mb-3">
                                 <span className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
-                                  {address.type === "work" ? (
-                                    <Briefcase
-                                      size={16}
-                                      className="text-yellow-500"
-                                    />
-                                  ) : (
-                                    <Home
-                                      size={16}
-                                      className="text-yellow-500"
-                                    />
-                                  )}
+                                  <MapPin
+                                    size={16}
+                                    className="text-yellow-500"
+                                  />
                                   {address.title}
                                 </span>
                                 <div className="flex items-center gap-2">
@@ -1597,9 +1588,6 @@ export default function ProfilePage() {
                                       📍 GPS
                                     </span>
                                   )}
-                                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-lg bg-yellow-400/20 text-yellow-700 dark:text-yellow-400 capitalize">
-                                    {address.type || "home"}
-                                  </span>
                                 </div>
                               </div>
 
