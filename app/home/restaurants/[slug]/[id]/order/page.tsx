@@ -296,6 +296,14 @@ export default function Cart() {
                     </span>{" "}
                     {t("currency")} {t("perItem")}
                   </p>
+                  {(item.note ) && (
+                    <p className="mt-1 inline-flex items-start gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-50 rounded-lg dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="font-semibold text-gray-500 dark:text-zinc-400">
+                        {t("note") || "Note"}:
+                      </span>
+                      <span>{item.note }</span>
+                    </p>
+                  )}
                 </div>
               </div>
 

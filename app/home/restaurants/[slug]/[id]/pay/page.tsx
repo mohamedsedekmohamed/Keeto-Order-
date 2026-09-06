@@ -51,6 +51,7 @@ type CartItem = {
   cartId?: string;
   foodId?: string;
   name: string;
+  note?: string;
   nameAr?: string;
   quantity?: number;
   unitPrice?: number;

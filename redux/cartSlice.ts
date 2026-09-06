@@ -18,6 +18,7 @@ export interface CartItem {
   restaurantId: string;
   restaurantName: string;
   quantity: number;
+  note?: string; // ملاحظة إضافية من المستخدم
   unitPrice: string | number;
   totalPrice: string | number;
   variations: CartVariation[] | any[];
