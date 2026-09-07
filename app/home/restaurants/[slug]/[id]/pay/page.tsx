@@ -222,11 +222,32 @@ export default function Checkout() {
   // the rest of this session, regardless of what profileUser looks like.
   const [usernameConfirmed, setUsernameConfirmed] = useState(false);
 
+  // Letters (Latin or Arabic) only, with single spaces/hyphens/apostrophes
+  // allowed between words (e.g. "Anne-Marie", "O'Brien"). No digits and no
+  // other special characters — mirrors how isValidEgyptPhone (below) locks
+  // phone down to digits only. 2–50 chars covers realistic name lengths.
+  const nameRegex = /^[A-Za-z\u0600-\u06FF]+(?:[ '-][A-Za-z\u0600-\u06FF]+)*$/;
+  const isValidName = (value?: string | null): boolean => {
+    const trimmed = value?.trim();
+    if (!trimmed) return false;
+    return (
+      trimmed.length >= 2 && trimmed.length <= 50 && nameRegex.test(trimmed)
+    );
+  };
+
+  // Two independent reasons the popup can fire:
+  //  1. Apple relay sign-in never gave us a real name (placeholder case).
+  //  2. Whatever name IS on the profile fails the letters-only pattern
+  //     (digits, emoji, punctuation, etc. — same idea as forcing a bad
+  //     phone number to be corrected before checkout).
+  // Either one blocks checkout until a valid name is saved.
+  const isNamePlaceholder =
+    isAppleRelayEmail(profileUser?.email) &&
+    isPlaceholderName(profileUser?.name, profileUser?.email);
+  const isNameInvalid = !!profileUser && !isValidName(profileUser.name);
+
   const showUsernamePopup =
-    !usernameConfirmed &&
-    !!profileUser &&
-    isAppleRelayEmail(profileUser.email) &&
-    isPlaceholderName(profileUser.name, profileUser.email);
+    !usernameConfirmed && !!profileUser && (isNamePlaceholder || isNameInvalid);
 
   // Egyptian mobile format: exactly 11 digits, must start with "01".
   // Used to validate the phone/alternatePhone values as they already
@@ -548,8 +569,18 @@ export default function Checkout() {
         // Don't pre-fill with the placeholder relay-derived name (e.g.
         // "thc44djrm9") — that's exactly the junk value we're asking the
         // user to replace, and showing it back to them as a "suggestion"
-        // is misleading.
-        initialUsername=""
+        // is misleading. For the invalid-characters case, pre-fill with
+        // whatever's left after stripping the bad characters, so the user
+        // is fixing their name rather than retyping it from scratch.
+        initialUsername={
+          isNamePlaceholder
+            ? ""
+            : (profileUser?.name || "").replace(
+                /[^A-Za-z\u0600-\u06FF '-]/g,
+                "",
+              )
+        }
+        isInvalidNameFix={!isNamePlaceholder && isNameInvalid}
         onSuccess={() => {
           // Close the popup immediately and permanently for this session —
           // don't wait on / depend on the refetch to confirm it, since a
@@ -1224,10 +1255,23 @@ function PhonePopup({
 
 interface UsernamePopupProps {
   initialUsername: string;
+  // True when the popup is showing because the existing profile name has
+  // digits/symbols/emoji in it (vs. the Apple-relay "no real name at all"
+  // case) — only changes which explanation text is shown.
+  isInvalidNameFix?: boolean;
   onSuccess: () => void | Promise<void>;
 }
 
-function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
+// Letters (Latin or Arabic) only, single spaces/hyphens/apostrophes allowed
+// between words — kept in sync with isValidName/nameRegex above.
+const usernamePopupNameRegex =
+  /^[A-Za-z\u0600-\u06FF]+(?:[ '-][A-Za-z\u0600-\u06FF]+)*$/;
+
+function UsernamePopup({
+  initialUsername,
+  isInvalidNameFix,
+  onSuccess,
+}: UsernamePopupProps) {
   const { t } = useLanguage();
   const { putData: postProfile, loading: isSavingProfile } =
     usePut("/api/user/profile");
@@ -1236,6 +1280,16 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
 
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
+
+  // Name field: letters (Latin/Arabic) plus spaces/hyphens/apostrophes only,
+  // max 50 chars. Strips digits and symbols as the user types — same idea
+  // as PhonePopup's handlePhoneChange stripping non-digits.
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitized = e.target.value
+      .replace(/[^A-Za-z\u0600-\u06FF '-]/g, "")
+      .slice(0, 50);
+    setUsername(sanitized);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1247,6 +1301,17 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
         t("dir") === "rtl"
           ? "يرجى إدخال اسم المستخدم."
           : "Please enter a username.",
+      );
+    }
+
+    if (
+      trimmedUsername.length < 2 ||
+      !usernamePopupNameRegex.test(trimmedUsername)
+    ) {
+      return toast.error(
+        t("dir") === "rtl"
+          ? "الاسم يجب أن يحتوي على حروف فقط بدون أرقام أو رموز خاصة."
+          : "Name must contain letters only — no numbers or special characters.",
       );
     }
 
@@ -1281,9 +1346,13 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
               : "Complete Your Account Details"}
           </h2>
           <p className="text-sm text-gray-500 dark:text-zinc-400">
-            {t("dir") === "rtl"
-              ? "لقد سجلت الدخول باستخدام خيار إخفاء البريد الإلكتروني من Apple. يرجى إدخال اسم مستخدم لإتمام عملية الطلب."
-              : "You signed in using Apple's Hide My Email option. Please enter a username to continue with checkout."}
+            {isInvalidNameFix
+              ? t("dir") === "rtl"
+                ? "الاسم المسجل على حسابك يحتوي على أرقام أو رموز غير مسموح بها. يرجى إدخال اسم يتكون من حروف فقط لإتمام عملية الطلب."
+                : "The name on your account contains numbers or symbols that aren't allowed. Please enter a name using letters only to continue with checkout."
+              : t("dir") === "rtl"
+                ? "لقد سجلت الدخول باستخدام خيار إخفاء البريد الإلكتروني من Apple. يرجى إدخال اسم مستخدم لإتمام عملية الطلب."
+                : "You signed in using Apple's Hide My Email option. Please enter a username to continue with checkout."}
           </p>
         </div>
 
@@ -1295,13 +1364,19 @@ function UsernamePopup({ initialUsername, onSuccess }: UsernamePopupProps) {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleUsernameChange}
+              maxLength={50}
               placeholder={
                 t("dir") === "rtl" ? "أدخل اسم المستخدم" : "Enter username"
               }
               className={inputClass}
               required
             />
+            <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+              {t("dir") === "rtl"
+                ? "حروف فقط، بدون أرقام أو رموز خاصة."
+                : "Letters only — no numbers or special characters."}
+            </p>
           </div>
 
           <button

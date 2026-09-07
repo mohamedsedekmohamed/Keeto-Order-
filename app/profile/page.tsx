@@ -152,6 +152,7 @@ interface Address {
   landmark: string | null;
   fulladdress?: string;
   location?: string | null;
+  isRelatedToOrder?: boolean;
 }
 
 interface UserProfile {
@@ -423,6 +424,14 @@ export default function ProfilePage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+
+  // Shown when the address being updated is flagged as isRelatedToOrder
+  // (i.e. it's tied to an in-progress order), so the user has to
+  // explicitly confirm before the update actually goes through.
+  const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const [pendingAddressPayload, setPendingAddressPayload] =
+    useState<Record<string, any> | null>(null);
+  const [isUpdateConfirmLoading, setIsUpdateConfirmLoading] = useState(false);
 
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
   const [isFavLoading, setIsFavLoading] = useState(false);
@@ -974,15 +983,11 @@ export default function ProfilePage() {
     setAddressForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAddressSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const payload = {
-      ...addressForm,
-      number: String(addressForm.number) || 0,
-      floor: String(addressForm.floor) || 0,
-    };
-
+  // Actually performs the add/update API call. Pulled out of
+  // handleAddressSubmit so it can be triggered either immediately (normal
+  // case) or after the user confirms the "this address is linked to an
+  // order" dialog.
+  const submitAddress = async (payload: Record<string, any>) => {
     try {
       if (editingAddressId) {
         await updateAddress(
@@ -1001,7 +1006,53 @@ export default function ProfilePage() {
       if (refetch) refetch();
     } catch (error) {
       console.error(error);
+      throw error;
     }
+  };
+
+  const handleAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const payload = {
+      ...addressForm,
+      number: String(addressForm.number) || 0,
+      floor: String(addressForm.floor) || 0,
+    };
+
+    // If we're editing an address that's tied to an order (as reported by
+    // the profile response), don't update it right away — ask for
+    // confirmation first.
+    if (editingAddressId) {
+      const currentAddress = userData.addresses?.find(
+        (a) => a.id === editingAddressId,
+      );
+      if (currentAddress?.isRelatedToOrder) {
+        setPendingAddressPayload(payload);
+        setShowUpdateConfirmModal(true);
+        return;
+      }
+    }
+
+    await submitAddress(payload);
+  };
+
+  const handleConfirmUpdateAddress = async () => {
+    if (!pendingAddressPayload) return;
+    setIsUpdateConfirmLoading(true);
+    try {
+      await submitAddress(pendingAddressPayload);
+      setShowUpdateConfirmModal(false);
+      setPendingAddressPayload(null);
+    } catch (error) {
+      // Keep the dialog open so the user can retry/cancel if the update fails.
+    } finally {
+      setIsUpdateConfirmLoading(false);
+    }
+  };
+
+  const handleCancelUpdateAddress = () => {
+    setShowUpdateConfirmModal(false);
+    setPendingAddressPayload(null);
   };
 
   const handleDeleteClick = (id: string) => {
@@ -1943,6 +1994,47 @@ export default function ProfilePage() {
                 className="flex-1 px-4 py-2.5 font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors shadow-md shadow-red-500/20"
               >
                 {t("delete") || "حذف"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update Confirmation Modal (address linked to an order) */}
+      {showUpdateConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="w-full max-w-md p-6 bg-white rounded-2xl dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center flex-shrink-0 text-amber-500 bg-amber-50 dark:bg-amber-950/30 rounded-2xl w-10 h-10">
+                <AlertTriangle size={20} />
+              </div>
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
+                {t("confirmaddressupdate") || "تأكيد تحديث العنوان"}
+              </h2>
+            </div>
+            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+              {t("address-in-order-warning") ||
+                "هذا العنوان مرتبط بطلب حالي. هل أنت متأكد أنك تريد تحديثه؟"}
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={handleCancelUpdateAddress}
+                disabled={isUpdateConfirmLoading}
+                className="flex-1 px-4 py-2.5 font-semibold text-gray-700 dark:text-zinc-300 bg-gray-100 rounded-xl dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-60"
+              >
+                {t("cancel") || "إلغاء"}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUpdateAddress}
+                disabled={isUpdateConfirmLoading}
+                className="flex-1 px-4 py-2.5 font-semibold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors shadow-md shadow-yellow-400/20 disabled:opacity-70 flex items-center justify-center gap-2"
+              >
+                {isUpdateConfirmLoading && (
+                  <Loader2 size={16} className="animate-spin" />
+                )}
+                {t("confirm") || "تأكيد"}
               </button>
             </div>
           </div>

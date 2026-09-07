@@ -1297,23 +1297,53 @@ export default function RestaurantItms({
           ref={stickyHeaderRef}
           className="sticky top-0 z-40 bg-gray-50/80 dark:bg-zinc-950/80 backdrop-blur-md pb-2 pt-2"
         >
-          {/* SubCategory Pill Bar */}
+          {/* SubCategory Card Bar */}
           <div
             ref={subCategoryMenuRef}
             dir={isRtl ? "rtl" : "ltr"}
-            className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth mb-2 transition-all duration-300 touch-pan-x"
+            className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth mb-2 transition-all duration-300 touch-pan-x px-0.5 py-1"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <button
               id="subtab-all"
               onClick={() => scrollToSubCategory("all")}
-              className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-350 shrink-0 ${
-                activeSubCategoryTab === "all"
-                  ? "bg-yellow-400 text-white shadow-md transform scale-105"
-                  : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
-              }`}
+              className="shrink-0 w-[112px] xs:w-[126px] sm:w-[142px] md:w-[156px] lg:w-[170px] group transition-transform duration-300 ease-out will-change-transform hover:-translate-y-2"
             >
-              {isRtl ? "الكل" : "All"}
+              <div
+                className={`flex flex-col overflow-hidden bg-white dark:bg-zinc-900 rounded-2xl border-2 shadow-sm group-hover:shadow-xl transition-all duration-300 p-2 ${
+                  activeSubCategoryTab === "all"
+                    ? "shadow-md scale-[1.03]"
+                    : "border-transparent hover:border-gray-200 dark:hover:border-zinc-700"
+                }`}
+                style={
+                  activeSubCategoryTab === "all"
+                    ? { borderColor: firstColor }
+                    : { borderColor: "transparent" }
+                }
+              >
+                <div className="relative flex items-center justify-center w-full aspect-square overflow-hidden rounded-xl bg-gray-50 dark:bg-zinc-800">
+                  <LayoutGrid
+                    size={30}
+                    className="text-gray-400 dark:text-zinc-500 sm:w-8 sm:h-8"
+                    style={
+                      activeSubCategoryTab === "all"
+                        ? { color: firstColor }
+                        : undefined
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-center px-1 py-2.5 min-h-[2.75rem]">
+                  <span
+                    className={`text-[11px] sm:text-xs font-extrabold uppercase tracking-wide text-center leading-tight line-clamp-2 transition-colors ${
+                      activeSubCategoryTab === "all"
+                        ? "text-gray-900 dark:text-white"
+                        : "text-gray-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    {isRtl ? "الكل" : "All"}
+                  </span>
+                </div>
+              </div>
             </button>
 
             {dynamicSubCategories.map((sub) => {
@@ -1328,13 +1358,45 @@ export default function RestaurantItms({
                   id={`subtab-${sub.id}`}
                   key={`subtab-btn-${sub.id}`}
                   onClick={() => scrollToSubCategory(sub.id)}
-                  className={`whitespace-nowrap px-6 py-2 rounded-full font-medium transition-all duration-350 shrink-0 ${
-                    isActive
-                      ? "bg-yellow-400 text-white shadow-md transform scale-105"
-                      : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
-                  }`}
+                  className="shrink-0 w-[112px] xs:w-[126px] sm:w-[142px] md:w-[156px] lg:w-[170px] group transition-transform duration-300 ease-out will-change-transform hover:-translate-y-2"
                 >
-                  {isRtl ? sub.nameAr : sub.name}
+                  <div
+                    className={`flex flex-col overflow-hidden bg-white dark:bg-zinc-900 rounded-2xl border-2 shadow-sm group-hover:shadow-xl transition-all duration-300 p-2 ${
+                      isActive
+                        ? "shadow-md scale-[1.03]"
+                        : "border-transparent hover:border-gray-200 dark:hover:border-zinc-700"
+                    }`}
+                    style={
+                      isActive
+                        ? { borderColor: firstColor }
+                        : { borderColor: "transparent" }
+                    }
+                  >
+                    <div className="relative w-full aspect-square overflow-hidden rounded-xl bg-gray-50 dark:bg-zinc-800">
+                      <img
+                        src={sub.coverImage}
+                        alt={isRtl ? sub.nameAr : sub.name}
+                        className="object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-110"
+                      />
+                      {/* Flash / shine sweep on hover */}
+                      <span
+                        className="pointer-events-none absolute inset-0 -translate-x-[130%] skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/70 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[130%]"
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <div className="flex items-center justify-center px-1 py-2.5 min-h-[2.75rem]">
+                      <span
+                        className={`text-[11px] sm:text-xs font-extrabold uppercase tracking-wide text-center leading-tight line-clamp-2 transition-colors ${
+                          isActive
+                            ? "text-gray-900 dark:text-white"
+                            : "text-gray-600 dark:text-zinc-400"
+                        }`}
+                        style={isActive ? { color: firstColor } : undefined}
+                      >
+                        {isRtl ? sub.nameAr : sub.name}
+                      </span>
+                    </div>
+                  </div>
                 </button>
               );
             })}

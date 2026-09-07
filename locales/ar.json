@@ -173,6 +173,8 @@
   "orderStatus":"حالة الطلب",
   "otherReason":"سبب آخر",
   "note":"ملاحظة",
+  "confirmaddressupdate":"تأكيد تحديث العنوان",
+  "address-in-order-warning":"يرجى ملاحظة أن العنوان الحالي مخزن في طلب حالي . هل أنت متأكد أنك تريد المتابعة؟",
   "writeYourReason":"اكتب سببك هنا",
   "privacyandsupport":"الخصوصية والدعم",
   "freeDeliveryUnlocked": "تم تفعيل التوصيل المجاني",
