@@ -156,6 +156,27 @@ export default function SignIn() {
     handleSuccessAuth(token);
   };
 
+  const processFacebookLoginResponse = async (response: any) => {
+    try {
+      const accessToken = response?.authResponse?.accessToken;
+      if (!accessToken) {
+        // User closed the dialog, denied permissions, or the app/domain
+        // isn't configured correctly in the Facebook Developer console.
+        console.warn("Facebook login did not return an accessToken", response);
+        return;
+      }
+
+      const authResponse = await loginWithFacebook(
+        { accessToken, restaurantId },
+        null,
+        t("loginSuccess"),
+      );
+      handleAuthResponse(authResponse);
+    } catch (error) {
+      console.error("Facebook Login Error", error);
+    }
+  };
+
   const handleFacebookLogin = () => {
     if (typeof window === "undefined" || !window.FB) {
       console.error(
@@ -164,32 +185,13 @@ export default function SignIn() {
       return;
     }
 
-    window.FB.login(
-      async (response: any) => {
-        try {
-          const accessToken = response?.authResponse?.accessToken;
-          if (!accessToken) {
-            // User closed the dialog, denied permissions, or the app/domain
-            // isn't configured correctly in the Facebook Developer console.
-            console.warn(
-              "Facebook login did not return an accessToken",
-              response,
-            );
-            return;
-          }
-
-          const authResponse = await loginWithFacebook(
-            { accessToken, restaurantId },
-            null,
-            t("loginSuccess"),
-          );
-          handleAuthResponse(authResponse);
-        } catch (error) {
-          console.error("Facebook Login Error", error);
-        }
-      },
-      { scope: "public_profile,email" },
-    );
+    // NOTE: FB.login's callback must be a plain (non-async) function — the
+    // SDK's internal callback validation rejects AsyncFunction and throws
+    // "Expression is of type asyncfunction, not function". So we keep this
+    // callback synchronous and fire-and-forget the async handler from inside it.
+    window.FB.login((response: any) => {
+      void processFacebookLoginResponse(response);
+    }, { scope: "public_profile,email" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -467,25 +469,16 @@ export default function SignIn() {
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                     disabled={
-                      loading ||
-                      isGoogleLoading ||
-                      isAppleLoading ||
-                      isFacebookLoading
+                      loading || isGoogleLoading || isAppleLoading || isFacebookLoading
                     }
                     className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
-                      loading ||
-                      isGoogleLoading ||
-                      isAppleLoading ||
-                      isFacebookLoading
+                      loading || isGoogleLoading || isAppleLoading || isFacebookLoading
                         ? "opacity-70 cursor-not-allowed"
                         : "hover:bg-yellow-500"
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      {loading ||
-                      isGoogleLoading ||
-                      isAppleLoading ||
-                      isFacebookLoading ? (
+                      {loading || isGoogleLoading || isAppleLoading || isFacebookLoading ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>
