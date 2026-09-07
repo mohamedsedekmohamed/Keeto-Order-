@@ -429,8 +429,10 @@ export default function ProfilePage() {
   // (i.e. it's tied to an in-progress order), so the user has to
   // explicitly confirm before the update actually goes through.
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
-  const [pendingAddressPayload, setPendingAddressPayload] =
-    useState<Record<string, any> | null>(null);
+  const [pendingAddressPayload, setPendingAddressPayload] = useState<Record<
+    string,
+    any
+  > | null>(null);
   const [isUpdateConfirmLoading, setIsUpdateConfirmLoading] = useState(false);
 
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
@@ -1023,7 +1025,7 @@ export default function ProfilePage() {
     // the profile response), don't update it right away — ask for
     // confirmation first.
     if (editingAddressId) {
-      const currentAddress = userData.addresses?.find(
+      const currentAddress = userData?.addresses?.find(
         (a) => a.id === editingAddressId,
       );
       if (currentAddress?.isRelatedToOrder) {
