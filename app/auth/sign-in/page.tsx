@@ -86,15 +86,39 @@ export default function SignIn() {
     return () => clearInterval(interval);
   }, []);
 
-  const initFacebookSdk = () => {
-    if (typeof window === "undefined" || !window.FB) return;
-    window.FB.init({
-      appId: FACEBOOK_APP_ID,
-      cookie: true,
-      xfbml: false,
-      version: "v20.0",
-    });
-  };
+  const [isFacebookSdkReady, setIsFacebookSdkReady] = useState(false);
+
+  useEffect(() => {
+    let didInit = false;
+
+    const initFacebookSdk = () => {
+      if (didInit || typeof window === "undefined" || !window.FB) return;
+      didInit = true;
+      window.FB.init({
+        appId: FACEBOOK_APP_ID,
+        cookie: true,
+        xfbml: false,
+        version: "v20.0",
+      });
+      setIsFacebookSdkReady(true);
+    };
+
+    // In case the SDK script (loaded via next/script below) finishes
+    // loading before this effect runs, or its onLoad never fires.
+    if (typeof window !== "undefined" && window.FB) {
+      initFacebookSdk();
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined" && window.FB) {
+        initFacebookSdk();
+        clearInterval(interval);
+      }
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
@@ -133,13 +157,26 @@ export default function SignIn() {
   };
 
   const handleFacebookLogin = () => {
-    if (typeof window === "undefined" || !window.FB) return;
+    if (typeof window === "undefined" || !window.FB) {
+      console.error(
+        "Facebook SDK not loaded yet. Check that connect.facebook.net/en_US/sdk.js isn't blocked (ad blocker / network settings / CSP) and that this domain is in the Facebook App's App Domains + Valid OAuth Redirect settings.",
+      );
+      return;
+    }
 
     window.FB.login(
       async (response: any) => {
         try {
           const accessToken = response?.authResponse?.accessToken;
-          if (!accessToken) return;
+          if (!accessToken) {
+            // User closed the dialog, denied permissions, or the app/domain
+            // isn't configured correctly in the Facebook Developer console.
+            console.warn(
+              "Facebook login did not return an accessToken",
+              response,
+            );
+            return;
+          }
 
           const authResponse = await loginWithFacebook(
             { accessToken, restaurantId },
@@ -179,7 +216,6 @@ export default function SignIn() {
         <Script
           src="https://connect.facebook.net/en_US/sdk.js"
           strategy="afterInteractive"
-          onLoad={initFacebookSdk}
         />
 
         <motion.div
@@ -303,9 +339,11 @@ export default function SignIn() {
             <button
               type="button"
               onClick={handleFacebookLogin}
-              disabled={isFacebookLoading}
+              disabled={isFacebookLoading || !isFacebookSdkReady}
               className={`h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors ${
-                isFacebookLoading ? "opacity-70 cursor-not-allowed" : ""
+                isFacebookLoading || !isFacebookSdkReady
+                  ? "opacity-70 cursor-not-allowed"
+                  : ""
               }`}
             >
               {isFacebookLoading ? (
