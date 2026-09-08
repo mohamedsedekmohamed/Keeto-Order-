@@ -199,7 +199,7 @@
   "cash_on_delivery": "Cash on Delivery",
   "note": "Note",
   "confirmaddressupdate": "Confirm Address Update",
-  "address-in-order-warning": "Please mote that the current address is stored in an ongoing order. Are you sure you want to proceed?",
+  "address-in-order-warning": "Please note that the current address is stored in an ongoing order. Are you sure you want to proceed?",
   "visa": "Visa",
   "wallet": "Wallet",
   "loadingOptions": "Loading payment options...",

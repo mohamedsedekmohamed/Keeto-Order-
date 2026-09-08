@@ -2004,13 +2004,13 @@ export default function ProfilePage() {
 
       {/* Update Confirmation Modal (address linked to an order) */}
       {showUpdateConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
-          <div className="w-full max-w-md p-6 bg-white rounded-2xl dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 bg-white rounded-2xl dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center flex-shrink-0 text-amber-500 bg-amber-50 dark:bg-amber-950/30 rounded-2xl w-10 h-10">
                 <AlertTriangle size={20} />
               </div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
+              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">
                 {t("confirmaddressupdate") || "تأكيد تحديث العنوان"}
               </h2>
             </div>
@@ -2018,7 +2018,7 @@ export default function ProfilePage() {
               {t("address-in-order-warning") ||
                 "هذا العنوان مرتبط بطلب حالي. هل أنت متأكد أنك تريد تحديثه؟"}
             </p>
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 type="button"
                 onClick={handleCancelUpdateAddress}
