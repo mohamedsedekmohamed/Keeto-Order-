@@ -33,6 +33,8 @@ import {
   Ban,
   AlertTriangle,
   Info,
+  Tag,
+  BadgePercent,
 } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -186,6 +188,16 @@ interface FavoriteFood {
   image: string;
   description: string;
   price: string;
+}
+
+interface Offer {
+  foodId: string;
+  foodName: string;
+  originalPrice: string;
+  discountId: string;
+  discountName: string;
+  discountType: "percentage" | "fixed";
+  discountValue: string;
 }
 
 // Parses "DD/MM/YYYY, hh:mm:ss am/pm" (and falls back to native Date parsing
@@ -394,7 +406,13 @@ export default function ProfilePage() {
   // Reads the initial value from ?tab=... so links like
   // /profile?tab=tracking (e.g. the post-checkout redirect) actually open
   // the right section instead of always landing with everything closed.
-  const VALID_TABS = ["general", "addresses", "favorites", "tracking"] as const;
+  const VALID_TABS = [
+    "general",
+    "addresses",
+    "favorites",
+    "offers",
+    "tracking",
+  ] as const;
   type TabKey = (typeof VALID_TABS)[number];
   const isValidTab = (value: string | null): value is TabKey =>
     !!value && (VALID_TABS as readonly string[]).includes(value);
@@ -416,7 +434,7 @@ export default function ProfilePage() {
   }, [searchParams]);
 
   const toggleTab = (
-    tab: "general" | "addresses" | "favorites" | "tracking",
+    tab: "general" | "addresses" | "favorites" | "offers" | "tracking",
   ) => {
     setActiveTab(activeTab === tab ? null : tab);
   };
@@ -481,6 +499,24 @@ export default function ProfilePage() {
     loading: loadingHistoryOrders,
     refetch: refetchHistoryOrders,
   } = useGet<any>(`/api/user/order/history?restaurantId=${restaurantId}`);
+
+  const { data: offersData, loading: loadingOffers } = useGet<any>(
+    `/api/user/offers/restaurant/${restaurantId}/offers`,
+  );
+  const offers: Offer[] = offersData?.data || [];
+
+  // Same discount math as the standalone offers page: derives the
+  // discounted price from originalPrice + discountType/discountValue.
+  const getOfferFinalPrice = (offer: Offer) => {
+    const price = parseFloat(offer.originalPrice);
+    const discount = parseFloat(offer.discountValue);
+    if (Number.isNaN(price) || Number.isNaN(discount)) return null;
+    const raw =
+      offer.discountType === "percentage"
+        ? price - price * (discount / 100)
+        : price - discount;
+    return Math.max(0, raw);
+  };
 
   const getOrderSource = () => {
     if (typeof window !== "undefined") {
@@ -1096,7 +1132,7 @@ export default function ProfilePage() {
 
   // Helper macro for rendering accordion buttons
   const renderAccordionButton = (
-    tabKey: "general" | "addresses" | "favorites" | "tracking",
+    tabKey: "general" | "addresses" | "favorites" | "offers" | "tracking",
     icon: React.ReactNode,
     label: string,
   ) => {
@@ -1775,7 +1811,88 @@ export default function ProfilePage() {
             </AnimatePresence>
           </div>
 
-          {/* SECTION 4: ORDER TRACKING */}
+          {/* SECTION 4: OFFERS */}
+          <div>
+            {renderAccordionButton(
+              "offers",
+              <Tag size={18} />,
+              t("offers") || "العروض",
+            )}
+            <AnimatePresence>
+              {activeTab === "offers" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 sm:p-8 mt-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      {t("currentOffers") || "العروض الحالية"}
+                    </h3>
+
+                    {loadingOffers ? (
+                      <div className="flex items-center justify-center py-16">
+                        <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+                      </div>
+                    ) : offers.length === 0 ? (
+                      <div className="py-12 text-center text-gray-500 dark:text-zinc-400">
+                        <Tag className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
+                        <p>{t("noOffers") || "لا توجد عروض متاحة حالياً."}</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {offers.map((offer) => {
+                          const finalPrice = getOfferFinalPrice(offer);
+
+                          return (
+                            <div
+                              key={`${offer.foodId}-${offer.discountId}`}
+                              className="p-5 bg-gray-50/50 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 rounded-2xl transition-all hover:border-yellow-400/50"
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <h4 className="font-bold text-gray-900 dark:text-white">
+                                  {offer.foodName}
+                                </h4>
+                                <span className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 rounded-lg whitespace-nowrap">
+                                  <BadgePercent size={14} />
+                                  {offer.discountValue}
+                                  {offer.discountType === "percentage"
+                                    ? "%"
+                                    : ` ${t("currency") || "ج.م"}`}
+                                </span>
+                              </div>
+
+                              <p className="mb-4 text-sm text-gray-500 dark:text-zinc-400">
+                                {t("deal") || "الصفقة"}:{" "}
+                                <span className="font-medium text-gray-700 dark:text-zinc-300">
+                                  {offer.discountName}
+                                </span>
+                              </p>
+
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm text-gray-400 line-through">
+                                  {offer.originalPrice} {t("currency") || "ج.م"}
+                                </span>
+                                <span className="text-xl font-black text-yellow-500">
+                                  {finalPrice !== null
+                                    ? finalPrice.toFixed(2)
+                                    : "--"}{" "}
+                                  {t("currency") || "ج.م"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* SECTION 5: ORDER TRACKING */}
           <div>
             {renderAccordionButton(
               "tracking",

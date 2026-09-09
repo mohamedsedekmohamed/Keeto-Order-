@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState } from "react";
 import { useParams } from "next/navigation";
 import useGet from "@/app/hooks/useGet";
 
@@ -71,6 +71,15 @@ export interface FoodCategoryRef {
   nameFr?: string;
 }
 
+interface RestaurantAndMenuApiResponse {
+  data?: {
+    data?: {
+      restaurant?: Restaurant | null;
+      menu?: Menu | null;
+    };
+  };
+}
+
 // ── A single food item as returned by the API ──
 // The API returns foods flat inside category.foods[],
 // each food carries its own category + subcategory refs.
@@ -94,7 +103,7 @@ export interface MenuItem {
   // Embedded refs from the API response
   category?: FoodCategoryRef | null;
   subcategory?: FoodSubCategoryRef | null; // null when food has no sub-category
-  addon?: any | null;
+  addon?: unknown | null;
 }
 
 // ── API shape: category holds a flat foods[] array ──
@@ -132,7 +141,11 @@ export const useRestaurant = () => useContext(RestaurantContext);
 export const useMenu = () => useContext(MenuContext);
 
 import { useEffect } from "react";
-import { RestaurantSettingsProvider, useRestaurantSettings, useThemeSettings } from "./RestaurantSettingsContext";
+import {
+  RestaurantSettingsProvider,
+  useRestaurantSettings,
+  useThemeSettings,
+} from "./RestaurantSettingsContext";
 import { setRestaurantId } from "./Restaurantid";
 
 export { useRestaurantSettings, useThemeSettings };
@@ -146,9 +159,47 @@ export default function RestaurantAndMenuProvider({
   const restaurantId = params?.id as string;
   const restaurantSlug = params?.slug as string;
 
-  const { data, loading, error } = useGet<any>(
-    `/api/user/home/restaurants/${restaurantId}`,
+  const buildFulfillmentQuery = () => {
+    if (typeof window === "undefined") return "";
+
+    const mode = sessionStorage.getItem("fulfillment_mode");
+    const branchId = sessionStorage.getItem("fulfillment_branch_id");
+    const addressId = sessionStorage.getItem("fulfillment_address_id");
+
+    if (mode === "takeaway" && branchId) return `?branchId=${branchId}`;
+    if (mode === "delivery" && addressId) return `?addressId=${addressId}`;
+
+    return "";
+  };
+
+  const [fulfillmentQuery, setFulfillmentQuery] = useState<string>(() =>
+    buildFulfillmentQuery(),
   );
+
+  useEffect(() => {
+    const syncFulfillmentQuery = () => {
+      setFulfillmentQuery(buildFulfillmentQuery());
+    };
+
+    syncFulfillmentQuery();
+    window.addEventListener(
+      "fulfillment-session-changed",
+      syncFulfillmentQuery,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "fulfillment-session-changed",
+        syncFulfillmentQuery,
+      );
+    };
+  }, []);
+
+  const apiUrl = restaurantId
+    ? `/api/user/home/restaurants/${restaurantId}${fulfillmentQuery}`
+    : null;
+
+  const { data, loading, error } = useGet<RestaurantAndMenuApiResponse>(apiUrl);
 
   const restaurant: Restaurant | null = data?.data?.data?.restaurant || null;
   const menu: Menu | null = data?.data?.data?.menu || null;
@@ -176,4 +227,3 @@ export default function RestaurantAndMenuProvider({
     </RestaurantSettingsProvider>
   );
 }
-
