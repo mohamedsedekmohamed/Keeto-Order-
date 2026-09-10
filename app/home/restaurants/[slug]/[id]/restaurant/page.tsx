@@ -18,10 +18,14 @@ import { setCartItems } from "@/redux/cartSlice";
 import { useToken } from "@/context/TokenContext";
 import { setRestaurantId } from "@/context/Restaurantid";
 import useGet from "@/app/hooks/useGet";
+import { AnimatePresence } from "framer-motion";
 
 import api from "@/api/api";
 import LogoNav from "@/components/LogoNav";
 import NewKeetaLogo from "@/public/PicWhite.jpeg";
+import FulfillmentSelectDialog, {
+  getFulfillmentFromSession,
+} from "@/components/UI/FulfillmentSelectDialog";
 
 // ─────────────────────────────────────────────
 // Restaurant Promo Popup
@@ -150,7 +154,22 @@ export default function Restaurant() {
 
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
   const { menu, isLoading: menuLoading } = useMenu();
-  const { firstColor, textFirstColor } = useRestaurantSettings();
+  const { firstColor, textFirstColor, productView } = useRestaurantSettings();
+
+  const [showFulfillmentDialog, setShowFulfillmentDialog] = useState(false);
+
+  useEffect(() => {
+    if (!token || productView !== "select") return;
+
+    const { mode } = getFulfillmentFromSession();
+    if (!mode) {
+      setShowFulfillmentDialog(true);
+    }
+  }, [token, productView]);
+
+  const handleFulfillmentConfirm = () => {
+    setShowFulfillmentDialog(false);
+  };
 
   // Active promo popup for this restaurant. Skips the request until we
   // actually have a restaurant id to avoid firing on "/api/user/popup/undefined".
@@ -250,6 +269,17 @@ export default function Restaurant() {
 
   return (
     <div className="relative w-full min-h-screen pb-24 font-sans bg-white dark:bg-black">
+      <AnimatePresence>
+        {showFulfillmentDialog && restaurant?.id && (
+          <FulfillmentSelectDialog
+            restaurantId={restaurant.id}
+            firstColor={firstColor}
+            textFirstColor={textFirstColor}
+            onConfirm={handleFulfillmentConfirm}
+          />
+        )}
+      </AnimatePresence>
+
       {/* <LogoNav logo={NewKeetaLogo} /> */}
       <RestaurantHeader cover={restaurant.cover} />
       <RestaurantCard restaurant={restaurant} />

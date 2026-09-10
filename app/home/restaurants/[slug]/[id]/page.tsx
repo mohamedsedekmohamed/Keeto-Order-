@@ -16,12 +16,8 @@ import { useLanguage } from "../../../../../context/LanguageContext";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
 import Loading from "@/components/Loading";
 import { useRestaurant } from "@/context/RestaurantContext";
-import { useRestaurantSettings } from "@/context/RestaurantContext";
 import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
-import FulfillmentSelectDialog, {
-  getFulfillmentFromSession,
-} from "@/components/UI/FulfillmentSelectDialog";
 
 type SocialLink = {
   id: string;
@@ -90,29 +86,9 @@ export default function Home() {
       : null;
 
   const { restaurant, isLoading, isError } = useRestaurant();
-  const { productView, firstColor, firstTextColor } = useRestaurantSettings();
-
-  // ── Fulfillment dialog (productView === "select") ──────────────────────────
-  // Show the dialog only after the user explicitly clicks the Order Now
-  // button. On confirm, route the user into the restaurant order page.
-  const [showFulfillmentDialog, setShowFulfillmentDialog] = useState(false);
 
   const handleOrderNowClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-
-    if (productView === "select") {
-      const { mode } = getFulfillmentFromSession();
-      if (!mode) {
-        setShowFulfillmentDialog(true);
-        return;
-      }
-    }
-
-    router.push(`${basePath}/restaurant`);
-  };
-
-  const handleFulfillmentConfirm = () => {
-    setShowFulfillmentDialog(false);
     router.push(`${basePath}/restaurant`);
   };
 
@@ -197,17 +173,6 @@ export default function Home() {
 
   return (
     <div className="relative flex flex-col items-center min-h-screen overflow-hidden bg-white dark:bg-zinc-950">
-      {/* ── Fulfillment selection dialog ─────────────────────────────────── */}
-      <AnimatePresence>
-        {showFulfillmentDialog && restaurant?.id && (
-          <FulfillmentSelectDialog
-            restaurantId={restaurant.id}
-            firstColor={firstColor}
-            textFirstColor={firstTextColor}
-            onConfirm={handleFulfillmentConfirm}
-          />
-        )}
-      </AnimatePresence>
       {/* COVER */}
       {restaurant?.cover && (
         <div className="relative w-full h-48 md:h-64 overflow-hidden">
