@@ -31,26 +31,11 @@ const AppleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const FacebookIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className={className}
-    fill="#1877F2"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-  </svg>
-);
-
 declare global {
   interface Window {
     AppleID: any;
-    FB: any;
-    fbAsyncInit: () => void;
   }
 }
-
-const FACEBOOK_APP_ID = "1057775750343232";
 
 export default function SignIn() {
   const { t } = useLanguage();
@@ -86,49 +71,12 @@ export default function SignIn() {
     return () => clearInterval(interval);
   }, []);
 
-  const [isFacebookSdkReady, setIsFacebookSdkReady] = useState(false);
-
-  useEffect(() => {
-    let didInit = false;
-
-    const initFacebookSdk = () => {
-      if (didInit || typeof window === "undefined" || !window.FB) return;
-      didInit = true;
-      window.FB.init({
-        appId: FACEBOOK_APP_ID,
-        cookie: true,
-        xfbml: false,
-        version: "v20.0",
-      });
-      setIsFacebookSdkReady(true);
-    };
-
-    // In case the SDK script (loaded via next/script below) finishes
-    // loading before this effect runs, or its onLoad never fires.
-    if (typeof window !== "undefined" && window.FB) {
-      initFacebookSdk();
-      return;
-    }
-
-    const interval = setInterval(() => {
-      if (typeof window !== "undefined" && window.FB) {
-        initFacebookSdk();
-        clearInterval(interval);
-      }
-    }, 300);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const { postData, loading } = usePost("/api/user/auth/login");
   const { postData: loginWithGoogle, loading: isGoogleLoading } = usePost(
     "/api/user/auth/google",
   );
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
-  );
-  const { postData: loginWithFacebook, loading: isFacebookLoading } = usePost(
-    "/api/user/auth/facebook",
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,44 +104,6 @@ export default function SignIn() {
     handleSuccessAuth(token);
   };
 
-  const processFacebookLoginResponse = async (response: any) => {
-    try {
-      const accessToken = response?.authResponse?.accessToken;
-      if (!accessToken) {
-        // User closed the dialog, denied permissions, or the app/domain
-        // isn't configured correctly in the Facebook Developer console.
-        console.warn("Facebook login did not return an accessToken", response);
-        return;
-      }
-
-      const authResponse = await loginWithFacebook(
-        { accessToken, restaurantId },
-        null,
-        t("loginSuccess"),
-      );
-      handleAuthResponse(authResponse);
-    } catch (error) {
-      console.error("Facebook Login Error", error);
-    }
-  };
-
-  const handleFacebookLogin = () => {
-    if (typeof window === "undefined" || !window.FB) {
-      console.error(
-        "Facebook SDK not loaded yet. Check that connect.facebook.net/en_US/sdk.js isn't blocked (ad blocker / network settings / CSP) and that this domain is in the Facebook App's App Domains + Valid OAuth Redirect settings.",
-      );
-      return;
-    }
-
-    // NOTE: FB.login's callback must be a plain (non-async) function — the
-    // SDK's internal callback validation rejects AsyncFunction and throws
-    // "Expression is of type asyncfunction, not function". So we keep this
-    // callback synchronous and fire-and-forget the async handler from inside it.
-    window.FB.login((response: any) => {
-      void processFacebookLoginResponse(response);
-    }, { scope: "public_profile,email" });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -213,10 +123,6 @@ export default function SignIn() {
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
         <Script
           src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"
-          strategy="afterInteractive"
-        />
-        <Script
-          src="https://connect.facebook.net/en_US/sdk.js"
           strategy="afterInteractive"
         />
 
@@ -337,27 +243,6 @@ export default function SignIn() {
               </span>
             </button>
 
-            {/* Facebook Button */}
-            <button
-              type="button"
-              onClick={handleFacebookLogin}
-              disabled={isFacebookLoading || !isFacebookSdkReady}
-              className={`h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors ${
-                isFacebookLoading || !isFacebookSdkReady
-                  ? "opacity-70 cursor-not-allowed"
-                  : ""
-              }`}
-            >
-              {isFacebookLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-gray-700 dark:text-white" />
-              ) : (
-                <FacebookIcon className="w-5 h-5" />
-              )}
-              <span className="text-base font-bold text-gray-700 dark:text-white">
-                Facebook
-              </span>
-            </button>
-
             {/* Toggle Email Form Button */}
             <button
               type="button"
@@ -468,17 +353,15 @@ export default function SignIn() {
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    disabled={
-                      loading || isGoogleLoading || isAppleLoading || isFacebookLoading
-                    }
+                    disabled={loading || isGoogleLoading || isAppleLoading}
                     className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
-                      loading || isGoogleLoading || isAppleLoading || isFacebookLoading
+                      loading || isGoogleLoading || isAppleLoading
                         ? "opacity-70 cursor-not-allowed"
                         : "hover:bg-yellow-500"
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      {loading || isGoogleLoading || isAppleLoading || isFacebookLoading ? (
+                      {loading || isGoogleLoading || isAppleLoading ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>
