@@ -190,14 +190,42 @@ interface FavoriteFood {
   price: string;
 }
 
+interface OfferCategory {
+  id: string;
+  name: string;
+  nameAr: string;
+  nameFr: string;
+}
+
+interface OfferSubcategory {
+  id: string;
+  name: string;
+  nameAr: string;
+  nameFr: string;
+  image?: string;
+  order_level?: number;
+}
+
 interface Offer {
-  foodId: string;
-  foodName: string;
-  originalPrice: string;
-  discountId: string;
-  discountName: string;
-  discountType: "percentage" | "fixed";
-  discountValue: string;
+  id: string;
+  name: string;
+  nameAr: string;
+  nameFr: string;
+  description: string;
+  descriptionAr: string;
+  descriptionFr: string;
+  price: number;
+  discountType: "amount" | "percentage";
+  discountValue: number;
+  discountPrice: number;
+  discountNote?: string;
+  image: string | null;
+  points: number | null;
+  isFavorite: boolean;
+  variations?: Record<string, unknown>;
+  addons?: Record<string, unknown>;
+  category?: OfferCategory;
+  subcategory?: OfferSubcategory;
 }
 
 // Parses "DD/MM/YYYY, hh:mm:ss am/pm" (and falls back to native Date parsing
@@ -505,11 +533,18 @@ export default function ProfilePage() {
   );
   const offers: Offer[] = offersData?.data || [];
 
-  // Same discount math as the standalone offers page: derives the
-  // discounted price from originalPrice + discountType/discountValue.
+  // The API already returns the final discounted price (discountPrice).
+  // This is kept only as a fallback in case discountPrice is ever missing,
+  // deriving it from price + discountType/discountValue instead.
   const getOfferFinalPrice = (offer: Offer) => {
-    const price = parseFloat(offer.originalPrice);
-    const discount = parseFloat(offer.discountValue);
+    if (
+      typeof offer.discountPrice === "number" &&
+      !Number.isNaN(offer.discountPrice)
+    ) {
+      return offer.discountPrice;
+    }
+    const price = Number(offer.price);
+    const discount = Number(offer.discountValue);
     if (Number.isNaN(price) || Number.isNaN(discount)) return null;
     const raw =
       offer.discountType === "percentage"
@@ -1841,45 +1876,90 @@ export default function ProfilePage() {
                         <p>{t("noOffers") || "لا توجد عروض متاحة حالياً."}</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                         {offers.map((offer) => {
                           const finalPrice = getOfferFinalPrice(offer);
+                          const offerName = isArabic
+                            ? offer.nameAr || offer.name
+                            : offer.name;
+                          const offerDescription = isArabic
+                            ? offer.descriptionAr || offer.description
+                            : offer.description;
+                          const subcategoryName = offer.subcategory
+                            ? isArabic
+                              ? offer.subcategory.nameAr ||
+                                offer.subcategory.name
+                              : offer.subcategory.name
+                            : null;
 
                           return (
                             <div
-                              key={`${offer.foodId}-${offer.discountId}`}
-                              className="p-5 bg-gray-50/50 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 rounded-2xl transition-all hover:border-yellow-400/50"
+                              key={offer.id}
+                              className="overflow-hidden transition bg-gray-50/50 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 rounded-2xl hover:border-yellow-400/50"
                             >
-                              <div className="flex items-start justify-between gap-2 mb-3">
-                                <h4 className="font-bold text-gray-900 dark:text-white">
-                                  {offer.foodName}
-                                </h4>
-                                <span className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 rounded-lg whitespace-nowrap">
-                                  <BadgePercent size={14} />
-                                  {offer.discountValue}
-                                  {offer.discountType === "percentage"
-                                    ? "%"
-                                    : ` ${t("currency") || "ج.م"}`}
-                                </span>
+                              <div className="relative w-full h-40 overflow-hidden bg-gray-100 dark:bg-zinc-800">
+                                {offer.image ? (
+                                  <img
+                                    src={offer.image}
+                                    alt={offerName}
+                                    className="object-cover w-full h-full"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center w-full h-full text-gray-300 dark:text-zinc-600">
+                                    <Tag size={32} />
+                                  </div>
+                                )}
+
+                                {(offer.discountValue ||
+                                  finalPrice !== null) && (
+                                  <span className="absolute top-3 ltr:left-3 rtl:right-3 flex items-center gap-1 px-2 py-1 text-xs font-bold text-green-600 bg-white/90 dark:bg-zinc-900/90 dark:text-green-400 rounded-lg whitespace-nowrap shadow-sm">
+                                    <BadgePercent size={14} />
+                                    {offer.discountType === "percentage"
+                                      ? `${offer.discountValue}%`
+                                      : `${offer.discountValue} ${
+                                          t("currency") || "ج.م"
+                                        }`}
+                                  </span>
+                                )}
+
+                                {subcategoryName && (
+                                  <span className="absolute top-3 ltr:right-3 rtl:left-3 px-2 py-1 text-[10px] font-bold text-white bg-black/60 rounded-lg whitespace-nowrap">
+                                    {subcategoryName}
+                                  </span>
+                                )}
                               </div>
 
-                              <p className="mb-4 text-sm text-gray-500 dark:text-zinc-400">
-                                {t("deal") || "الصفقة"}:{" "}
-                                <span className="font-medium text-gray-700 dark:text-zinc-300">
-                                  {offer.discountName}
-                                </span>
-                              </p>
+                              <div className="p-5">
+                                <h4 className="mb-1 font-bold text-gray-900 dark:text-white">
+                                  {offerName}
+                                </h4>
 
-                              <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-400 line-through">
-                                  {offer.originalPrice} {t("currency") || "ج.م"}
-                                </span>
-                                <span className="text-xl font-black text-yellow-500">
-                                  {finalPrice !== null
-                                    ? finalPrice.toFixed(2)
-                                    : "--"}{" "}
-                                  {t("currency") || "ج.م"}
-                                </span>
+                                {offerDescription && (
+                                  <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400 line-clamp-2">
+                                    {offerDescription}
+                                  </p>
+                                )}
+
+                                {offer.discountNote && (
+                                  <p className="mb-3 text-xs font-medium text-yellow-600 dark:text-yellow-400">
+                                    {offer.discountNote}
+                                  </p>
+                                )}
+
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm text-gray-400 line-through">
+                                    {offer.price} {t("currency") || "ج.م"}
+                                  </span>
+                                  <span className="text-xl font-black text-yellow-500">
+                                    {finalPrice !== null ? finalPrice : "--"}{" "}
+                                    {t("currency") || "ج.م"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           );
