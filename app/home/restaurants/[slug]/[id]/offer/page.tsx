@@ -4,6 +4,7 @@ import { Tag, BadgePercent, ChevronLeft } from "lucide-react";
 import Loading from "@/components/Loading";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface DiscountDetails {
   id: string;
@@ -70,6 +71,7 @@ const RestaurantOffers = () => {
   const params = useParams();
   const router = useRouter();
   const restaurantId = params.id as string;
+  const { t } = useLanguage();
   const { data, loading } = useGet<ApiEnvelope>(
     `/api/user/offers/restaurant/${restaurantId}/offers`,
   );
@@ -88,12 +90,12 @@ const RestaurantOffers = () => {
       </button>
       <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
         <Tag className="text-indigo-600" />
-        Current Offers
+        {t("currentOffers") || "Current Offers"}
       </h2>
 
       {offers.length === 0 ? (
         <div className="text-center py-10 text-slate-400">
-          No offers available
+          {t("noOffersAvailable") || "No offers available"}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -133,10 +135,11 @@ const RestaurantOffers = () => {
                 </div>
 
                 <div className="text-sm text-slate-500 mb-4">
-                  Deal:{" "}
+                  {t("deal") || "Deal:"}{" "}
                   <span className="font-medium text-slate-700">
                     {offer.discountDetails?.name ||
                       offer.discountNote ||
+                      t("offer") ||
                       "Offer"}
                   </span>
                 </div>
@@ -155,27 +158,33 @@ const RestaurantOffers = () => {
 
                 {offer.isOutOfStock ? (
                   <div className="flex items-center gap-2 text-rose-500 text-xs font-bold mb-3">
-                    <span>Out of stock</span>
+                    <span>{t("outOfStock") || "Out of stock"}</span>
                   </div>
                 ) : null}
 
                 <div className="flex items-center gap-3">
                   <span className="text-slate-400 line-through text-sm">
-                    ${Number(offer.price).toFixed(2)}
+                    EGP{Number(offer.price).toFixed(2)}
                   </span>
                   <span className="text-xl font-bold text-yellow-400">
-                    ${Number(displayPrice).toFixed(2)}
+                    EGP{Number(displayPrice).toFixed(2)}
                   </span>
                 </div>
 
                 <div className="text-xs text-slate-500 mt-3">
                   {offer.unavailableBranches?.length ? (
                     <span>
-                      Available in {offer.unavailableBranches.length} branch
-                      {offer.unavailableBranches.length > 1 ? "es" : ""}
+                      {t("availableIn") || "Available in"}{" "}
+                      {offer.unavailableBranches.length}{" "}
+                      {offer.unavailableBranches.length > 1
+                        ? t("branches") || "branches"
+                        : t("branch") || "branch"}
                     </span>
                   ) : (
-                    <span>Available across branches</span>
+                    <span>
+                      {t("availableAcrossBranches") ||
+                        "Available across branches"}
+                    </span>
                   )}
                 </div>
               </div>
