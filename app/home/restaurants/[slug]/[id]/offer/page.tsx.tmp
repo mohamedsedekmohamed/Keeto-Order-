@@ -1,9 +1,8 @@
 "use client";
-import useGet from "@/app/hooks/useGet";
-import { Tag, BadgePercent, ChevronLeft } from "lucide-react";
+import useGet from "../../../../../hooks/useGet";
+import { Tag, BadgePercent, AlertCircle, ChevronLeft } from "lucide-react";
 import Loading from "@/components/Loading";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
 
 interface DiscountDetails {
   id: string;
@@ -69,14 +68,16 @@ interface ApiEnvelope {
 const RestaurantOffers = () => {
   const params = useParams();
   const router = useRouter();
-  const restaurantId = params.id as string;
+  const restaurantId = params.id;
   const { data, loading } = useGet<ApiEnvelope>(
     `/api/user/offers/restaurant/${restaurantId}/offers`,
   );
 
   if (loading) return <Loading />;
 
-  const offers: RestaurantOffer[] = Array.isArray(data?.data) ? data.data : [];
+  const offers: RestaurantOffer[] = Array.isArray(data?.data)
+    ? data.data
+    : [];
 
   return (
     <div className="p-6">
@@ -98,17 +99,10 @@ const RestaurantOffers = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {offers.map((offer, index) => {
-            const displayPrice =
-              typeof offer.discountPrice === "number" && offer.discountPrice > 0
+            const finalPrice =
+              typeof offer.discountPrice === "number"
                 ? offer.discountPrice
-                : offer.discountType === "fixed_amount"
-                  ? Math.max(offer.price - offer.discountValue, 0)
-                  : offer.discountType === "percentage"
-                    ? Math.max(
-                        offer.price - (offer.price * offer.discountValue) / 100,
-                        0,
-                      )
-                    : offer.price;
+                : Number(offer.price) - Number(offer.discountValue);
 
             const label =
               offer.discountType === "percentage"
@@ -117,9 +111,13 @@ const RestaurantOffers = () => {
                   ? `OFF ${offer.discountValue}`
                   : `OFF ${offer.discountValue}`;
 
+            const offerKey = `${offer.id ?? offer.name ?? "offer"}-${
+              offer.discountDetails?.id ?? index
+            }`;
+
             return (
               <div
-                key={offer.id ?? `${offer.name}-${index}`}
+                key={offerKey}
                 className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex justify-between items-start mb-3">
@@ -133,29 +131,24 @@ const RestaurantOffers = () => {
                 </div>
 
                 <div className="text-sm text-slate-500 mb-4">
-                  Deal:{" "}
+                  Deal: {" "}
                   <span className="font-medium text-slate-700">
-                    {offer.discountDetails?.name ||
-                      offer.discountNote ||
-                      "Offer"}
+                    {offer.discountDetails?.name || offer.discountNote || "Offer"}
                   </span>
                 </div>
 
                 {offer.image ? (
-                  <div className="w-full h-40 rounded-xl mb-4 overflow-hidden relative">
-                    <Image
-                      src={offer.image}
-                      alt={offer.name}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover"
-                    />
-                  </div>
+                  <img
+                    src={offer.image}
+                    alt={offer.name}
+                    className="w-full h-40 object-cover rounded-xl mb-4"
+                  />
                 ) : null}
 
                 {offer.isOutOfStock ? (
                   <div className="flex items-center gap-2 text-rose-500 text-xs font-bold mb-3">
-                    <span>Out of stock</span>
+                    <AlertCircle size={15} />
+                    Out of stock
                   </div>
                 ) : null}
 
@@ -164,7 +157,7 @@ const RestaurantOffers = () => {
                     ${Number(offer.price).toFixed(2)}
                   </span>
                   <span className="text-xl font-bold text-yellow-400">
-                    ${Number(displayPrice).toFixed(2)}
+                    ${Number(finalPrice).toFixed(2)}
                   </span>
                 </div>
 

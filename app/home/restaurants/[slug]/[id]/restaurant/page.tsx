@@ -3,6 +3,7 @@
 import RestaurantCard from "@/components/UI/RestaurantCard";
 import RestaurantHeader from "@/components/UI/RestaurantHeader";
 import RestaurantItms from "@/components/UI/RestaurantItms";
+import RestaurantOffers from "@/components/UI/Restaurantoffers";
 import Link from "next/link";
 import { ShoppingBasket, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
@@ -26,6 +27,7 @@ import NewKeetaLogo from "@/public/PicWhite.jpeg";
 import FulfillmentSelectDialog, {
   getFulfillmentFromSession,
 } from "@/components/UI/FulfillmentSelectDialog";
+import { normalizeLang, localizedField, toImageSrc } from "@/lib/Localization";
 
 // ─────────────────────────────────────────────
 // Restaurant Promo Popup
@@ -56,45 +58,6 @@ interface PopupApiResponse {
     message: string;
     data: RestaurantPopup[];
   };
-}
-
-function getLocalizedPopupField(
-  popup: RestaurantPopup,
-  field: "Title" | "description" | "image",
-  lang: "ar" | "fr" | "en",
-) {
-  if (lang === "ar")
-    return popup[`${field}Ar` as keyof RestaurantPopup] || popup[field];
-  if (lang === "fr")
-    return popup[`${field}Fr` as keyof RestaurantPopup] || popup[field];
-  return popup[field];
-}
-
-// useLanguage()'s `language` isn't an ISO code here — elsewhere in the app
-// it's compared as `language === "العربية"` (a display name, not "ar").
-// Normalize whatever it gives us (display name or code) into "ar" | "fr" | "en"
-// so the popup picks the right localized fields instead of always falling
-// back to English.
-function normalizeLang(rawLang: string | undefined | null): "ar" | "fr" | "en" {
-  const value = (rawLang || "").trim().toLowerCase();
-  if (rawLang === "العربية" || value === "ar" || value === "arabic")
-    return "ar";
-  if (
-    value === "fr" ||
-    value === "french" ||
-    value === "français" ||
-    value === "francais"
-  )
-    return "fr";
-  return "en";
-}
-
-// Popup images may come back as raw base64 or as a ready-to-use URL/data
-// URI — normalize so <img src> always gets something renderable.
-function toImageSrc(value?: string) {
-  if (!value) return "";
-  if (value.startsWith("data:") || value.startsWith("http")) return value;
-  return `data:image/png;base64,${value}`;
 }
 
 export default function Restaurant() {
@@ -200,13 +163,13 @@ export default function Restaurant() {
 
   const lang = normalizeLang(language);
   const popupTitle = activePopup
-    ? getLocalizedPopupField(activePopup, "Title", lang)
+    ? localizedField(activePopup, "Title", lang)
     : "";
   const popupDescription = activePopup
-    ? getLocalizedPopupField(activePopup, "description", lang)
+    ? localizedField(activePopup, "description", lang)
     : "";
   const popupImage = activePopup
-    ? toImageSrc(getLocalizedPopupField(activePopup, "image", lang))
+    ? toImageSrc(localizedField(activePopup, "image", lang))
     : "";
 
   // ✅ Extract the actual items array safely, handling both direct arrays and nested cart objects
@@ -283,6 +246,21 @@ export default function Restaurant() {
       {/* <LogoNav logo={NewKeetaLogo} /> */}
       <RestaurantHeader cover={restaurant.cover} />
       <RestaurantCard restaurant={restaurant} />
+
+      {/* Offers — sits directly under the slider/info card, above the
+          menu. RestaurantCard overlaps the bottom of the slider (negative
+          top margin), so the offers section has to come after it rather
+          than between it and the header, or it gets covered by the card.
+          Follows the restaurant's own colors (firstColor / textFirstColor)
+          same as the rest of the page. Renders nothing when the
+          restaurant has no active offers. */}
+      <RestaurantOffers
+        restaurantId={restaurant?.id ?? ""}
+        firstColor={firstColor}
+        textFirstColor={textFirstColor}
+        onCartUpdated={fetchCart}
+      />
+
       <RestaurantItms
         menu={menu ?? []}
         restaurantId={restaurant?.id ?? ""}

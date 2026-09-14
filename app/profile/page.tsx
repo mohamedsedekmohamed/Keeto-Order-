@@ -190,44 +190,6 @@ interface FavoriteFood {
   price: string;
 }
 
-interface OfferCategory {
-  id: string;
-  name: string;
-  nameAr: string;
-  nameFr: string;
-}
-
-interface OfferSubcategory {
-  id: string;
-  name: string;
-  nameAr: string;
-  nameFr: string;
-  image?: string;
-  order_level?: number;
-}
-
-interface Offer {
-  id: string;
-  name: string;
-  nameAr: string;
-  nameFr: string;
-  description: string;
-  descriptionAr: string;
-  descriptionFr: string;
-  price: number;
-  discountType: "amount" | "percentage";
-  discountValue: number;
-  discountPrice: number;
-  discountNote?: string;
-  image: string | null;
-  points: number | null;
-  isFavorite: boolean;
-  variations?: Record<string, unknown>;
-  addons?: Record<string, unknown>;
-  category?: OfferCategory;
-  subcategory?: OfferSubcategory;
-}
-
 // Parses "DD/MM/YYYY, hh:mm:ss am/pm" (and falls back to native Date parsing
 // for ISO strings) into a valid JS Date object.
 function parseOrderDate(value: string | null | undefined): Date | null {
@@ -434,13 +396,7 @@ export default function ProfilePage() {
   // Reads the initial value from ?tab=... so links like
   // /profile?tab=tracking (e.g. the post-checkout redirect) actually open
   // the right section instead of always landing with everything closed.
-  const VALID_TABS = [
-    "general",
-    "addresses",
-    "favorites",
-    "offers",
-    "tracking",
-  ] as const;
+  const VALID_TABS = ["general", "addresses", "favorites", "tracking"] as const;
   type TabKey = (typeof VALID_TABS)[number];
   const isValidTab = (value: string | null): value is TabKey =>
     !!value && (VALID_TABS as readonly string[]).includes(value);
@@ -462,7 +418,7 @@ export default function ProfilePage() {
   }, [searchParams]);
 
   const toggleTab = (
-    tab: "general" | "addresses" | "favorites" | "offers" | "tracking",
+    tab: "general" | "addresses" | "favorites" | "tracking",
   ) => {
     setActiveTab(activeTab === tab ? null : tab);
   };
@@ -527,31 +483,6 @@ export default function ProfilePage() {
     loading: loadingHistoryOrders,
     refetch: refetchHistoryOrders,
   } = useGet<any>(`/api/user/order/history?restaurantId=${restaurantId}`);
-
-  const { data: offersData, loading: loadingOffers } = useGet<any>(
-    `/api/user/offers/restaurant/${restaurantId}/offers`,
-  );
-  const offers: Offer[] = offersData?.data || [];
-
-  // The API already returns the final discounted price (discountPrice).
-  // This is kept only as a fallback in case discountPrice is ever missing,
-  // deriving it from price + discountType/discountValue instead.
-  const getOfferFinalPrice = (offer: Offer) => {
-    if (
-      typeof offer.discountPrice === "number" &&
-      !Number.isNaN(offer.discountPrice)
-    ) {
-      return offer.discountPrice;
-    }
-    const price = Number(offer.price);
-    const discount = Number(offer.discountValue);
-    if (Number.isNaN(price) || Number.isNaN(discount)) return null;
-    const raw =
-      offer.discountType === "percentage"
-        ? price - price * (discount / 100)
-        : price - discount;
-    return Math.max(0, raw);
-  };
 
   const getOrderSource = () => {
     if (typeof window !== "undefined") {
@@ -1167,14 +1098,20 @@ export default function ProfilePage() {
 
   // Helper macro for rendering accordion buttons
   const renderAccordionButton = (
-    tabKey: "general" | "addresses" | "favorites" | "offers" | "tracking",
+    tabKey: "general" | "addresses" | "favorites" | "tracking",
     icon: React.ReactNode,
     label: string,
   ) => {
     const isOpen = activeTab === tabKey;
     return (
       <button
-        onClick={() => toggleTab(tabKey)}
+        onClick={() => {
+          if (tabKey === "tracking") {
+            toggleTab(tabKey);
+            return;
+          }
+          toggleTab(tabKey);
+        }}
         className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${
           isOpen
             ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
@@ -1194,6 +1131,19 @@ export default function ProfilePage() {
       </button>
     );
   };
+
+  const renderStaticOfferButton = () => (
+    <button
+      onClick={() => router.push(`/home/restaurants/${restaurantSlug}/offer`)}
+      className="w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
+    >
+      <div className="flex items-center gap-3">
+        <Tag size={18} />
+        <span>{t("offers") || "العروض"}</span>
+      </div>
+      <ChevronRight size={18} />
+    </button>
+  );
 
   return (
     <div className="relative min-h-screen px-4 py-12 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
@@ -1846,131 +1796,8 @@ export default function ProfilePage() {
             </AnimatePresence>
           </div>
 
-          {/* SECTION 4: OFFERS */}
-          <div>
-            {renderAccordionButton(
-              "offers",
-              <Tag size={18} />,
-              t("offers") || "العروض",
-            )}
-            <AnimatePresence>
-              {activeTab === "offers" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="p-6 sm:p-8 mt-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white dark:border-zinc-800/50 rounded-[2.5rem] shadow-xl space-y-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                      {t("currentOffers") || "العروض الحالية"}
-                    </h3>
-
-                    {loadingOffers ? (
-                      <div className="flex items-center justify-center py-16">
-                        <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
-                      </div>
-                    ) : offers.length === 0 ? (
-                      <div className="py-12 text-center text-gray-500 dark:text-zinc-400">
-                        <Tag className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
-                        <p>{t("noOffers") || "لا توجد عروض متاحة حالياً."}</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        {offers.map((offer) => {
-                          const finalPrice = getOfferFinalPrice(offer);
-                          const offerName = isArabic
-                            ? offer.nameAr || offer.name
-                            : offer.name;
-                          const offerDescription = isArabic
-                            ? offer.descriptionAr || offer.description
-                            : offer.description;
-                          const subcategoryName = offer.subcategory
-                            ? isArabic
-                              ? offer.subcategory.nameAr ||
-                                offer.subcategory.name
-                              : offer.subcategory.name
-                            : null;
-
-                          return (
-                            <div
-                              key={offer.id}
-                              className="overflow-hidden transition bg-gray-50/50 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 rounded-2xl hover:border-yellow-400/50"
-                            >
-                              <div className="relative w-full h-40 overflow-hidden bg-gray-100 dark:bg-zinc-800">
-                                {offer.image ? (
-                                  <img
-                                    src={offer.image}
-                                    alt={offerName}
-                                    className="object-cover w-full h-full"
-                                    onError={(e) => {
-                                      (
-                                        e.target as HTMLImageElement
-                                      ).style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="flex items-center justify-center w-full h-full text-gray-300 dark:text-zinc-600">
-                                    <Tag size={32} />
-                                  </div>
-                                )}
-
-                                {(offer.discountValue ||
-                                  finalPrice !== null) && (
-                                  <span className="absolute top-3 ltr:left-3 rtl:right-3 flex items-center gap-1 px-2 py-1 text-xs font-bold text-green-600 bg-white/90 dark:bg-zinc-900/90 dark:text-green-400 rounded-lg whitespace-nowrap shadow-sm">
-                                    <BadgePercent size={14} />
-                                    {offer.discountType === "percentage"
-                                      ? `${offer.discountValue}%`
-                                      : `${offer.discountValue} ${
-                                          t("currency") || "ج.م"
-                                        }`}
-                                  </span>
-                                )}
-
-                                {subcategoryName && (
-                                  <span className="absolute top-3 ltr:right-3 rtl:left-3 px-2 py-1 text-[10px] font-bold text-white bg-black/60 rounded-lg whitespace-nowrap">
-                                    {subcategoryName}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="p-5">
-                                <h4 className="mb-1 font-bold text-gray-900 dark:text-white">
-                                  {offerName}
-                                </h4>
-
-                                {offerDescription && (
-                                  <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400 line-clamp-2">
-                                    {offerDescription}
-                                  </p>
-                                )}
-
-                                {offer.discountNote && (
-                                  <p className="mb-3 text-xs font-medium text-yellow-600 dark:text-yellow-400">
-                                    {offer.discountNote}
-                                  </p>
-                                )}
-
-                                <div className="flex items-center gap-3">
-                                  <span className="text-sm text-gray-400 line-through">
-                                    {offer.price} {t("currency") || "ج.م"}
-                                  </span>
-                                  <span className="text-xl font-black text-yellow-500">
-                                    {finalPrice !== null ? finalPrice : "--"}{" "}
-                                    {t("currency") || "ج.م"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* SECTION 4: OFFERS -> Static route button only */}
+          <div>{renderStaticOfferButton()}</div>
 
           {/* SECTION 5: ORDER TRACKING */}
           <div>

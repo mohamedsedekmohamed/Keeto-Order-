@@ -79,6 +79,7 @@ interface DerivedSubCategory {
   name: string;
   nameAr: string;
   orderLevel: number;
+  image: string | null;
   foods: MenuItem[];
 }
 
@@ -232,6 +233,7 @@ export default function RestaurantItms({
               sub?.id && typeof sub.order_level === "number"
                 ? sub.order_level
                 : 999,
+            image: sub?.id && sub.image ? sub.image : null,
             foods: [],
           });
         }
@@ -248,7 +250,10 @@ export default function RestaurantItms({
         nameAr: cat.nameAr,
         subCategories,
         totalFoods: subCategories.reduce((n, s) => n + s.foods.length, 0),
-        coverImage: subCategories[0]?.foods[0]?.image || "/placeholder.jpg",
+        coverImage:
+          subCategories[0]?.image ||
+          subCategories[0]?.foods[0]?.image ||
+          "/placeholder.jpg",
       };
     });
   }, [menu]);
@@ -277,7 +282,7 @@ export default function RestaurantItms({
           catId: cat.id,
           orderLevel: sub.orderLevel,
           totalFoods: sub.foods.length,
-          coverImage: sub.foods[0]?.image || "/placeholder.jpg",
+          coverImage: sub.image || sub.foods[0]?.image || "/placeholder.jpg",
           foods: sub.foods,
         });
       });
