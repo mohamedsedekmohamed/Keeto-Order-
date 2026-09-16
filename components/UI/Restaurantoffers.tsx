@@ -154,7 +154,7 @@ export default function RestaurantOffers({
   } | null => {
     if (typeof window === "undefined") return null;
     try {
-      const raw = localStorage.getItem(fulfillmentStorageKey);
+      const raw = sessionStorage.getItem(fulfillmentStorageKey);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (
@@ -173,12 +173,12 @@ export default function RestaurantOffers({
 
   const setStoredFulfillment = (mode: "delivery" | "takeaway", id: string) => {
     if (typeof window === "undefined" || !id) return;
-    localStorage.setItem(fulfillmentStorageKey, JSON.stringify({ mode, id }));
+    sessionStorage.setItem(fulfillmentStorageKey, JSON.stringify({ mode, id }));
   };
 
   const clearStoredFulfillment = () => {
     if (typeof window === "undefined") return;
-    localStorage.removeItem(fulfillmentStorageKey);
+    sessionStorage.removeItem(fulfillmentStorageKey);
   };
 
   const { data: checkoutData } = useGet<any>(

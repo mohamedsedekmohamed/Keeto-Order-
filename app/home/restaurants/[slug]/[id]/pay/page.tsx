@@ -121,7 +121,7 @@ export default function Checkout() {
   };
 
   // The out-of-stock dialog (on the menu page) writes the mode + address/
-  // branch the user picked there to localStorage as "fulfillment_choice_zzz"
+  // branch the user picked there to sessionStorage as "fulfillment_choice_zzz"
   // -> {"mode":"delivery"|"takeaway","id":"<addressId or branchId>"}. When
   // checkout opens, we want to default to that same choice instead of
   // always starting on delivery + the first saved address. If the key is
@@ -134,7 +134,9 @@ export default function Checkout() {
   } | null => {
     if (typeof window === "undefined") return null;
     try {
-      const raw = localStorage.getItem("fulfillment_choice_zzz");
+      const raw = sessionStorage.getItem(
+        `fulfillment_choice_${restaurantName}`,
+      );
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (
@@ -151,7 +153,7 @@ export default function Checkout() {
   };
 
   // Applied at most once, the first time addresses/branches are available —
-  // a ref rather than re-reading localStorage every render, so a manual
+  // a ref rather than re-reading sessionStorage every render, so a manual
   // change the user makes on this page afterward is never overwritten by it.
   const appliedStoredChoiceRef = useRef(false);
 
