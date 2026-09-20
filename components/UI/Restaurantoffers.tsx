@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   BadgePercent,
@@ -113,6 +113,9 @@ interface RestaurantOffersProps {
   firstColor?: string;
   textFirstColor?: string;
   onCartUpdated?: () => void;
+  // Set by the parent (e.g. promo popup / slider) to scroll to one offer.
+  // Pass a NEW object each time.
+  focusTarget?: { type: "discount"; id: string } | null;
 }
 
 export default function RestaurantOffers({
@@ -120,6 +123,7 @@ export default function RestaurantOffers({
   firstColor,
   textFirstColor,
   onCartUpdated,
+  focusTarget,
 }: RestaurantOffersProps) {
   const params = useParams();
   const router = useRouter();
@@ -222,6 +226,38 @@ export default function RestaurantOffers({
   >(null);
   const [selectedFulfillmentId, setSelectedFulfillmentId] =
     useState<string>("");
+
+  // ── Scroll to a specific offer (popup / slider link) ──────────────
+  // NOTE: hooks must stay above the `offers.length === 0` early return.
+  const [highlightedOfferId, setHighlightedOfferId] = useState<string | null>(
+    null,
+  );
+  const handledFocusRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    if (!focusTarget || handledFocusRef.current === focusTarget) return;
+    // Wait until the offers have loaded.
+    if (offers.length === 0) return;
+    handledFocusRef.current = focusTarget;
+
+    const offer = offers.find((o) => o.id === focusTarget.id);
+    if (!offer) {
+      toast.error(
+        lang === "ar" ? "هذا العرض غير متاح" : "This offer is not available",
+      );
+      return;
+    }
+
+    setTimeout(() => {
+      document.getElementById(`offer-${offer.id}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "center",
+      });
+      setHighlightedOfferId(offer.id);
+      setTimeout(() => setHighlightedOfferId(null), 2000);
+    }, 100);
+  }, [focusTarget, offers]);
 
   const accent = firstColor || "#facc15";
   const accentText = textFirstColor || "#111827";
@@ -476,18 +512,29 @@ export default function RestaurantOffers({
       </div>
 
       {offers.length === 1 ? (
-        <OfferCard
-          offer={offers[0]}
-          lang={lang}
-          accent={accent}
-          accentText={accentText}
-          featured
-          onClick={() => openOfferDetail(offers[0])}
-        />
+        <div
+          id={`offer-${offers[0].id}`}
+          className={highlightedOfferId === offers[0].id ? "animate-pulse" : ""}
+        >
+          <OfferCard
+            offer={offers[0]}
+            lang={lang}
+            accent={accent}
+            accentText={accentText}
+            featured
+            onClick={() => openOfferDetail(offers[0])}
+          />
+        </div>
       ) : (
         <div className="flex gap-3 pb-2 overflow-x-auto snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {offers.map((offer) => (
-            <div key={offer.id} className="shrink-0 w-32 snap-start">
+            <div
+              key={offer.id}
+              id={`offer-${offer.id}`}
+              className={`shrink-0 w-32 snap-start ${
+                highlightedOfferId === offer.id ? "animate-pulse" : ""
+              }`}
+            >
               <OfferCard
                 offer={offer}
                 lang={lang}

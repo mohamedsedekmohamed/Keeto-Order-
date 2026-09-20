@@ -19,6 +19,43 @@ import { useLanguage } from "../../context/LanguageContext";
 // Import the utility to get the correct restaurant ID
 import { getRestaurantId } from "@/context/Restaurantid";
 
+/* ---------------- LINK ACTION (shared with the page's promo popup) ---------------- */
+export interface LinkSource {
+  // "link" | "subcategory" | "product" | "discount" (or null)
+  linkType: string | null;
+  link: string | null;
+  linkData: { id: string } | null;
+}
+
+export type LinkAction =
+  | { kind: "link"; href: string }
+  | { kind: "focus"; type: "subcategory" | "product" | "discount"; id: string };
+
+// What should happen when an image with a link is clicked?
+// 1) `link` present → open it in the same tab
+// 2) otherwise      → scroll to the subcategory / product / discount whose
+//                     id is in `linkData.id`
+// Returns null when there is no destination (then the image isn't clickable).
+export function getLinkAction(source: LinkSource): LinkAction | null {
+  const rawLink = source.link?.trim();
+  if (rawLink) {
+    const href = /^(https?:\/\/|\/)/i.test(rawLink)
+      ? rawLink
+      : `https://${rawLink}`;
+    return { kind: "link", href };
+  }
+
+  const id = source.linkData?.id;
+  const type = source.linkType;
+  if (
+    id &&
+    (type === "subcategory" || type === "product" || type === "discount")
+  ) {
+    return { kind: "focus", type, id };
+  }
+  return null;
+}
+
 interface RatingResponse {
   success: boolean;
   data: {
@@ -36,6 +73,10 @@ interface SliderImage {
   createdAt: string;
   updatedAt: string;
   periorty: number;
+  // "link" | "subcategory" | "product" | "discount" (or null)
+  linkType: string | null;
+  link: string | null;
+  linkData: { id: string } | null;
 }
 
 interface Branch {
@@ -51,7 +92,13 @@ interface Branch {
 }
 
 /* ---------------- SLIDER COMPONENT ---------------- */
-function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
+function RestaurantSlider({
+  restaurantId,
+  onLinkAction,
+}: {
+  restaurantId: string;
+  onLinkAction?: (action: LinkAction) => void;
+}) {
   const [current, setCurrent] = useState(0);
 
   const { data: sliderResponse, loading } = useGet<{
@@ -78,16 +125,33 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
   const prev = () => setCurrent((i) => (i === 0 ? images.length - 1 : i - 1));
   const next = () => setCurrent((i) => (i === images.length - 1 ? 0 : i + 1));
 
+  // Where does the current slide lead (if anywhere)?
+  const action = getLinkAction(images[current]);
+
   return (
     <div className="relative w-[96%] sm:w-[97%] md:w-full max-w-4xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-md">
       <div className="relative w-full aspect-[3/2] sm:aspect-[16/9] md:aspect-[21/9] bg-gray-100 dark:bg-zinc-800">
-        <img
-          src={images[current].img}
-          alt={`slide-${current}`}
-          className="absolute inset-0 object-cover w-full h-full transition-all duration-500"
-        />
+        {action && onLinkAction ? (
+          <button
+            type="button"
+            onClick={() => onLinkAction(action)}
+            className="absolute inset-0 w-full h-full cursor-pointer"
+          >
+            <img
+              src={images[current].img}
+              alt={`slide-${current}`}
+              className="object-cover w-full h-full transition-all duration-500"
+            />
+          </button>
+        ) : (
+          <img
+            src={images[current].img}
+            alt={`slide-${current}`}
+            className="absolute inset-0 object-cover w-full h-full transition-all duration-500"
+          />
+        )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
 
         {images.length > 1 && (
           <div className="absolute flex gap-1.5 z-10 bottom-3 left-1/2 -translate-x-1/2">
@@ -127,7 +191,13 @@ function RestaurantSlider({ restaurantId }: { restaurantId: string }) {
 }
 
 /* ---------------- MAIN CARD ---------------- */
-export default function RestaurantCard({ restaurant }: { restaurant: any }) {
+export default function RestaurantCard({
+  restaurant,
+  onLinkAction,
+}: {
+  restaurant: any;
+  onLinkAction?: (action: LinkAction) => void;
+}) {
   const [showBranchesModal, setShowBranchesModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
 
@@ -347,7 +417,10 @@ export default function RestaurantCard({ restaurant }: { restaurant: any }) {
 
       {/* SLIDER */}
       {currentRestaurantId && (
-        <RestaurantSlider restaurantId={currentRestaurantId} />
+        <RestaurantSlider
+          restaurantId={currentRestaurantId}
+          onLinkAction={onLinkAction}
+        />
       )}
 
       {/* ---------------- BRANCHES & MAP MODAL ---------------- */}

@@ -1,6 +1,9 @@
 "use client";
 
-import RestaurantCard from "@/components/UI/RestaurantCard";
+import RestaurantCard, {
+  getLinkAction,
+  LinkAction,
+} from "@/components/UI/RestaurantCard";
 import RestaurantHeader from "@/components/UI/RestaurantHeader";
 import RestaurantItms from "@/components/UI/RestaurantItms";
 import RestaurantOffers from "@/components/UI/Restaurantoffers";
@@ -71,33 +74,10 @@ interface PopupApiResponse {
   };
 }
 
-type PopupAction =
-  | { kind: "link"; href: string }
-  | { kind: "focus"; type: "subcategory" | "product" | "discount"; id: string };
-
-// What should happen when the popup image is clicked?
-// 1) `link` present → open it in the same tab
-// 2) otherwise      → scroll to the subcategory / product / discount whose
-//                     id is in `linkData.id`
-function getPopupAction(popup: RestaurantPopup): PopupAction | null {
-  const rawLink = popup.link?.trim();
-  if (rawLink) {
-    const href = /^(https?:\/\/|\/)/i.test(rawLink)
-      ? rawLink
-      : `https://${rawLink}`;
-    return { kind: "link", href };
-  }
-
-  const id = popup.linkData?.id;
-  const type = popup.linkType;
-  if (
-    id &&
-    (type === "subcategory" || type === "product" || type === "discount")
-  ) {
-    return { kind: "focus", type, id };
-  }
-  return null;
-}
+// Which section a popup/slider link asks the page to scroll to.
+type FocusTarget =
+  | { type: "subcategory" | "product"; id: string }
+  | { type: "discount"; id: string };
 
 export default function Restaurant() {
   const params = useParams();
@@ -183,11 +163,9 @@ export default function Restaurant() {
     popupResponse?.data?.data?.[0] ?? null;
 
   const [showPromoPopup, setShowPromoPopup] = useState(false);
-  // Asks RestaurantItms to scroll to a subcategory / product
-  const [focusTarget, setFocusTarget] = useState<{
-    type: "subcategory" | "product";
-    id: string;
-  } | null>(null);
+  // Asks RestaurantItms / RestaurantOffers to scroll to a subcategory,
+  // product or discount
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !activePopup) return;
@@ -205,26 +183,22 @@ export default function Restaurant() {
     setShowPromoPopup(false);
   };
 
-  const popupAction = activePopup ? getPopupAction(activePopup) : null;
+  const popupAction = activePopup ? getLinkAction(activePopup) : null;
+
+  // Shared by the promo popup and the slider (RestaurantCard).
+  const handleLinkAction = (action: LinkAction) => {
+    if (action.kind === "link") {
+      window.location.assign(action.href); // same tab
+      return;
+    }
+    // subcategory / product → RestaurantItms, discount → RestaurantOffers
+    setFocusTarget({ type: action.type, id: action.id });
+  };
 
   const handlePopupImageClick = () => {
     if (!popupAction) return;
     handleClosePromoPopup();
-
-    if (popupAction.kind === "link") {
-      window.location.assign(popupAction.href); // same tab
-      return;
-    }
-    if (popupAction.type === "discount") {
-      setTimeout(() => {
-        document
-          .getElementById("restaurant-offers")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-      return;
-    }
-    // subcategory / product → RestaurantItms scrolls to it
-    setFocusTarget({ type: popupAction.type, id: popupAction.id });
+    handleLinkAction(popupAction);
   };
 
   const lang = normalizeLang(language);
@@ -311,7 +285,7 @@ export default function Restaurant() {
 
       {/* <LogoNav logo={NewKeetaLogo} /> */}
       <RestaurantHeader cover={restaurant.cover} />
-      <RestaurantCard restaurant={restaurant} />
+      <RestaurantCard restaurant={restaurant} onLinkAction={handleLinkAction} />
 
       {/* Offers — sits directly under the slider/info card, above the
           menu. RestaurantCard overlaps the bottom of the slider (negative
@@ -320,20 +294,21 @@ export default function Restaurant() {
           Follows the restaurant's own colors (firstColor / textFirstColor)
           same as the rest of the page. Renders nothing when the
           restaurant has no active offers. */}
-      <div id="restaurant-offers">
-        <RestaurantOffers
-          restaurantId={restaurant?.id ?? ""}
-          firstColor={firstColor}
-          textFirstColor={textFirstColor}
-          onCartUpdated={fetchCart}
-        />
-      </div>
+      <RestaurantOffers
+        restaurantId={restaurant?.id ?? ""}
+        firstColor={firstColor}
+        textFirstColor={textFirstColor}
+        onCartUpdated={fetchCart}
+        focusTarget={focusTarget?.type === "discount" ? focusTarget : null}
+      />
 
       <RestaurantItms
         menu={menu ?? []}
         restaurantId={restaurant?.id ?? ""}
         onCartUpdated={fetchCart}
-        focusTarget={focusTarget}
+        focusTarget={
+          focusTarget && focusTarget.type !== "discount" ? focusTarget : null
+        }
       />
 
       {/* زر السلة العائم المطور مع مؤثرات إضافة ذكية */}
