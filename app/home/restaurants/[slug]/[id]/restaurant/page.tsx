@@ -50,6 +50,17 @@ interface RestaurantPopup {
   type: string;
   startDate: string;
   endDate: string;
+  // "link" | "subcategory" | "product" | "discount" (or null)
+  linkType: string | null;
+  link: string | null;
+  linkData: {
+    id: string;
+    name?: string;
+    nameAr?: string;
+    nameFr?: string;
+    image?: string | null;
+    status?: string;
+  } | null;
 }
 
 interface PopupApiResponse {
@@ -58,6 +69,34 @@ interface PopupApiResponse {
     message: string;
     data: RestaurantPopup[];
   };
+}
+
+type PopupAction =
+  | { kind: "link"; href: string }
+  | { kind: "focus"; type: "subcategory" | "product" | "discount"; id: string };
+
+// What should happen when the popup image is clicked?
+// 1) `link` present → open it in the same tab
+// 2) otherwise      → scroll to the subcategory / product / discount whose
+//                     id is in `linkData.id`
+function getPopupAction(popup: RestaurantPopup): PopupAction | null {
+  const rawLink = popup.link?.trim();
+  if (rawLink) {
+    const href = /^(https?:\/\/|\/)/i.test(rawLink)
+      ? rawLink
+      : `https://${rawLink}`;
+    return { kind: "link", href };
+  }
+
+  const id = popup.linkData?.id;
+  const type = popup.linkType;
+  if (
+    id &&
+    (type === "subcategory" || type === "product" || type === "discount")
+  ) {
+    return { kind: "focus", type, id };
+  }
+  return null;
 }
 
 export default function Restaurant() {
@@ -144,6 +183,11 @@ export default function Restaurant() {
     popupResponse?.data?.data?.[0] ?? null;
 
   const [showPromoPopup, setShowPromoPopup] = useState(false);
+  // Asks RestaurantItms to scroll to a subcategory / product
+  const [focusTarget, setFocusTarget] = useState<{
+    type: "subcategory" | "product";
+    id: string;
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !activePopup) return;
@@ -159,6 +203,28 @@ export default function Restaurant() {
       sessionStorage.setItem(`promo_popup_dismissed_${activePopup.id}`, "1");
     }
     setShowPromoPopup(false);
+  };
+
+  const popupAction = activePopup ? getPopupAction(activePopup) : null;
+
+  const handlePopupImageClick = () => {
+    if (!popupAction) return;
+    handleClosePromoPopup();
+
+    if (popupAction.kind === "link") {
+      window.location.assign(popupAction.href); // same tab
+      return;
+    }
+    if (popupAction.type === "discount") {
+      setTimeout(() => {
+        document
+          .getElementById("restaurant-offers")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+      return;
+    }
+    // subcategory / product → RestaurantItms scrolls to it
+    setFocusTarget({ type: popupAction.type, id: popupAction.id });
   };
 
   const lang = normalizeLang(language);
@@ -254,17 +320,20 @@ export default function Restaurant() {
           Follows the restaurant's own colors (firstColor / textFirstColor)
           same as the rest of the page. Renders nothing when the
           restaurant has no active offers. */}
-      <RestaurantOffers
-        restaurantId={restaurant?.id ?? ""}
-        firstColor={firstColor}
-        textFirstColor={textFirstColor}
-        onCartUpdated={fetchCart}
-      />
+      <div id="restaurant-offers">
+        <RestaurantOffers
+          restaurantId={restaurant?.id ?? ""}
+          firstColor={firstColor}
+          textFirstColor={textFirstColor}
+          onCartUpdated={fetchCart}
+        />
+      </div>
 
       <RestaurantItms
         menu={menu ?? []}
         restaurantId={restaurant?.id ?? ""}
         onCartUpdated={fetchCart}
+        focusTarget={focusTarget}
       />
 
       {/* زر السلة العائم المطور مع مؤثرات إضافة ذكية */}
@@ -324,14 +393,28 @@ export default function Restaurant() {
               <X size={18} />
             </button>
 
-            {popupImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={popupImage}
-                alt={popupTitle}
-                className="object-cover w-full h-48"
-              />
-            )}
+            {popupImage &&
+              (popupAction ? (
+                <button
+                  type="button"
+                  onClick={handlePopupImageClick}
+                  className="block w-full cursor-pointer"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={popupImage}
+                    alt={popupTitle}
+                    className="object-cover w-full h-48"
+                  />
+                </button>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={popupImage}
+                  alt={popupTitle}
+                  className="object-cover w-full h-48"
+                />
+              ))}
 
             <div className="p-6">
               <h3

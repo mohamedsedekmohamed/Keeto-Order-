@@ -98,10 +98,14 @@ export default function RestaurantItms({
   menu,
   restaurantId,
   onCartUpdated,
+  focusTarget,
 }: {
   menu: MenuCategory[] | null;
   restaurantId: string;
   onCartUpdated: () => void;
+  // Set by the parent (e.g. promo popup) to ask this component to scroll to
+  // a subcategory or a product. Pass a NEW object each time.
+  focusTarget?: { type: "subcategory" | "product"; id: string } | null;
 }) {
   const { language, t } = useLanguage();
   const isRtl = language === "العربية";
@@ -168,6 +172,10 @@ export default function RestaurantItms({
 
   // ── Search ────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedFoodId, setHighlightedFoodId] = useState<string | null>(
+    null,
+  );
+  const handledFocusRef = useRef<unknown>(null);
   const { deleteData } = useDelete("/users");
 
   // ── Item modal & Cart conflict states ─────────────────────────────
@@ -587,6 +595,63 @@ export default function RestaurantItms({
     });
     setSelectedOptions(init);
   };
+
+  // ── Scroll to a product (used by the promo popup) ─────────────────
+  const scrollToProduct = (foodId: string) => {
+    const entry = dynamicItems.find((i) => i.id === foodId);
+    const sub = entry
+      ? dynamicSubCategories.find(
+          (s) =>
+            s.catId === entry.categoryId && s.rawId === entry.subCategoryId,
+        )
+      : undefined;
+    if (!entry || !sub) {
+      toast.error(isRtl ? "هذا المنتج غير متاح" : "Product not available");
+      return;
+    }
+
+    setSearchQuery("");
+    if (manualClickTimeoutRef.current)
+      clearTimeout(manualClickTimeoutRef.current);
+    isManualClick.current = true;
+
+    // Leave the "all" grid so the product sections are rendered.
+    setActiveCategoryTab(sub.catId);
+    setActiveSubCategoryTab(sub.rawId === "__no_sub__" ? null : sub.rawId);
+    centerActiveTab(`subtab-${sub.id}`);
+    currentActiveSectionRef.current = `${sub.catId}-${sub.rawId}`;
+
+    setTimeout(() => {
+      const el = document.getElementById(`food-${foodId}`);
+      if (el) {
+        const headerHeight = stickyHeaderRef.current?.offsetHeight || 130;
+        const top =
+          el.getBoundingClientRect().top + window.scrollY - headerHeight - 24;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
+      setHighlightedFoodId(foodId);
+      setTimeout(() => setHighlightedFoodId(null), 2000);
+
+      manualClickTimeoutRef.current = setTimeout(() => {
+        isManualClick.current = false;
+      }, 1000);
+    }, 150);
+  };
+
+  // React to a focus request from the parent (popup → subcategory/product)
+  useEffect(() => {
+    if (!focusTarget || handledFocusRef.current === focusTarget) return;
+    // Wait until the menu has been loaded and grouped.
+    if (dynamicSubCategories.length === 0) return;
+    handledFocusRef.current = focusTarget;
+
+    if (focusTarget.type === "product") {
+      scrollToProduct(focusTarget.id);
+    } else {
+      setSearchQuery("");
+      setTimeout(() => scrollToSubCategory(focusTarget.id), 100);
+    }
+  }, [focusTarget, dynamicSubCategories]);
 
   const handleOptionSelect = (
     variation: Variation,
@@ -1130,8 +1195,11 @@ export default function RestaurantItms({
           if (outOfStock) return;
           handleItemClick(item);
         }}
+        id={`food-${item.id}`}
         aria-disabled={outOfStock}
         className={`relative flex items-center p-3 transition-all bg-white border border-gray-100 shadow-sm dark:bg-zinc-900 rounded-2xl dark:border-zinc-800 group ${
+          highlightedFoodId === item.id ? "ring-4 ring-yellow-400/60 " : ""
+        }${
           outOfStock
             ? "opacity-60 cursor-not-allowed"
             : "cursor-pointer hover:shadow-md"
