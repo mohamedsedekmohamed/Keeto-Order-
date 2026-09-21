@@ -262,7 +262,7 @@ export default function SignIn() {
             window.FB?.init({
               appId: FACEBOOK_APP_ID,
               cookie: true,
-              xfbml: false,
+              xfbml: true,
               version: FACEBOOK_GRAPH_VERSION,
             });
           }}
