@@ -168,7 +168,7 @@ export default function SignIn() {
   ) => {
     try {
       const response = await loginWithFacebook(
-        { token: accessToken, restaurantId: rid },
+        {  accessToken, restaurantId: rid },
         null,
         t("loginSuccess"),
       );
