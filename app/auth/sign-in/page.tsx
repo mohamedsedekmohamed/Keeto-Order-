@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -31,9 +31,33 @@ const AppleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const FacebookIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="#1877F2"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+);
+
+// Set NEXT_PUBLIC_FACEBOOK_APP_ID in .env (the NEXT_PUBLIC_ prefix is required
+// for it to reach the browser). Falls back to the app id you gave me.
+const FACEBOOK_APP_ID =
+  process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "1057775750343232";
+const FACEBOOK_GRAPH_VERSION = "v23.0";
+const FACEBOOK_SCOPE = "public_profile,email";
+
+// Facebook / Messenger in-app browser (WebView) user agents.
+const isFacebookInAppBrowser = () =>
+  typeof navigator !== "undefined" &&
+  /FBAN|FBAV|FB_IAB|FBIOS|Messenger/i.test(navigator.userAgent);
+
 declare global {
   interface Window {
     AppleID: any;
+    FB: any;
   }
 }
 
@@ -42,7 +66,13 @@ export default function SignIn() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false); // State to toggle email form
+  // Visitors coming from "start order" (callbackSlug) get the email form open
+  // right away, so the browser / password manager can autofill the fields.
+  const [showEmailForm, setShowEmailForm] = useState(() =>
+    Boolean(searchParams.get("callbackSlug")),
+  );
+  const [isFbBrowser, setIsFbBrowser] = useState(false);
+  const fbRedirectHandled = useRef(false);
   const { setToken } = useToken();
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
   const callbackSlug = searchParams.get("callbackSlug");
@@ -53,6 +83,12 @@ export default function SignIn() {
   });
   useEffect(() => {
     setRestaurantId(sessionStorage.getItem("restaurantId"));
+    setIsFbBrowser(isFacebookInAppBrowser());
+    try {
+      // Prefill only the email. Passwords are left to the browser's autofill.
+      const lastEmail = localStorage.getItem("lastLoginEmail");
+      if (lastEmail) setFormData((prev) => ({ ...prev, email: lastEmail }));
+    } catch {}
   }, []);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -78,16 +114,20 @@ export default function SignIn() {
   const { postData: loginWithApple, loading: isAppleLoading } = usePost(
     "/api/user/auth/apple",
   );
+  const { postData: loginWithFacebook, loading: isFacebookLoading } = usePost(
+    "/api/user/auth/facebook",
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSuccessAuth = (token: string) => {
-    setToken(token, callbackSlug);
-    const redirectPath = callbackSlug
-      ? `/home/restaurants/${callbackSlug}/restaurant`
-      : "/";
+  // slugOverride is used when we come back from the Facebook redirect, where
+  // the callbackSlug is no longer in the URL.
+  const handleSuccessAuth = (token: string, slugOverride?: string | null) => {
+    const slug = slugOverride ?? callbackSlug;
+    setToken(token, slug);
+    const redirectPath = slug ? `/home/restaurants/${slug}/restaurant` : "/";
     router.push(redirectPath);
   };
 
@@ -97,11 +137,11 @@ export default function SignIn() {
     return { token };
   };
 
-  const handleAuthResponse = (response: any) => {
+  const handleAuthResponse = (response: any, slugOverride?: string | null) => {
     const { token } = extractAuthPayload(response);
     if (!token) return;
 
-    handleSuccessAuth(token);
+    handleSuccessAuth(token, slugOverride);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,9 +152,99 @@ export default function SignIn() {
         null,
         t("loginSuccess"),
       );
+      try {
+        localStorage.setItem("lastLoginEmail", formData.email);
+      } catch {}
       handleAuthResponse(response);
     } catch {}
   };
+
+  /* ---------------------------- Facebook login ---------------------------- */
+
+  const loginWithFacebookToken = async (
+    accessToken: string,
+    rid: string | null,
+    slug?: string | null,
+  ) => {
+    try {
+      const response = await loginWithFacebook(
+        { token: accessToken, restaurantId: rid },
+        null,
+        t("loginSuccess"),
+      );
+      handleAuthResponse(response, slug);
+    } catch (error) {
+      console.error("Facebook Login Error", error);
+    }
+  };
+
+  // Full-page redirect flow. Used inside the Facebook in-app browser (popups
+  // are unreliable in a WebView) and as a fallback when the SDK didn't load.
+  // Everything stays in the same browser: no popup, no external browser.
+  const startFacebookRedirect = () => {
+    const state = crypto.randomUUID();
+    sessionStorage.setItem("fb_oauth_state", state);
+    if (callbackSlug) sessionStorage.setItem("fb_oauth_slug", callbackSlug);
+    else sessionStorage.removeItem("fb_oauth_slug");
+
+    const params = new URLSearchParams({
+      client_id: FACEBOOK_APP_ID,
+      // Must be listed in Facebook Login > Settings > Valid OAuth Redirect URIs
+      redirect_uri: `${window.location.origin}${window.location.pathname}`,
+      response_type: "token",
+      scope: FACEBOOK_SCOPE,
+      state,
+    });
+    window.location.href = `https://www.facebook.com/${FACEBOOK_GRAPH_VERSION}/dialog/oauth?${params.toString()}`;
+  };
+
+  const handleFacebookLogin = () => {
+    if (isFbBrowser || !window.FB) {
+      startFacebookRedirect();
+      return;
+    }
+    // FB.login must be called straight from the click, before any await.
+    window.FB.login(
+      (res: any) => {
+        const accessToken = res?.authResponse?.accessToken;
+        if (accessToken) loginWithFacebookToken(accessToken, restaurantId);
+      },
+      { scope: FACEBOOK_SCOPE },
+    );
+  };
+
+  // Coming back from the redirect flow: #access_token=...&state=...
+  useEffect(() => {
+    if (fbRedirectHandled.current) return;
+    const hash = window.location.hash;
+    if (!hash.includes("access_token=")) return;
+    fbRedirectHandled.current = true;
+
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    // Remove the token from the address bar / history right away.
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+
+    const accessToken = params.get("access_token");
+    const savedState = sessionStorage.getItem("fb_oauth_state");
+    const savedSlug = sessionStorage.getItem("fb_oauth_slug");
+    sessionStorage.removeItem("fb_oauth_state");
+    sessionStorage.removeItem("fb_oauth_slug");
+
+    // The state check protects against forged redirects (CSRF).
+    if (!accessToken || !savedState || params.get("state") !== savedState) {
+      return;
+    }
+    loginWithFacebookToken(
+      accessToken,
+      sessionStorage.getItem("restaurantId"),
+      savedSlug,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <GoogleOAuthProvider clientId="798541723323-gt1bh29472nra4ujivcsnnc9f662gr08.apps.googleusercontent.com">
@@ -124,6 +254,18 @@ export default function SignIn() {
         <Script
           src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"
           strategy="afterInteractive"
+        />
+        <Script
+          src="https://connect.facebook.net/en_US/sdk.js"
+          strategy="afterInteractive"
+          onReady={() => {
+            window.FB?.init({
+              appId: FACEBOOK_APP_ID,
+              cookie: true,
+              xfbml: false,
+              version: FACEBOOK_GRAPH_VERSION,
+            });
+          }}
         />
 
         <motion.div
@@ -243,6 +385,23 @@ export default function SignIn() {
               </span>
             </button>
 
+            {/* Facebook Button */}
+            <button
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={isFacebookLoading}
+              className="h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isFacebookLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-[#1877F2]" />
+              ) : (
+                <FacebookIcon className="w-5 h-5" />
+              )}
+              <span className="text-base font-bold text-gray-700 dark:text-white">
+                Facebook
+              </span>
+            </button>
+
             {/* Toggle Email Form Button */}
             <button
               type="button"
@@ -267,7 +426,10 @@ export default function SignIn() {
               >
                 <form className="space-y-6 pt-2" onSubmit={handleSubmit}>
                   <div>
-                    <label className="block mb-2 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300">
+                    <label
+                      htmlFor="email"
+                      className="block mb-2 text-sm font-bold text-gray-700 ms-1 dark:text-zinc-300"
+                    >
                       {t("email")}
                     </label>
                     <div className="relative group">
@@ -278,8 +440,10 @@ export default function SignIn() {
                         />
                       </div>
                       <input
+                        id="email"
                         name="email"
                         type="email"
+                        autoComplete="username"
                         required
                         value={formData.email}
                         onChange={handleChange}
@@ -291,7 +455,10 @@ export default function SignIn() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2 ms-1">
-                      <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300">
+                      <label
+                        htmlFor="password"
+                        className="block text-sm font-bold text-gray-700 dark:text-zinc-300"
+                      >
                         {t("password")}
                       </label>
                       <Link
@@ -313,8 +480,10 @@ export default function SignIn() {
                         />
                       </div>
                       <input
+                        id="password"
                         name="password"
                         type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
                         required
                         value={formData.password}
                         onChange={handleChange}
@@ -353,15 +522,26 @@ export default function SignIn() {
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    disabled={loading || isGoogleLoading || isAppleLoading}
+                    disabled={
+                      loading ||
+                      isGoogleLoading ||
+                      isAppleLoading ||
+                      isFacebookLoading
+                    }
                     className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
-                      loading || isGoogleLoading || isAppleLoading
+                      loading ||
+                      isGoogleLoading ||
+                      isAppleLoading ||
+                      isFacebookLoading
                         ? "opacity-70 cursor-not-allowed"
                         : "hover:bg-yellow-500"
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      {loading || isGoogleLoading || isAppleLoading ? (
+                      {loading ||
+                      isGoogleLoading ||
+                      isAppleLoading ||
+                      isFacebookLoading ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>
