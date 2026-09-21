@@ -44,8 +44,7 @@ const FacebookIcon = ({ className }: { className?: string }) => (
 
 // Set NEXT_PUBLIC_FACEBOOK_APP_ID in .env (the NEXT_PUBLIC_ prefix is required
 // for it to reach the browser). Falls back to the app id you gave me.
-const FACEBOOK_APP_ID =
-  process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "1057775750343232";
+const FACEBOOK_APP_ID = " 1226729656324133";
 const FACEBOOK_GRAPH_VERSION = "v23.0";
 const FACEBOOK_SCOPE = "public_profile,email";
 
@@ -168,7 +167,7 @@ export default function SignIn() {
   ) => {
     try {
       const response = await loginWithFacebook(
-        {  accessToken, restaurantId: rid },
+        { accessToken, restaurantId: rid },
         null,
         t("loginSuccess"),
       );
