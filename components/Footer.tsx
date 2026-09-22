@@ -16,13 +16,13 @@ const Footer = () => {
 
   //const restaurantId = (params?.id as string) || restaurant?.id;
   const restaurantName = params.slug as string;
-  const basePath = `/home/restaurants/${restaurantName}`;
+  const basePath = `/home`;
 
   return (
     <footer className="transition-colors duration-300 bg-white border-t border-gray-100 dark:bg-zinc-950 dark:border-zinc-900">
       <div className="max-w-4xl px-6 py-10 mx-auto">
         {/* رابط سياسة الاسترجاع */}
-       
+
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
           {/* الجانب الأيمن: البراند والوصف */}
           <div className="text-center md:text-right">
@@ -50,18 +50,18 @@ const Footer = () => {
           {/* الجانب الأوسط: روابط سريعة */}
           <div className="flex gap-8 text-sm font-semibold text-gray-500 dark:text-zinc-400">
             {[
-              { name: t("aboutUs"), href: "#" },
-              { name: t("contactUs"), href: "#" },
-              { name: t("terms"), href: "#" },
+              { name: t("aboutUs"), href: `${basePath}/AboutUs` },
+              { name: t("contactUs"), href: `${basePath}/Contact` },
+              { name: t("terms"), href: `${basePath}/TermsOfconditons` },
             ].map((link) => (
-              <a
+              <Link
                 key={link.name}
                 href={link.href}
                 className="relative pb-1 transition-colors hover:text-yellow-500 group"
               >
                 {link.name}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 transition-all duration-300 group-hover:w-full" />
-              </a>
+              </Link>
             ))}
           </div>
 
