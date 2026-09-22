@@ -21,6 +21,8 @@ const Footer = () => {
   return (
     <footer className="transition-colors duration-300 bg-white border-t border-gray-100 dark:bg-zinc-950 dark:border-zinc-900">
       <div className="max-w-4xl px-6 py-10 mx-auto">
+        {/* رابط سياسة الاسترجاع */}
+       
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
           {/* الجانب الأيمن: البراند والوصف */}
           <div className="text-center md:text-right">

@@ -16,6 +16,7 @@ import Loading from "@/components/Loading";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
+import Footer from "@/components/Footer";
 
 // --- دالة تحويل الاسم لـ Slug نظيف ---
 const slugify = (text: string) => {
@@ -126,228 +127,240 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen px-4 py-8 pb-24 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
-      <div className="absolute top-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-400/10 blur-[120px] rounded-full pointer-events-none" />
+    <>
+      <div className="relative min-h-screen px-4 py-8 pb-24 overflow-hidden transition-colors duration-300 bg-gray-50 dark:bg-zinc-950">
+        <div className="absolute top-[-5%] right-[-5%] w-[500px] h-[500px] bg-yellow-400/10 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="relative z-10 mx-auto max-w-7xl space-y-14">
-        {/* Header */}
-        <header className="flex flex-col gap-2">
-          <motion.h1
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-4xl font-black text-gray-900 dark:text-white"
-          >
-            {t("hello")} <span className="text-yellow-400">👋</span>
-          </motion.h1>
-          <p className="font-medium text-gray-500 dark:text-zinc-400">
-            {t("welcomeBack")}
-          </p>
-        </header>
+        <div className="relative z-10 mx-auto max-w-7xl space-y-14">
+          {/* Header */}
+          <header className="flex flex-col gap-2">
+            <motion.h1
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-4xl font-black text-gray-900 dark:text-white"
+            >
+              {t("hello")} <span className="text-yellow-400">👋</span>
+            </motion.h1>
+            <p className="font-medium text-gray-500 dark:text-zinc-400">
+              {t("welcomeBack")}
+            </p>
+          </header>
 
-        {/* Cuisines Section */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-              <Utensils size={24} className="text-yellow-400" />
-              {t("cuisines") || "المطابخ الشهيرة"}
-            </h2>
-          </div>
-
-          <div className="flex gap-6 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
-            {content?.cuisines?.map((cuisine, index) => (
-              <Link
-                key={cuisine.id}
-                href={`/home/cuisines/${cuisine.id}`}
-                className="block flex-shrink-0"
-              >
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="group"
-                >
-                  <div className="relative w-40 h-48 rounded-[2.5rem] overflow-hidden shadow-lg group-hover:shadow-yellow-400/20 transition-all duration-500">
-                    <img
-                      src={cuisine.image || "/placeholder.jpg"}
-                      alt={cuisine.name || "image"}
-                      className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 flex items-end justify-center p-4 bg-gradient-to-t from-black/90 via-black/20 to-transparent">
-                      <span className="font-bold tracking-wide text-center text-white">
-                        {cuisine.name}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* Categories Section */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-              <LayoutGrid size={24} className="text-yellow-400" />
-              {t("categories") || "التصنيفات"}
-            </h2>
-          </div>
-
-          <div className="flex gap-5 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
-            {content?.categories?.map((category, index) => (
-              <Link
-                key={category.id}
-                href={`/home/categories/${category.id}`}
-                className="block flex-shrink-0 w-36 sm:w-40"
-              >
-                <motion.div
-                  whileHover={{ y: -8 }}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
-                  <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
-                    <img
-                      src={category.image || "/placeholder.jpg"}
-                      alt={category.name || "image"}
-                      className="object-cover w-full h-full transition-transform group-hover:scale-110"
-                    />
-                  </div>
-                  <h3 className="font-bold text-gray-800 transition-colors dark:text-white group-hover:text-yellow-500 text-sm sm:text-base line-clamp-1">
-                    {category.name}
-                  </h3>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* Restaurants Section */}
-        <section className="space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-              <Store size={24} className="text-yellow-400" />
-              {t("restaurants") || "المطاعم"}
-            </h2>
-
-            <div className="relative w-full sm:w-72">
-              <Search
-                size={18}
-                className={`absolute top-1/2 -translate-y-1/2 text-gray-400 ${
-                  isRtl ? "right-4" : "left-4"
-                }`}
-              />
-              <input
-                type="text"
-                value={restaurantSearch}
-                onChange={(e) => setRestaurantSearch(e.target.value)}
-                placeholder={t("searchRestaurants") || "ابحث عن مطعم..."}
-                className={`w-full py-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm font-medium text-gray-800 dark:text-zinc-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/40 transition-all ${
-                  isRtl ? "pr-11 pl-9" : "pl-11 pr-9"
-                }`}
-              />
-              {restaurantSearch && (
-                <button
-                  type="button"
-                  onClick={() => setRestaurantSearch("")}
-                  className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 ${
-                    isRtl ? "left-3" : "right-3"
-                  }`}
-                >
-                  <X size={16} />
-                </button>
-              )}
+          {/* Cuisines Section */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
+                <Utensils size={24} className="text-yellow-400" />
+                {t("cuisines") || "المطابخ الشهيرة"}
+              </h2>
             </div>
-          </div>
 
-          {content?.restaurants?.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
-            >
-              <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
-                {t("noRestaurants")}
-              </p>
-            </motion.div>
-          ) : filteredRestaurants.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
-            >
-              <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
-                {t("noRestaurantsMatch") || "لا توجد نتائج مطابقة للبحث"}
-              </p>
-            </motion.div>
-          ) : (
             <div className="flex gap-6 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
-              {filteredRestaurants.map((restaurant, index) => {
-                const restaurantSlug = slugify(restaurant.name);
-
-                return (
-                  <Link
-                    key={restaurant.id}
-                    className="block flex-shrink-0 w-[280px] sm:w-[340px]"
-                    href={`/home/restaurants/${restaurantSlug}`}
+              {content?.cuisines?.map((cuisine, index) => (
+                <Link
+                  key={cuisine.id}
+                  href={`/home/cuisines/${cuisine.id}`}
+                  className="block flex-shrink-0"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="group"
                   >
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="relative bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer"
-                    >
-                      <div className="relative w-full bg-gray-100 h-44 dark:bg-zinc-800">
-                        <img
-                          src={restaurant.cover || "/placeholder.jpg"}
-                          alt={restaurant.name || "image"}
-                          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="relative w-40 h-48 rounded-[2.5rem] overflow-hidden shadow-lg group-hover:shadow-yellow-400/20 transition-all duration-500">
+                      <img
+                        src={cuisine.image || "/placeholder.jpg"}
+                        alt={cuisine.name || "image"}
+                        className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 flex items-end justify-center p-4 bg-gradient-to-t from-black/90 via-black/20 to-transparent">
+                        <span className="font-bold tracking-wide text-center text-white">
+                          {cuisine.name}
+                        </span>
                       </div>
-
-                      <div className="relative p-6 pt-10">
-                        <div className="absolute top-[-2.5rem] right-6 w-20 h-20 bg-white dark:bg-zinc-900 rounded-2xl p-1.5 shadow-lg border border-gray-100 dark:border-zinc-700 z-10">
-                          <div className="relative w-full h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-zinc-800">
-                            <img
-                              src={restaurant.logo || "/placeholder.jpg"}
-                              alt={restaurant.name || "image"}
-                              className="object-contain w-full h-full"
-                            />
-                          </div>
-                        </div>
-
-                        <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-white line-clamp-1">
-                          {restaurant.name}
-                        </h3>
-
-                        <p className="mb-5 text-sm font-medium text-gray-500 dark:text-zinc-400 line-clamp-1">
-                          {restaurant.address}
-                        </p>
-
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-zinc-800/80">
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-400/10 px-3 py-1.5 rounded-xl">
-                            ⏱ {restaurant.minDeliveryTime} دقيقة
-                          </span>
-
-                          <div className="flex items-center justify-center w-10 h-10 text-gray-400 transition-colors rounded-xl bg-gray-50 dark:bg-zinc-800 group-hover:bg-yellow-400 group-hover:text-gray-900">
-                            <ChevronRight
-                              size={20}
-                              className={isRtl ? "" : "rotate-180"}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </Link>
-                );
-              })}
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
             </div>
-          )}
-        </section>
+          </section>
+
+          {/* Categories Section */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
+                <LayoutGrid size={24} className="text-yellow-400" />
+                {t("categories") || "التصنيفات"}
+              </h2>
+            </div>
+
+            <div className="flex gap-5 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
+              {content?.categories?.map((category, index) => (
+                <Link
+                  key={category.id}
+                  href={`/home/categories/${category.id}`}
+                  className="block flex-shrink-0 w-36 sm:w-40"
+                >
+                  <motion.div
+                    whileHover={{ y: -8 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="relative p-6 bg-white dark:bg-zinc-900 border border-white dark:border-zinc-800 rounded-[2rem] shadow-sm hover:shadow-2xl transition-all text-center group overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-12 h-12 bg-yellow-400/5 rounded-bl-[2rem] group-hover:bg-yellow-400 transition-colors duration-500" />
+                    <div className="relative z-10 flex items-center justify-center w-16 h-16 mx-auto mb-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-zinc-800">
+                      <img
+                        src={category.image || "/placeholder.jpg"}
+                        alt={category.name || "image"}
+                        className="object-cover w-full h-full transition-transform group-hover:scale-110"
+                      />
+                    </div>
+                    <h3 className="font-bold text-gray-800 transition-colors dark:text-white group-hover:text-yellow-500 text-sm sm:text-base line-clamp-1">
+                      {category.name}
+                    </h3>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Restaurants Section */}
+          <section className="space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
+                <Store size={24} className="text-yellow-400" />
+                {t("restaurants") || "المطاعم"}
+              </h2>
+
+              <div className="relative w-full sm:w-72">
+                <Search
+                  size={18}
+                  className={`absolute top-1/2 -translate-y-1/2 text-gray-400 ${
+                    isRtl ? "right-4" : "left-4"
+                  }`}
+                />
+                <input
+                  type="text"
+                  value={restaurantSearch}
+                  onChange={(e) => setRestaurantSearch(e.target.value)}
+                  placeholder={t("searchRestaurants") || "ابحث عن مطعم..."}
+                  className={`w-full py-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm font-medium text-gray-800 dark:text-zinc-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/40 transition-all ${
+                    isRtl ? "pr-11 pl-9" : "pl-11 pr-9"
+                  }`}
+                />
+                {restaurantSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setRestaurantSearch("")}
+                    className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 ${
+                      isRtl ? "left-3" : "right-3"
+                    }`}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {content?.restaurants?.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
+              >
+                <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
+                  {t("noRestaurants")}
+                </p>
+              </motion.div>
+            ) : filteredRestaurants.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-16 text-center bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-zinc-800"
+              >
+                <p className="text-lg font-bold text-gray-400 dark:text-zinc-500">
+                  {t("noRestaurantsMatch") || "لا توجد نتائج مطابقة للبحث"}
+                </p>
+              </motion.div>
+            ) : (
+              <div className="flex gap-6 pb-4 overflow-x-auto no-scrollbar scroll-smooth">
+                {filteredRestaurants.map((restaurant, index) => {
+                  const restaurantSlug = slugify(restaurant.name);
+
+                  return (
+                    <Link
+                      key={restaurant.id}
+                      className="block flex-shrink-0 w-[280px] sm:w-[340px]"
+                      href={`/home/restaurants/${restaurantSlug}`}
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="relative bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer"
+                      >
+                        <div className="relative w-full bg-gray-100 h-44 dark:bg-zinc-800">
+                          <img
+                            src={restaurant.cover || "/placeholder.jpg"}
+                            alt={restaurant.name || "image"}
+                            className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        </div>
+
+                        <div className="relative p-6 pt-10">
+                          <div className="absolute top-[-2.5rem] right-6 w-20 h-20 bg-white dark:bg-zinc-900 rounded-2xl p-1.5 shadow-lg border border-gray-100 dark:border-zinc-700 z-10">
+                            <div className="relative w-full h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-zinc-800">
+                              <img
+                                src={restaurant.logo || "/placeholder.jpg"}
+                                alt={restaurant.name || "image"}
+                                className="object-contain w-full h-full"
+                              />
+                            </div>
+                          </div>
+
+                          <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-white line-clamp-1">
+                            {restaurant.name}
+                          </h3>
+
+                          <p className="mb-5 text-sm font-medium text-gray-500 dark:text-zinc-400 line-clamp-1">
+                            {restaurant.address}
+                          </p>
+
+                          <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-zinc-800/80">
+                            <span className="flex items-center gap-1.5 text-sm font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-400/10 px-3 py-1.5 rounded-xl">
+                              ⏱ {restaurant.minDeliveryTime} دقيقة
+                            </span>
+
+                            <div className="flex items-center justify-center w-10 h-10 text-gray-400 transition-colors rounded-xl bg-gray-50 dark:bg-zinc-800 group-hover:bg-yellow-400 group-hover:text-gray-900">
+                              <ChevronRight
+                                size={20}
+                                className={isRtl ? "" : "rotate-180"}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
-    </div>
+      <div className="flex justify-center mt-5 mb-3">
+        <Link
+          href={`home/refund`}
+          className="px-5 py-2 text-sm font-semibold text-gray-700 transition-all bg-gray-50 rounded-full shadow-sm dark:bg-zinc-900 dark:text-zinc-300 hover:bg-yellow-50 hover:text-yellow-600 dark:hover:bg-yellow-900/20"
+        >
+          {t("refundPolicy") || "Refund Policy"}
+        </Link>
+      </div>
+
+      <Footer />
+    </>
   );
 }
