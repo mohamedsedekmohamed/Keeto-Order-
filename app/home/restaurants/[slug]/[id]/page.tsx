@@ -16,6 +16,7 @@ import { useLanguage } from "../../../../../context/LanguageContext";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
 import Loading from "@/components/Loading";
 import { useRestaurant } from "@/context/RestaurantContext";
+import { useRestaurantSettings } from "@/context/RestaurantSettingsContext";
 import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
 
@@ -86,9 +87,11 @@ export default function Home() {
       : null;
 
   const { restaurant, isLoading, isError } = useRestaurant();
+  const { instantOrder } = useRestaurantSettings();
 
   const handleOrderNowClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    if (instantOrder) return;
     router.push(`${basePath}/restaurant`);
   };
 
@@ -242,7 +245,12 @@ export default function Home() {
         <button
           type="button"
           onClick={handleOrderNowClick}
-          className="flex w-full items-center justify-center gap-2 py-3 mt-6 text-base font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500"
+          disabled={instantOrder}
+          className={`flex w-full items-center justify-center gap-2 py-3 mt-6 text-base font-bold rounded-xl transition-colors ${
+            instantOrder
+              ? "bg-gray-300 text-gray-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed"
+              : "text-gray-900 bg-yellow-400 hover:bg-yellow-500"
+          }`}
         >
           <ShoppingCart size={18} />
           {t("orderNow")}

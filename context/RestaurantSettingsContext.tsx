@@ -22,6 +22,7 @@ export interface RestaurantSettings {
   text_first_color?: string;
   text_second_color?: string;
   productView?: string;
+  instantOrder?: boolean;
   [key: string]: any;
 }
 
@@ -43,6 +44,7 @@ export interface RestaurantSettingsContextType {
   textSecondColor: string;
   productView: string;
   isLoading: boolean;
+  instantOrder: boolean;
   error: string | null;
   refetch: () => Promise<void>;
   themeStyles: {
@@ -257,6 +259,7 @@ export function RestaurantSettingsProvider({
   }, [activeRestaurantId, fetchSettings]);
 
   const productView = settings?.productView ?? "";
+  const instantOrder = Boolean(settings?.instantOrder);
 
   const value = useMemo(
     () => ({
@@ -268,6 +271,7 @@ export function RestaurantSettingsProvider({
       textFirstColor: firstTextColor,
       textSecondColor: secondTextColor,
       productView,
+      instantOrder,
       isLoading,
       error,
       refetch,
@@ -280,6 +284,7 @@ export function RestaurantSettingsProvider({
       firstTextColor,
       secondTextColor,
       productView,
+      instantOrder,
       isLoading,
       error,
       refetch,
@@ -307,6 +312,7 @@ export function useRestaurantSettings() {
       textFirstColor: DEFAULT_FIRST_TEXT_COLOR,
       textSecondColor: DEFAULT_FIRST_TEXT_COLOR,
       productView: "",
+      instantOrder: false,
       isLoading: false,
       error: null,
       refetch: async () => {},
@@ -334,4 +340,3 @@ export function useRestaurantSettings() {
 export const useThemeSettings = useRestaurantSettings;
 
 export default RestaurantSettingsProvider;
-

@@ -430,7 +430,7 @@ export default function RestaurantCard({
             {/* BRANCH LIST SIDEBAR */}
             <div
               dir={isRTL ? "rtl" : "ltr"}
-              className="flex flex-col w-full border-b md:w-1/3 md:border-b-0 md:border-x border-gray-100 dark:border-zinc-800"
+              className="flex flex-col w-full max-h-[45vh] md:max-h-none md:h-full md:w-1/3 border-b md:border-b-0 md:border-x border-gray-100 dark:border-zinc-800"
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-zinc-800">
                 <h2 className="text-lg font-bold dark:text-white">
@@ -444,7 +444,7 @@ export default function RestaurantCard({
                 </button>
               </div>
 
-              <div className="flex-1 p-3 overflow-y-auto">
+              <div className="flex-1 min-h-0 p-3 overflow-y-auto">
                 {branchesLoading ? (
                   <p className="text-center text-gray-500 dark:text-zinc-400 mt-4">
                     {t("Loading branches...")}
@@ -481,7 +481,7 @@ export default function RestaurantCard({
             </div>
 
             {/* MAP VIEW */}
-            <div className="relative w-full h-full md:w-2/3 min-h-[300px]">
+            <div className="relative w-full flex-1 md:w-2/3 min-h-[300px]">
               <button
                 onClick={() => setShowBranchesModal(false)}
                 className="absolute z-10 hidden p-2 bg-white rounded-full shadow-md top-4 right-4 dark:bg-zinc-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 md:block"

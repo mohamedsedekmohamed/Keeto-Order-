@@ -9,6 +9,7 @@ import Link from "next/link";
 import ReactCountryFlag from "react-country-flag";
 import { usePathname, useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { useRestaurantSettings } from "@/context/RestaurantSettingsContext";
 
 // 1. استيراد هوك useGet (تأكد من مسار الاستيراد بناءً على هيكل مشروعك)
 import useGet from "@/app/hooks/useGet";
@@ -36,6 +37,7 @@ export default function TopNav() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+   const { instantOrder } = useRestaurantSettings();
 
   const restaurantSlug =
     (params?.slug as string) ||
@@ -60,6 +62,7 @@ export default function TopNav() {
 
   const handleClick = () => {
     if (typeof window !== "undefined" && router) {
+       if (instantOrder) return;
       if (!restaurantSlug) {
         localStorage.setItem("login_source", "food_aggregator");
         router.push(`/auth/sign-in`);
@@ -103,7 +106,7 @@ export default function TopNav() {
           </Link>
         ) : (
           <span className="cursor-pointer font-medium" onClick={handleClick}>
-            {t("signIn")}
+            {instantOrder ? "" : t("signIn")}
           </span>
         )}
 
