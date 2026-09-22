@@ -335,23 +335,31 @@ export default function RestaurantItms({
     if (lastActiveIdRef.current === targetId) return;
     lastActiveIdRef.current = targetId;
 
-    const subTab = document.getElementById(targetId);
-    if (subTab && subCategoryMenuRef.current) {
-      const container = subCategoryMenuRef.current;
-      const tabRect = subTab.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const containerWidth = container.offsetWidth;
-      const tabWidth = subTab.offsetWidth;
+    // Defer the layout reads (getBoundingClientRect/offsetWidth) and the
+    // scrollTo write to the next animation frame. This callback runs from
+    // the IntersectionObserver while the user is actively touch-scrolling
+    // the page, so doing synchronous layout work here forces the browser
+    // to interrupt the scroll gesture to recalculate layout ("layout
+    // thrashing"), which is a common cause of stuttery mobile scrolling.
+    requestAnimationFrame(() => {
+      const subTab = document.getElementById(targetId);
+      if (subTab && subCategoryMenuRef.current) {
+        const container = subCategoryMenuRef.current;
+        const tabRect = subTab.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const containerWidth = container.offsetWidth;
+        const tabWidth = subTab.offsetWidth;
 
-      const tabOffsetLeft =
-        tabRect.left - containerRect.left + container.scrollLeft;
-      const centerPos = tabOffsetLeft - containerWidth / 2 + tabWidth / 2;
+        const tabOffsetLeft =
+          tabRect.left - containerRect.left + container.scrollLeft;
+        const centerPos = tabOffsetLeft - containerWidth / 2 + tabWidth / 2;
 
-      container.scrollTo({
-        left: centerPos,
-        behavior: "smooth",
-      });
-    }
+        container.scrollTo({
+          left: centerPos,
+          behavior: "smooth",
+        });
+      }
+    });
   };
 
   const getOrderSource = () => {
@@ -1365,10 +1373,17 @@ export default function RestaurantItms({
           />
         </div>
 
-        {/* ── Fixed Sticky Navigation Header wrapper ── */}
+        {/* ── Fixed Sticky Navigation Header wrapper ──
+            No backdrop-blur here on purpose: a blurred backdrop on a
+            `sticky` element has to be recomposited by the browser on
+            nearly every scroll frame, which is a common cause of choppy
+            touch-scrolling on mid/low-end phones. A solid, high-opacity
+            background gives a very similar look without that per-frame
+            repaint cost. */}
         <div
           ref={stickyHeaderRef}
-          className="sticky top-0 z-40 bg-gray-50/80 dark:bg-zinc-950/80 backdrop-blur-md pb-2 pt-2"
+          className="sticky top-0 z-40 bg-gray-50/95 dark:bg-zinc-950/95 pb-2 pt-2"
+          style={{ willChange: "transform" }}
         >
           {/* SubCategory Card Bar */}
           <div
