@@ -20,7 +20,28 @@ import { useState } from "react";
 
 type Lang = "en" | "ar";
 
-const content = {
+type ContactRow = { label: string; value: string; href?: string };
+
+type ContactCard = {
+  title: string;
+  lead: string;
+  rows: ContactRow[];
+  note: string;
+};
+
+const content: Record<
+  Lang,
+  {
+    dir: "ltr" | "rtl";
+    toggleLabel: string;
+    eyebrow: string;
+    heroTitle: string;
+    heroLead: string;
+    heroBody: string;
+    sectionTitle: string;
+    cards: ContactCard[];
+  }
+> = {
   en: {
     dir: "ltr" as const,
     toggleLabel: "العربية",
@@ -41,8 +62,8 @@ const content = {
             value: "support@keeto.com",
             href: "mailto:support@keeto.com",
           },
-          { label: "Phone", value: "01111771103" },
-          { label: "Support hours", value: "24 hours" },
+          { label: "Phone", value: "[Phone Number]" },
+          { label: "Support hours", value: "[Days & Hours]" },
         ],
         note: "When contacting us about an order, please include your order number so we can help you faster.",
       },
@@ -53,7 +74,7 @@ const content = {
           {
             label: "Email",
             value: "info@keeto.com",
-          
+            href: "mailto:info@keeto.com",
           },
         ],
         note: "",
@@ -78,10 +99,10 @@ const content = {
           {
             label: "البريد الإلكتروني",
             value: "support@keeto.com",
-          
+            href: "mailto:support@keeto.com",
           },
-          { label: "الهاتف", value: "01111771103" },
-          { label: "ساعات الدعم", value: "24 ساعة" },
+          { label: "الهاتف", value: "[رقم الهاتف]" },
+          { label: "ساعات الدعم", value: "[الأيام والساعات]" },
         ],
         note: "عند التواصل معنا بخصوص طلب ما، يرجى إرفاق رقم الطلب حتى نتمكن من مساعدتك بشكل أسرع.",
       },
