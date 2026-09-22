@@ -305,6 +305,21 @@ export default function SignIn() {
 
           {/* Grouped Auth Buttons Stack */}
           <div className="flex flex-col gap-4 mb-6">
+            <button
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={isFacebookLoading}
+              className="h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isFacebookLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-[#1877F2]" />
+              ) : (
+                <FacebookIcon className="w-5 h-5" />
+              )}
+              <span className="text-base font-bold text-gray-700 dark:text-white">
+                Facebook
+              </span>
+            </button>
             {/* Google Button */}
             <div className="relative h-12 w-full">
               <GoogleLogin
@@ -385,21 +400,6 @@ export default function SignIn() {
             </button>
 
             {/* Facebook Button */}
-            <button
-              type="button"
-              onClick={handleFacebookLogin}
-              disabled={isFacebookLoading}
-              className="h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isFacebookLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-[#1877F2]" />
-              ) : (
-                <FacebookIcon className="w-5 h-5" />
-              )}
-              <span className="text-base font-bold text-gray-700 dark:text-white">
-                Facebook
-              </span>
-            </button>
 
             {/* Toggle Email Form Button */}
             <button

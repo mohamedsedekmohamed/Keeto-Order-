@@ -319,6 +319,14 @@ export default function Home() {
           {t("privacyandsupport")}
         </h3>
       </Link>
+      <div className="flex justify-center mt-5 mb-3">
+        <Link
+          href={`${basePath}/refund`}
+          className="px-5 py-2 text-sm font-semibold text-gray-700 transition-all bg-gray-50 rounded-full shadow-sm dark:bg-zinc-900 dark:text-zinc-300 hover:bg-yellow-50 hover:text-yellow-600 dark:hover:bg-yellow-900/20"
+        >
+          {t("refundPolicy") || "Refund Policy"}
+        </Link>
+      </div>
 
       {/* RATING MODAL */}
       <AnimatePresence>
