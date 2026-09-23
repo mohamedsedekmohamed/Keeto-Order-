@@ -862,7 +862,11 @@ export default function ProfilePage() {
         null,
         t("updateSuccess") || "تم تحديث البيانات بنجاح!",
       );
-      if (refetch) refetch();
+      // Reload the whole page rather than just refetching in place — this
+      // re-runs every hook on the page (profile, orders, favorites, etc.)
+      // fresh against the just-saved data instead of keeping it all in
+      // sync by hand.
+      window.location.reload();
     } catch (error) {
       console.error(error);
     }

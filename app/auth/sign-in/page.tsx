@@ -10,6 +10,7 @@ import {
   EyeOff,
   ArrowRight,
   Loader2,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -116,6 +117,9 @@ export default function SignIn() {
   const { postData: loginWithFacebook, loading: isFacebookLoading } = usePost(
     "/api/user/auth/facebook",
   );
+  const { postData: startGuestSession, loading: isGuestLoading } = usePost(
+    "/api/user/auth/guest-session",
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -132,7 +136,12 @@ export default function SignIn() {
 
   const extractAuthPayload = (response: any) => {
     const token =
-      response?.token || response?.data?.token || response?.data?.data?.token;
+      response?.token ||
+      response?.data?.token ||
+      response?.data?.data?.token ||
+      response?.guestToken ||
+      response?.data?.guestToken ||
+      response?.data?.data?.guestToken;
     return { token };
   };
 
@@ -156,6 +165,22 @@ export default function SignIn() {
       } catch {}
       handleAuthResponse(response);
     } catch {}
+  };
+
+  /* ----------------------------- Guest session ----------------------------- */
+
+  const handleGuestLogin = async () => {
+    try {
+      const response = await startGuestSession(
+        { restaurantId },
+        null,
+        t("loginSuccess"),
+      );
+      console.log("Guest session response:", response); // TEMP DEBUG - remove after fixing
+      handleAuthResponse(response);
+    } catch (error) {
+      console.error("Guest Session Error", error);
+    }
   };
 
   /* ---------------------------- Facebook login ---------------------------- */
@@ -305,6 +330,7 @@ export default function SignIn() {
 
           {/* Grouped Auth Buttons Stack */}
           <div className="flex flex-col gap-4 mb-6">
+            {/* Facebook Button */}
             <button
               type="button"
               onClick={handleFacebookLogin}
@@ -318,6 +344,22 @@ export default function SignIn() {
               )}
               <span className="text-base font-bold text-gray-700 dark:text-white">
                 Facebook
+              </span>
+            </button>
+            {/* Guest Button */}
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              disabled={isGuestLoading}
+              className="h-12 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isGuestLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-zinc-300" />
+              ) : (
+                <User className="w-5 h-5 text-gray-700 dark:text-white" />
+              )}
+              <span className="text-base font-bold text-gray-700 dark:text-white">
+                {t("continueAsGuest") || "Continue as Guest"}
               </span>
             </button>
             {/* Google Button */}
@@ -399,8 +441,6 @@ export default function SignIn() {
               </span>
             </button>
 
-            {/* Facebook Button */}
-
             {/* Toggle Email Form Button */}
             <button
               type="button"
@@ -409,7 +449,7 @@ export default function SignIn() {
             >
               <Mail className="w-5 h-5 text-gray-700 dark:text-white" />
               <span className="text-base font-bold text-gray-700 dark:text-white">
-                {showEmailForm ? "Cancel Email Sign In" : "Sign In via Email"}
+                {showEmailForm ? t("Cancel Email Sign In") : t("Sign In via Email")}
               </span>
             </button>
           </div>
@@ -525,13 +565,15 @@ export default function SignIn() {
                       loading ||
                       isGoogleLoading ||
                       isAppleLoading ||
-                      isFacebookLoading
+                      isFacebookLoading ||
+                      isGuestLoading
                     }
                     className={`relative flex items-center justify-center w-full py-4.5 mt-4 overflow-hidden font-black text-gray-900 transition-all bg-yellow-400 rounded-2xl shadow-xl shadow-yellow-400/20 group ${
                       loading ||
                       isGoogleLoading ||
                       isAppleLoading ||
-                      isFacebookLoading
+                      isFacebookLoading ||
+                      isGuestLoading
                         ? "opacity-70 cursor-not-allowed"
                         : "hover:bg-yellow-500"
                     }`}
@@ -540,7 +582,8 @@ export default function SignIn() {
                       {loading ||
                       isGoogleLoading ||
                       isAppleLoading ||
-                      isFacebookLoading ? (
+                      isFacebookLoading ||
+                      isGuestLoading ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>

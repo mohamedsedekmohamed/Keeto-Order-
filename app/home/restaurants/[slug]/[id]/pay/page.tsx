@@ -157,6 +157,11 @@ export default function Checkout() {
   // change the user makes on this page afterward is never overwritten by it.
   const appliedStoredChoiceRef = useRef(false);
 
+  // For guest users with no saved address yet, open the address popup
+  // automatically instead of waiting for a button click. Guarded by a ref
+  // so it only auto-opens once — if the guest closes it, it stays closed.
+  const autoOpenedGuestAddressPopupRef = useRef(false);
+
   const {
     data: checkoutData,
     loading: isLoadingCheckout,
@@ -237,16 +242,35 @@ export default function Checkout() {
     );
   };
 
-  // Two independent reasons the popup can fire:
+  // Guest sessions ("Continue as Guest") get a profile created server-side
+  // with name hard-coded to "Guest" (see /api/user/auth/guest-session).
+  // "Guest" is letters-only, so it passes isValidName fine and would never
+  // trip isNameInvalid below — it needs its own explicit placeholder check,
+  // same idea as the Apple relay case, so guest checkouts are forced to set
+  // a real name too.
+  const isGuestPlaceholderName = (name?: string | null): boolean =>
+    !!name && name.trim().toLowerCase() === "guest";
+
+  // Three independent reasons the popup can fire:
   //  1. Apple relay sign-in never gave us a real name (placeholder case).
-  //  2. Whatever name IS on the profile fails the letters-only pattern
+  //  2. Guest sign-in left the backend's default "Guest" name in place.
+  //  3. Whatever name IS on the profile fails the letters-only pattern
   //     (digits, emoji, punctuation, etc. — same idea as forcing a bad
   //     phone number to be corrected before checkout).
-  // Either one blocks checkout until a valid name is saved.
+  // Any one of these blocks checkout until a valid name is saved.
   const isNamePlaceholder =
-    isAppleRelayEmail(profileUser?.email) &&
-    isPlaceholderName(profileUser?.name, profileUser?.email);
+    (isAppleRelayEmail(profileUser?.email) &&
+      isPlaceholderName(profileUser?.name, profileUser?.email)) ||
+    isGuestPlaceholderName(profileUser?.name);
   const isNameInvalid = !!profileUser && !isValidName(profileUser.name);
+
+  // Guest accounts (isGuest:true on the profile) have no saved addresses to
+  // pick from and no reason to see an "Add Address" button they'd have to
+  // click first — we skip straight to the popup for them instead.
+  // Coerced defensively in case the API ever sends this as the string
+  // "true"/"false" instead of a real boolean.
+  const isGuestUser =
+    profileUser?.isGuest === true || profileUser?.isGuest === "true";
 
   const showUsernamePopup =
     !usernameConfirmed && !!profileUser && (isNamePlaceholder || isNameInvalid);
@@ -418,6 +442,21 @@ export default function Checkout() {
     }
   }, [data, selectedAddress, selectedBranch, selectedPayment, paymentMethods]);
 
+  // Guests skip the "Add Address" button entirely: as soon as we know
+  // they're on delivery with no address yet, pop the address form open
+  // for them directly.
+  useEffect(() => {
+    if (
+      !autoOpenedGuestAddressPopupRef.current &&
+      isGuestUser &&
+      activeOrderType === "delivery" &&
+      (data?.addresses?.length ?? 0) === 0
+    ) {
+      autoOpenedGuestAddressPopupRef.current = true;
+      setShowAddressPopup(true);
+    }
+  }, [isGuestUser, activeOrderType, data]);
+
   // A coupon's discount can depend on deliveryFee (e.g. "free delivery"
   // style codes), which itself changes when the user switches order type
   // or picks a different address. Rather than let a stale discount from a
@@ -537,6 +576,18 @@ export default function Checkout() {
       branchId: activeOrderType === "takeaway" ? selectedBranch || null : null,
       note: orderNote,
       couponCode: appliedCoupon?.code || null,
+      // Pulled straight from /api/user/profile — by the time checkout can
+      // even be reached, showUsernamePopup/showPhonePopup have already
+      // forced both fields to be a real, valid name/phone (guest or not),
+      // so profileUser.name/phone are always populated here.
+      // Despite the name, guestInfo is only sent for guest accounts —
+      // non-guest accounts (isGuest:false) omit it entirely from the payload.
+      ...(isGuestUser && {
+        guestInfo: {
+          name: profileUser?.name || "",
+          phone: profileUser?.phone || "",
+        },
+      }),
     };
 
     try {
@@ -584,11 +635,12 @@ export default function Checkout() {
         }
         isInvalidNameFix={!isNamePlaceholder && isNameInvalid}
         onSuccess={() => {
-          // Close the popup immediately and permanently for this session —
-          // don't wait on / depend on the refetch to confirm it, since a
-          // slow or stale GET is exactly what was reopening the popup.
-          setUsernameConfirmed(true);
-          refetchProfile();
+          // Reload the whole page rather than just closing the popup /
+          // refetching in place — this re-runs every hook on the page
+          // (checkout data, cart, schedule, profile) fresh against the
+          // just-saved name, instead of trying to keep all of that state
+          // in sync by hand.
+          window.location.reload();
         }}
       />
     );
@@ -602,7 +654,7 @@ export default function Checkout() {
       <PhonePopup
         initialPhone={profileUser?.phone || ""}
         initialAlternatePhone={profileUser?.alternatePhone || ""}
-        onSuccess={refetchProfile}
+        onSuccess={() => window.location.reload()}
       />
     );
   }
@@ -664,13 +716,15 @@ export default function Checkout() {
               <MapPin size={20} className="text-yellow-500" />{" "}
               {t("deliveryAddress")}
             </h3>
-            <button
-              onClick={() => setShowAddressPopup(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors"
-            >
-              <Plus size={16} />
-              {t("add-address")}
-            </button>
+            {!isGuestUser && (
+              <button
+                onClick={() => setShowAddressPopup(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors"
+              >
+                <Plus size={16} />
+                {t("add-address")}
+              </button>
+            )}
           </div>
           <div className="space-y-3">
             {data?.addresses?.length === 0 ? (
@@ -1353,8 +1407,8 @@ function UsernamePopup({
                 ? "الاسم المسجل على حسابك يحتوي على أرقام أو رموز غير مسموح بها. يرجى إدخال اسم يتكون من حروف فقط لإتمام عملية الطلب."
                 : "The name on your account contains numbers or symbols that aren't allowed. Please enter a name using letters only to continue with checkout."
               : t("dir") === "rtl"
-                ? "لقد سجلت الدخول باستخدام خيار إخفاء البريد الإلكتروني من Apple. يرجى إدخال اسم مستخدم لإتمام عملية الطلب."
-                : "You signed in using Apple's Hide My Email option. Please enter a username to continue with checkout."}
+                ? " يرجى إدخال اسم مستخدم لإتمام عملية الطلب."
+                : "Please enter a username to continue with checkout."}
           </p>
         </div>
 

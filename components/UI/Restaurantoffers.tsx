@@ -66,6 +66,24 @@ interface AddonOption {
   price?: number;
 }
 
+// The discount/offer this product belongs to — used to group products
+// under a single offer title + banner (see `groupOffersByDiscount`).
+interface DiscountDetails {
+  id: string | null;
+  name: string;
+  nameAr?: string | null;
+  nameFr?: string | null;
+  type?: "amount" | "percentage";
+  value?: number;
+  maxDiscount?: number | null;
+  minOrderAmount?: number;
+  isGlobal?: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
+  logo?: string | null;
+  source?: string;
+}
+
 interface OfferItem {
   id: string;
   name: string;
@@ -79,6 +97,8 @@ interface OfferItem {
   discountValue: number;
   discountPrice: number;
   discountNote?: string;
+  discountId?: string | null;
+  discountDetails?: DiscountDetails;
   image: string;
   isOutOfStock?: boolean;
   unavailableBranches?: string[];
@@ -87,6 +107,41 @@ interface OfferItem {
   // The sample payload sends `{}` when there are none — normalized below.
   variations?: Variation[] | Record<string, any>;
   addons?: AddonOption[] | Record<string, any>;
+}
+
+// One offer/discount, with the products that belong to it. Products are
+// grouped by `discountDetails.id` (falling back to the discount name, then
+// the product's own id so ungrouped products still render on their own).
+interface OfferGroup {
+  key: string;
+  title: string;
+  logo: string | null;
+  items: OfferItem[];
+}
+
+function groupOffersByDiscount(
+  offers: OfferItem[],
+  lang: "ar" | "fr" | "en",
+  fallbackTitle: string,
+): OfferGroup[] {
+  const groups = new Map<string, OfferGroup>();
+
+  offers.forEach((offer) => {
+    const details = offer.discountDetails;
+    const key = details?.id || details?.name || offer.discountId || offer.id;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        title: details ? localizedField(details, "name", lang) : fallbackTitle,
+        logo: details?.logo || null,
+        items: [],
+      });
+    }
+    groups.get(key)!.items.push(offer);
+  });
+
+  return Array.from(groups.values());
 }
 
 interface OffersApiResponse {
@@ -502,50 +557,103 @@ export default function RestaurantOffers({
     await executeAddToCart();
   };
 
-  return (
-    <section className="px-4 pt-5 pb-1">
-      <div className="flex items-center gap-2 mb-3">
-        <BadgePercent size={20} style={{ color: accent }} />
-        <h2 className="text-lg font-black text-zinc-900 dark:text-white">
-          {t("offers") || "Offers"}
-        </h2>
-      </div>
+  // Group products by the discount/offer they belong to. Each group is
+  // rendered as: title -> clickable banner (offer logo) -> that offer's
+  // products.
+  const offerGroups = groupOffersByDiscount(
+    offers,
+    lang,
+    t("offers") || "Offers",
+  );
 
-      {offers.length === 1 ? (
-        <div
-          id={`offer-${offers[0].id}`}
-          className={highlightedOfferId === offers[0].id ? "animate-pulse" : ""}
-        >
-          <OfferCard
-            offer={offers[0]}
-            lang={lang}
-            accent={accent}
-            accentText={accentText}
-            featured
-            onClick={() => openOfferDetail(offers[0])}
-          />
-        </div>
-      ) : (
-        <div className="flex gap-3 pb-2 overflow-x-auto snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {offers.map((offer) => (
+  // Where the banner navigates to when tapped.
+  const getOfferBannerLink = (group: OfferGroup): string | null => {
+    if (!restaurantSlug) return null;
+    return `/home/restaurants/${restaurantSlug}/offer`;
+  };
+
+  const handleBannerClick = (group: OfferGroup) => {
+    const link = getOfferBannerLink(group);
+    if (link) router.push(link);
+  };
+
+  return (
+    <section className="px-4 pt-5 pb-1 space-y-6">
+      {offerGroups.map((group) => (
+        <div key={group.key}>
+          {/* Offer title */}
+          <div className="flex items-center gap-2 mb-3">
+            <BadgePercent size={20} style={{ color: accent }} />
+            <h2 className="text-lg font-black text-zinc-900 dark:text-white">
+              {group.title}
+            </h2>
+          </div>
+
+          {/* Offer banner — shows the offer's logo, navigates to its page */}
+          <button
+            onClick={() => handleBannerClick(group)}
+            className="relative w-full mb-4 overflow-hidden border shadow-sm rounded-2xl border-zinc-100 dark:border-zinc-800 aspect-[21/9] bg-zinc-100 dark:bg-zinc-900"
+          >
+            {group.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={toImageSrc(group.logo)}
+                alt={group.title}
+                className="absolute inset-0 object-cover w-full h-full"
+              />
+            ) : (
+              <div
+                className="absolute inset-0 flex items-center justify-center gap-2"
+                style={{ backgroundColor: `${accent}1A` }}
+              >
+                <BadgePercent size={22} style={{ color: accent }} />
+                <span className="text-sm font-black" style={{ color: accent }}>
+                  {group.title}
+                </span>
+              </div>
+            )}
+          </button>
+
+          {/* This offer's products */}
+          {group.items.length === 1 ? (
             <div
-              key={offer.id}
-              id={`offer-${offer.id}`}
-              className={`shrink-0 w-32 snap-start ${
-                highlightedOfferId === offer.id ? "animate-pulse" : ""
-              }`}
+              id={`offer-${group.items[0].id}`}
+              className={
+                highlightedOfferId === group.items[0].id ? "animate-pulse" : ""
+              }
             >
               <OfferCard
-                offer={offer}
+                offer={group.items[0]}
                 lang={lang}
                 accent={accent}
                 accentText={accentText}
-                onClick={() => openOfferDetail(offer)}
+                featured
+                onClick={() => openOfferDetail(group.items[0])}
               />
             </div>
-          ))}
+          ) : (
+            <div className="flex gap-3 pb-2 overflow-x-auto snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {group.items.map((offer) => (
+                <div
+                  key={offer.id}
+                  id={`offer-${offer.id}`}
+                  className={`shrink-0 w-32 snap-start ${
+                    highlightedOfferId === offer.id ? "animate-pulse" : ""
+                  }`}
+                >
+                  <OfferCard
+                    offer={offer}
+                    lang={lang}
+                    accent={accent}
+                    accentText={accentText}
+                    onClick={() => openOfferDetail(offer)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      ))}
 
       {showConflictDialog && (
         <div className="fixed inset-0 z-[1110] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
