@@ -24,7 +24,11 @@ import { useRouter, useParams } from "next/navigation";
 import AddAddressPopup from "./ResturantitmsComps/AddAddressPopup";
 import FoodCard from "./ResturantitmsComps/FoodCard";
 import SubCategoryCard from "./ResturantitmsComps/SubCategoryCard";
-import { hasDiscount, getEffectivePrice, getDiscountBadge } from "./ResturantitmsComps/menuPricing";
+import {
+  hasDiscount,
+  getEffectivePrice,
+  getDiscountBadge,
+} from "./ResturantitmsComps/menuPricing";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAppDispatch } from "@/redux/hooks";
 import { clearCartLocal } from "@/redux/cartSlice";
@@ -39,7 +43,6 @@ import {
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
 import { useToken } from "@/context/TokenContext";
-
 
 interface AddonItem {
   id: string;
@@ -1201,7 +1204,7 @@ export default function RestaurantItms({
           <div
             ref={subCategoryMenuRef}
             dir={isRtl ? "rtl" : "ltr"}
-            className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth mb-2 transition-all duration-300 touch-pan-x px-0.5 py-1"
+            className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth mb-2 touch-pan-x touch-pan-y overscroll-x-contain px-0.5 py-1"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <button
