@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Clock,
   MapPin,
@@ -10,6 +10,8 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
+  LocateFixed,
+  Loader2,
 } from "lucide-react";
 import ShareButton from "../ShareButton";
 import usePost from "@/app/hooks/usePost";
@@ -90,6 +92,44 @@ interface Branch {
   lat: string;
   lng: string;
 }
+
+interface UserLocation {
+  lat: number;
+  lng: number;
+}
+
+type BranchWithDistance = Branch & { distanceKm: number | null };
+
+/* ---------------- DISTANCE HELPERS ---------------- */
+// The API sometimes returns coordinates with stray spaces/commas (e.g. " 31.344094")
+const parseCoordinate = (coord: string | undefined | null): number | null => {
+  if (!coord) return null;
+  const n = parseFloat(coord.replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : null;
+};
+
+// Haversine formula: straight-line distance between two points, in km
+const getDistanceKm = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+) => {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+// < 1 km → metres, otherwise km with one decimal
+const formatDistance = (km: number, isRTL: boolean) => {
+  if (km < 1) return `${Math.round(km * 1000)} ${isRTL ? "م" : "m"}`;
+  return `${km.toFixed(1)} ${isRTL ? "كم" : "km"}`;
+};
 
 /* ---------------- SLIDER COMPONENT ---------------- */
 function RestaurantSlider({
@@ -201,6 +241,10 @@ export default function RestaurantCard({
   const [showBranchesModal, setShowBranchesModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
 
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -228,12 +272,88 @@ export default function RestaurantCard({
 
   const branches = branchesResponse?.data?.data || [];
 
+  /* ---------------- NEAREST BRANCH ---------------- */
+  // Adds `distanceKm` to every branch and, once we know where the user is,
+  // sorts nearest → farthest. Branches without valid coordinates go last.
+  const sortedBranches: BranchWithDistance[] = useMemo(() => {
+    const withDistance = branches.map((branch) => {
+      const lat = parseCoordinate(branch.lat);
+      const lng = parseCoordinate(branch.lng);
+      const distanceKm =
+        userLocation && lat !== null && lng !== null
+          ? getDistanceKm(userLocation.lat, userLocation.lng, lat, lng)
+          : null;
+      return { ...branch, distanceKm };
+    });
+
+    if (!userLocation) return withDistance;
+
+    return withDistance.sort((a, b) => {
+      if (a.distanceKm === null) return 1;
+      if (b.distanceKm === null) return -1;
+      return a.distanceKm - b.distanceKm;
+    });
+  }, [branches, userLocation]);
+
+  const handleUseMyLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationError(
+        isRTL
+          ? "المتصفح لا يدعم تحديد الموقع"
+          : "Geolocation is not supported by your browser",
+      );
+      return;
+    }
+
+    setLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const loc = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setUserLocation(loc);
+        setLocating(false);
+
+        // Pick the nearest branch so the map jumps to it
+        let nearest: Branch | null = null;
+        let nearestDistance = Infinity;
+        for (const branch of branches) {
+          const lat = parseCoordinate(branch.lat);
+          const lng = parseCoordinate(branch.lng);
+          if (lat === null || lng === null) continue;
+          const d = getDistanceKm(loc.lat, loc.lng, lat, lng);
+          if (d < nearestDistance) {
+            nearestDistance = d;
+            nearest = branch;
+          }
+        }
+        if (nearest) setSelectedBranch(nearest);
+      },
+      (error) => {
+        setLocating(false);
+        setLocationError(
+          error.code === error.PERMISSION_DENIED
+            ? isRTL
+              ? "تم رفض إذن الموقع. فعّله من إعدادات المتصفح."
+              : "Location permission denied. Enable it in your browser settings."
+            : isRTL
+              ? "تعذر تحديد موقعك. حاول مرة أخرى."
+              : "Couldn't get your location. Please try again.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
   /* ---------------- MAP HANDLING ---------------- */
   const handleOpenMap = () => {
     setShowBranchesModal(true);
-    // Auto-select the first branch if available
-    if (branches.length > 0 && !selectedBranch) {
-      setSelectedBranch(branches[0]);
+    // Auto-select the nearest branch if we know it, otherwise the first one
+    if (sortedBranches.length > 0 && !selectedBranch) {
+      setSelectedBranch(sortedBranches[0]);
     }
   };
 
@@ -378,7 +498,7 @@ export default function RestaurantCard({
             >
               <MapPin className="w-6 h-6 text-emerald-500" />
               <span className="text-sm font-medium dark:text-zinc-300">
-                {t("Location")}
+                {t("Branches")}
               </span>
             </button>
 
@@ -444,14 +564,37 @@ export default function RestaurantCard({
                 </button>
               </div>
 
+              {/* USE CURRENT LOCATION */}
+              <div className="px-3 pt-3">
+                <button
+                  onClick={handleUseMyLocation}
+                  disabled={locating || branchesLoading || branches.length === 0}
+                  className="flex items-center justify-center w-full gap-2 px-4 py-2 text-sm font-semibold transition border rounded-xl border-emerald-500 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {locating ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <LocateFixed size={16} />
+                  )}
+                  {locating
+                    ? t("Locating...")
+                    : userLocation
+                      ? t("Update my location")
+                      : t("Use my current location")}
+                </button>
+                {locationError && (
+                  <p className="mt-2 text-xs text-red-500">{locationError}</p>
+                )}
+              </div>
+
               <div className="flex-1 min-h-0 p-3 overflow-y-auto">
                 {branchesLoading ? (
                   <p className="text-center text-gray-500 dark:text-zinc-400 mt-4">
                     {t("Loading branches...")}
                   </p>
-                ) : branches.length > 0 ? (
+                ) : sortedBranches.length > 0 ? (
                   <div className="space-y-2">
-                    {branches.map((branch) => (
+                    {sortedBranches.map((branch) => (
                       <button
                         key={branch.id}
                         onClick={() => setSelectedBranch(branch)}
@@ -461,9 +604,16 @@ export default function RestaurantCard({
                             : "border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800"
                         }`}
                       >
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {isRTL ? branch.nameAr || branch.name : branch.name}
-                        </h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {isRTL ? branch.nameAr || branch.name : branch.name}
+                          </h3>
+                          {branch.distanceKm !== null && (
+                            <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40">
+                              {formatDistance(branch.distanceKm, isRTL)}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500 line-clamp-2 dark:text-zinc-400 mt-1">
                           {isRTL
                             ? branch.addressAr || branch.address

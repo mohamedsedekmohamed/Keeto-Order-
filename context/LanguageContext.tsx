@@ -25,7 +25,7 @@ interface LanguageProviderProps {
 
 export const LanguageProvider = ({ children }: LanguageProviderProps) => {
   // اللغة الافتراضية هي الإنجليزية
-  const [language, setLanguage] = useState<Language>("English");
+  const [language, setLanguage] = useState<Language>("العربية");
   
   useEffect(() => {
     const savedLang = localStorage.getItem("language") as Language | null;
