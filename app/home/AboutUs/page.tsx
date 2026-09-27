@@ -25,7 +25,7 @@ const content = {
     dir: "ltr" as const,
     toggleLabel: "العربية",
     eyebrow: "About Keeto",
-    heroTitle: "Making food ordering simple.",
+    heroTitle: "We connect restaurants to their customers with a simple, easy ordering experience.",
     heroLead:
       "Keeto is a simple and convenient way to discover restaurants and order the food you love.",
     heroBody:
@@ -73,7 +73,7 @@ const content = {
     dir: "rtl" as const,
     toggleLabel: "English",
     eyebrow: "عن كيتو",
-    heroTitle: "نجعل طلب الطعام أمرًا بسيطًا.",
+    heroTitle: "نحن نوصل المطاعم لعملائهم بطريقة طلب أوردر سهلة وبسيطة.",
     heroLead:
       "كيتو هي طريقة بسيطة ومريحة لاكتشاف المطاعم وطلب الطعام الذي تحبه.",
     heroBody:
@@ -245,9 +245,8 @@ export default function AboutKeeto() {
             {t.why.items.map((item) => (
               <div
                 key={item.term}
-                className={`flex flex-col gap-1 border-t pt-4 sm:flex-row sm:gap-6 ${
-                  isAr ? "sm:text-right" : "sm:text-left"
-                }`}
+                className={`flex flex-col gap-1 border-t pt-4 sm:flex-row sm:gap-6 ${isAr ? "sm:text-right" : "sm:text-left"
+                  }`}
                 style={{ borderColor: "#DDD3BE" }}
               >
                 <dt
