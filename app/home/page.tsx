@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import {
-  RefreshCw,
   Utensils,
   LayoutGrid,
   Store,
@@ -12,7 +11,6 @@ import {
 } from "lucide-react";
 import useGet from "@/app/hooks/useGet";
 import { useLanguage } from "../../context/LanguageContext";
-import Loading from "@/components/Loading";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
@@ -56,16 +54,32 @@ interface HomeData {
       cuisines: Cuisine[];
       categories: Category[];
       restaurants: Restaurant[];
+      openFoodaggregator?: boolean;
     };
   };
 }
+
+// --- Feature flag: openFoodaggregator ---
+// Comes back inside the /api/user/home response, at data.data.openFoodaggregator.
+// If the key is missing, false, or the request errors, the feature is treated as OFF by default,
+// the page renders blank, and the browser is redirected to keeto.org.
+const REDIRECT_URL_WHEN_DISABLED = "https://keeto.org";
 
 export default function HomePage() {
   const { t, language } = useLanguage();
   const isRtl = language === "العربية";
 
-  const { data, loading, error, refetch } = useGet<HomeData>("/api/user/home");
+  const { data, loading, error } = useGet<HomeData>("/api/user/home");
   const content = data?.data?.data;
+
+  // Default is OFF: only true when the API explicitly returns true.
+  const isFeatureEnabled = content?.openFoodaggregator === true;
+
+  useEffect(() => {
+    if (!loading && (error || !isFeatureEnabled)) {
+      window.open(REDIRECT_URL_WHEN_DISABLED, "_blank", "noopener,noreferrer");
+    }
+  }, [loading, error, isFeatureEnabled]);
 
   const [restaurantSearch, setRestaurantSearch] = useState("");
 
@@ -98,33 +112,14 @@ export default function HomePage() {
     }
   }, [content?.restaurants]);
 
-  if (loading) return <Loading />;
+  // While the /api/user/home request is in flight we don't yet know the
+  // flag's value, so render nothing rather than flashing content.
+  if (loading) return null;
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center bg-gray-50 dark:bg-zinc-950">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-xl border border-red-100 dark:border-red-900/20"
-        >
-          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 text-red-500 bg-red-100 dark:bg-red-500/10 rounded-2xl">
-            <RefreshCw size={32} />
-          </div>
-          <p className="mb-6 font-bold text-gray-900 dark:text-white">
-            {error}
-          </p>
-          <button
-            onClick={refetch}
-            className="flex items-center gap-2 px-8 py-3 mx-auto font-black text-gray-900 transition-all bg-yellow-400 shadow-lg rounded-2xl hover:bg-yellow-500 shadow-yellow-400/20"
-          >
-            <RefreshCw size={18} />
-            إعادة المحاولة
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
+  // Feature flag gate: request failed, or openFoodaggregator is missing/false
+  // (the default-off state, since the key doesn't exist in the API yet).
+  // Render blank; the effect above redirects the browser to keeto.org.
+  if (error || !isFeatureEnabled) return null;
 
   return (
     <>
@@ -237,26 +232,23 @@ export default function HomePage() {
               <div className="relative w-full sm:w-72">
                 <Search
                   size={18}
-                  className={`absolute top-1/2 -translate-y-1/2 text-gray-400 ${
-                    isRtl ? "right-4" : "left-4"
-                  }`}
+                  className={`absolute top-1/2 -translate-y-1/2 text-gray-400 ${isRtl ? "right-4" : "left-4"
+                    }`}
                 />
                 <input
                   type="text"
                   value={restaurantSearch}
                   onChange={(e) => setRestaurantSearch(e.target.value)}
                   placeholder={t("searchRestaurants") || "ابحث عن مطعم..."}
-                  className={`w-full py-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm font-medium text-gray-800 dark:text-zinc-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/40 transition-all ${
-                    isRtl ? "pr-11 pl-9" : "pl-11 pr-9"
-                  }`}
+                  className={`w-full py-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm font-medium text-gray-800 dark:text-zinc-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/40 transition-all ${isRtl ? "pr-11 pl-9" : "pl-11 pr-9"
+                    }`}
                 />
                 {restaurantSearch && (
                   <button
                     type="button"
                     onClick={() => setRestaurantSearch("")}
-                    className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 ${
-                      isRtl ? "left-3" : "right-3"
-                    }`}
+                    className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 ${isRtl ? "left-3" : "right-3"
+                      }`}
                   >
                     <X size={16} />
                   </button>
