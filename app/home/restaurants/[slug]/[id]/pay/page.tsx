@@ -564,6 +564,7 @@ export default function Checkout() {
       return toast.error(t("selectBranchError"));
 
     const payload = {
+      restaurantName,
       orderSource: getOrderSource(),
       orderType: activeOrderType,
       paymentMethod: selectedPayment,
@@ -591,7 +592,16 @@ export default function Checkout() {
     };
 
     try {
-      await postData(payload, "/api/user/order/checkout");
+      const res: any = await postData(payload, "/api/user/order/checkout");
+      const result = res?.data?.data || res?.data || res;
+      const sessionUrl = result?.payment?.sessionUrl;
+
+      if (sessionUrl) {
+        // Redirect to the payment gateway (e.g. Kashier) to complete payment.
+        window.location.href = sessionUrl;
+        return;
+      }
+
       toast.success(t("orderSuccess"));
       router.push(`/profile?tab=tracking&callbackSlug=${restaurantName}`);
     } catch {
@@ -629,9 +639,9 @@ export default function Checkout() {
           isNamePlaceholder
             ? ""
             : (profileUser?.name || "").replace(
-                /[^A-Za-z\u0600-\u06FF '-]/g,
-                "",
-              )
+              /[^A-Za-z\u0600-\u06FF '-]/g,
+              "",
+            )
         }
         isInvalidNameFix={!isNamePlaceholder && isNameInvalid}
         onSuccess={() => {
@@ -695,11 +705,10 @@ export default function Checkout() {
               <button
                 key={type.id}
                 onClick={() => setOrderType(type.id as any)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                  activeOrderType === type.id
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${activeOrderType === type.id
                     ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
                     : "border-gray-100 dark:border-zinc-800 text-gray-500"
-                }`}
+                  }`}
               >
                 <type.icon size={24} />
                 <span className="text-xs font-bold">{type.label}</span>
@@ -737,13 +746,12 @@ export default function Checkout() {
                   <div
                     key={addr.id}
                     onClick={() => setSelectedAddress(addr.id)}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                      selectedAddress === addr.id
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedAddress === addr.id
                         ? addr.isDeliverable
                           ? "border-yellow-400 bg-white dark:bg-zinc-900"
                           : "border-red-400 bg-red-50 dark:bg-red-950/20"
                         : "border-gray-100 dark:border-zinc-800"
-                    } ${!addr.isDeliverable && "opacity-80"}`}
+                      } ${!addr.isDeliverable && "opacity-80"}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl mt-1">
@@ -790,11 +798,10 @@ export default function Checkout() {
               <div
                 key={branch.id}
                 onClick={() => setSelectedBranch(branch.id)}
-                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  selectedBranch === branch.id
+                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedBranch === branch.id
                     ? "border-yellow-400 bg-white dark:bg-zinc-900"
                     : "border-gray-100 dark:border-zinc-800"
-                }`}
+                  }`}
               >
                 <div>
                   <p className="font-bold">{branch.name}</p>
@@ -826,11 +833,10 @@ export default function Checkout() {
                 <div
                   key={method.id}
                   onClick={() => setSelectedPayment(method.id)}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
-                    selectedPayment === method.id
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedPayment === method.id
                       ? "border-yellow-400 bg-white dark:bg-zinc-900"
                       : "border-gray-100 dark:border-zinc-800"
-                  }`}
+                    }`}
                 >
                   <div className="flex-1">
                     <p className="font-bold">{displayName}</p>
@@ -1107,9 +1113,8 @@ export default function Checkout() {
             <span className="text-base">{t("confirmAndPay")}</span>
             <ArrowLeft
               size={20}
-              className={`transition-transform duration-300 group-hover:-translate-x-1 ${
-                t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""
-              }`}
+              className={`transition-transform duration-300 group-hover:-translate-x-1 ${t("dir") === "ltr" ? "rotate-180 group-hover:translate-x-1" : ""
+                }`}
             />
           </div>
         )}
@@ -1755,7 +1760,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       );
       onClose();
       onSuccess(response?.data?.data?.id || response?.data?.id);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -1807,7 +1812,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                 </p>
 
                 {navigator.userAgent.includes("FBAN") ||
-                navigator.userAgent.includes("FBAV") ? (
+                  navigator.userAgent.includes("FBAV") ? (
                   <div className="space-y-3">
                     <p>
                       {t("dir") === "rtl"
