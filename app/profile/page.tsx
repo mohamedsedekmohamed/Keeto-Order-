@@ -339,8 +339,8 @@ function PrepCountdown({
   return (
     <div
       className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${isDone
-          ? "bg-green-500/10 text-green-600 dark:text-green-400"
-          : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
+        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+        : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
         } ${className}`}
     >
       <Clock size={12} />
@@ -403,9 +403,12 @@ export default function ProfilePage() {
   const isValidTab = (value: string | null): value is TabKey =>
     !!value && (VALID_TABS as readonly string[]).includes(value);
 
-  // merchantOrderId forces the "tracking" tab; otherwise use ?tab=...
+  // merchantOrderId forces the "tracking" tab; if it doesn't exist, fall back
+  // to orderId; otherwise use ?tab=...
   const getTabFromUrl = () =>
-    searchParams.get("merchantOrderId") ? "tracking" : searchParams.get("tab");
+    searchParams.get("merchantOrderId") || searchParams.get("orderId")
+      ? "tracking"
+      : searchParams.get("tab");
 
   const [activeTab, setActiveTab] = useState<TabKey | null>(() => {
     const tabParam = getTabFromUrl();
@@ -1135,8 +1138,8 @@ export default function ProfilePage() {
           toggleTab(tabKey);
         }}
         className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${isOpen
-            ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
-            : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
+          ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
+          : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
           }`}
       >
         <div className="flex items-center gap-3">
@@ -1662,8 +1665,8 @@ export default function ProfilePage() {
                           <div
                             key={address.id}
                             className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${editingAddressId === address.id
-                                ? "ring-2 ring-yellow-400/50 border-yellow-400"
-                                : "hover:border-yellow-400/50"
+                              ? "ring-2 ring-yellow-400/50 border-yellow-400"
+                              : "hover:border-yellow-400/50"
                               }`}
                           >
                             <div>
@@ -1842,8 +1845,8 @@ export default function ProfilePage() {
                       <button
                         onClick={() => setOrderSubTab("active")}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "active"
-                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
-                            : "text-gray-500 dark:text-zinc-400"
+                          ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                          : "text-gray-500 dark:text-zinc-400"
                           }`}
                       >
                         <Clock size={16} />
@@ -1852,8 +1855,8 @@ export default function ProfilePage() {
                       <button
                         onClick={() => setOrderSubTab("history")}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "history"
-                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
-                            : "text-gray-500 dark:text-zinc-400"
+                          ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                          : "text-gray-500 dark:text-zinc-400"
                           }`}
                       >
                         <History size={16} />
@@ -2213,10 +2216,10 @@ export default function ProfilePage() {
                                   <div className="flex flex-col items-center">
                                     <span
                                       className={`flex items-center justify-center flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors ${isCompleted
-                                          ? "bg-yellow-400 border-yellow-400"
-                                          : isCurrent
-                                            ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                                            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                                        ? "bg-yellow-400 border-yellow-400"
+                                        : isCurrent
+                                          ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                                          : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
                                         }`}
                                     >
                                       {isCompleted && (
@@ -2233,18 +2236,18 @@ export default function ProfilePage() {
                                     {!isLast && (
                                       <span
                                         className={`w-0.5 flex-1 min-h-[24px] ${isCompleted
-                                            ? "bg-yellow-400"
-                                            : "bg-gray-200 dark:bg-zinc-700"
+                                          ? "bg-yellow-400"
+                                          : "bg-gray-200 dark:bg-zinc-700"
                                           }`}
                                       />
                                     )}
                                   </div>
                                   <p
                                     className={`text-sm ${isLast ? "pb-0" : "pb-6"} ${isCurrent
-                                        ? "font-black text-yellow-500"
-                                        : isCompleted
-                                          ? "font-bold text-gray-900 dark:text-white"
-                                          : "font-bold text-gray-300 dark:text-zinc-600"
+                                      ? "font-black text-yellow-500"
+                                      : isCompleted
+                                        ? "font-bold text-gray-900 dark:text-white"
+                                        : "font-bold text-gray-300 dark:text-zinc-600"
                                       }`}
                                   >
                                     {label}
@@ -2497,8 +2500,8 @@ export default function ProfilePage() {
                       <label
                         key={reason.id}
                         className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === reason.id
-                            ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
-                            : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                          ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                          : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
                           }`}
                       >
                         <span className="text-sm text-gray-800 dark:text-zinc-200">
@@ -2522,8 +2525,8 @@ export default function ProfilePage() {
 
                   <label
                     className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === "other"
-                        ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
-                        : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                      ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                      : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
                       }`}
                   >
                     <span className="text-sm text-gray-800 dark:text-zinc-200">
