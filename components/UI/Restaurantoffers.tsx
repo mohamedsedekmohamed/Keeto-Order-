@@ -128,17 +128,30 @@ function groupOffersByDiscount(
 
   offers.forEach((offer) => {
     const details = offer.discountDetails;
-    const key = details?.id || details?.name || offer.discountId || offer.id;
+    const title = details
+      ? localizedField(details, "name", lang)?.trim() || ""
+      : "";
 
-    if (!groups.has(key)) {
+    // Group by the offer TITLE, so the same product (or different products)
+    // with different discounts under the same title end up together.
+    // Falls back to discount id / product id when there is no title.
+    const key = title
+      ? `title:${title.toLowerCase()}`
+      : details?.id || offer.discountId || offer.id;
+
+    const existing = groups.get(key);
+    if (!existing) {
       groups.set(key, {
         key,
-        title: details ? localizedField(details, "name", lang) : fallbackTitle,
+        title: title || fallbackTitle,
         logo: details?.logo || null,
-        items: [],
+        items: [offer],
       });
+    } else {
+      // Keep the first available logo for the merged group
+      if (!existing.logo && details?.logo) existing.logo = details.logo;
+      existing.items.push(offer);
     }
-    groups.get(key)!.items.push(offer);
   });
 
   return Array.from(groups.values());
@@ -578,21 +591,36 @@ export default function RestaurantOffers({
   };
 
   return (
-    <section className="px-4 pt-5 pb-1 space-y-6">
+    <section className="px-4 pt-5 pb-1 space-y-8">
       {offerGroups.map((group) => (
         <div key={group.key}>
-          {/* Offer title */}
-          <div className="flex items-center gap-2 mb-3">
-            <BadgePercent size={20} style={{ color: accent }} />
-            <h2 className="text-lg font-black text-zinc-900 dark:text-white">
-              {group.title}
-            </h2>
+          {/* Offer title + "See all" */}
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center min-w-0 gap-2">
+              <BadgePercent
+                size={24}
+                className="shrink-0"
+                style={{ color: accent }}
+              />
+              <h2 className="text-xl font-black truncate text-zinc-900 dark:text-white">
+                {group.title}
+              </h2>
+            </div>
+            <button
+              onClick={() => handleBannerClick(group)}
+              className="text-sm font-bold shrink-0 hover:underline"
+              style={{ color: accent }}
+            >
+              {t("seeAll") ||
+                (lang === "ar" ? "عرض الكل" : lang === "fr" ? "Voir tout" : "See all")}
+            </button>
           </div>
 
-          {/* Offer banner — shows the offer's logo, navigates to its page */}
+          {/* Offer banner — full width on phones, capped on larger screens
+              so the logo doesn't stretch across the whole page */}
           <button
             onClick={() => handleBannerClick(group)}
-            className="relative w-full mb-4 overflow-hidden border shadow-sm rounded-2xl border-zinc-100 dark:border-zinc-800 aspect-[21/9] bg-zinc-100 dark:bg-zinc-900"
+            className="relative block w-full mb-4 overflow-hidden border shadow-sm rounded-2xl border-zinc-100 dark:border-zinc-800 aspect-[16/9] sm:aspect-[21/9] md:max-w-2xl bg-zinc-100 dark:bg-zinc-900"
           >
             {group.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -614,44 +642,25 @@ export default function RestaurantOffers({
             )}
           </button>
 
-          {/* This offer's products */}
-          {group.items.length === 1 ? (
-            <div
-              id={`offer-${group.items[0].id}`}
-              className={
-                highlightedOfferId === group.items[0].id ? "animate-pulse" : ""
-              }
-            >
-              <OfferCard
-                offer={group.items[0]}
-                lang={lang}
-                accent={accent}
-                accentText={accentText}
-                featured
-                onClick={() => openOfferDetail(group.items[0])}
-              />
-            </div>
-          ) : (
-            <div className="flex gap-3 pb-2 overflow-x-auto snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {group.items.map((offer) => (
-                <div
-                  key={offer.id}
-                  id={`offer-${offer.id}`}
-                  className={`shrink-0 w-32 snap-start ${
-                    highlightedOfferId === offer.id ? "animate-pulse" : ""
+          {/* This offer's products — horizontal strip of cards */}
+          <div className="flex gap-3 pb-2 overflow-x-auto snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {group.items.map((offer, index) => (
+              <div
+                key={`${offer.id}-${offer.discountId ?? index}`}
+                id={`offer-${offer.id}`}
+                className={`shrink-0 snap-start w-[220px] sm:w-60 lg:w-64 ${highlightedOfferId === offer.id ? "animate-pulse" : ""
                   }`}
-                >
-                  <OfferCard
-                    offer={offer}
-                    lang={lang}
-                    accent={accent}
-                    accentText={accentText}
-                    onClick={() => openOfferDetail(offer)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+              >
+                <OfferCard
+                  offer={offer}
+                  lang={lang}
+                  accent={accent}
+                  accentText={accentText}
+                  onClick={() => openOfferDetail(offer)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       ))}
 
@@ -730,11 +739,10 @@ export default function RestaurantOffers({
                     setFulfillmentMode(mode.id);
                     setSelectedFulfillmentId("");
                   }}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                    fulfillmentMode === mode.id
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${fulfillmentMode === mode.id
                       ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
                       : "border-zinc-100 dark:border-zinc-800 text-zinc-500"
-                  }`}
+                    }`}
                 >
                   <mode.icon size={24} />
                   <span className="text-xs font-bold">{mode.label}</span>
@@ -766,17 +774,15 @@ export default function RestaurantOffers({
                           addr.isDeliverable &&
                           setSelectedFulfillmentId(addr.id)
                         }
-                        className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${
-                          addr.isDeliverable
+                        className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${addr.isDeliverable
                             ? "cursor-pointer"
                             : "cursor-not-allowed opacity-80"
-                        } ${
-                          selectedFulfillmentId === addr.id
+                          } ${selectedFulfillmentId === addr.id
                             ? addr.isDeliverable
                               ? "border-yellow-400 bg-white dark:bg-zinc-900"
                               : "border-red-400 bg-red-50 dark:bg-red-950/20"
                             : "border-zinc-100 dark:border-zinc-800"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-xl mt-1">
@@ -835,11 +841,10 @@ export default function RestaurantOffers({
                       <div
                         key={branch.id}
                         onClick={() => setSelectedFulfillmentId(branch.id)}
-                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                          selectedFulfillmentId === branch.id
+                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedFulfillmentId === branch.id
                             ? "border-yellow-400 bg-white dark:bg-zinc-900"
                             : "border-zinc-100 dark:border-zinc-800"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-xl mt-1">
@@ -1038,11 +1043,10 @@ export default function RestaurantOffers({
                               onClick={() =>
                                 toggleVariationOption(variation, option.id)
                               }
-                              className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group ${
-                                isSelected
+                              className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group ${isSelected
                                   ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
                                   : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-3.5">
                                 <input
@@ -1055,22 +1059,20 @@ export default function RestaurantOffers({
                                   className="w-5 h-5 accent-yellow-400 rounded-full border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
                                 />
                                 <span
-                                  className={`text-sm transition-all duration-200 ${
-                                    isSelected
+                                  className={`text-sm transition-all duration-200 ${isSelected
                                       ? "font-black text-zinc-950 dark:text-zinc-50"
                                       : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
-                                  }`}
+                                    }`}
                                 >
                                   {localizedField(option, "name", lang)}
                                 </span>
                               </div>
                               {!!option.price && (
                                 <span
-                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${
-                                    isSelected
+                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected
                                       ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105"
                                       : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"
-                                  }`}
+                                    }`}
                                 >
                                   + {option.price} E£
                                 </span>
@@ -1098,11 +1100,10 @@ export default function RestaurantOffers({
                     {addons.map((addon) => (
                       <label
                         key={addon.id}
-                        className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group ${
-                          selectedAddonIds.includes(addon.id)
+                        className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group ${selectedAddonIds.includes(addon.id)
                             ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
                             : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3.5">
                           <input
@@ -1112,22 +1113,20 @@ export default function RestaurantOffers({
                             className="w-5 h-5 accent-yellow-400 rounded-lg border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
                           />
                           <span
-                            className={`text-sm transition-all duration-200 ${
-                              selectedAddonIds.includes(addon.id)
+                            className={`text-sm transition-all duration-200 ${selectedAddonIds.includes(addon.id)
                                 ? "font-black text-zinc-950 dark:text-zinc-50"
                                 : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
-                            }`}
+                              }`}
                           >
                             {localizedField(addon, "name", lang)}
                           </span>
                         </div>
                         {!!addon.price && (
                           <span
-                            className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${
-                              selectedAddonIds.includes(addon.id)
+                            className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${selectedAddonIds.includes(addon.id)
                                 ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105"
                                 : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"
-                            }`}
+                              }`}
                           >
                             + {addon.price} E£
                           </span>
@@ -1222,64 +1221,99 @@ export default function RestaurantOffers({
 }
 
 // ─────────────────────────────────────────────
-// Single offer card, used both as the lone "featured" card (1 offer) and
-// as an item in the horizontally-scrolling strip (2+ offers).
+// Single offer card: discount badge over the image, name, description,
+// discounted + original price, and a full-width "+" button.
 // ─────────────────────────────────────────────
 function OfferCard({
   offer,
   lang,
   accent,
   accentText,
-  featured,
   onClick,
 }: {
   offer: OfferItem;
   lang: "ar" | "fr" | "en";
   accent: string;
   accentText: string;
-  featured?: boolean;
   onClick: () => void;
 }) {
   const name = localizedField(offer, "name", lang);
-  const offerName = offer.subcategory
-    ? localizedField(offer.subcategory, "name", lang)
-    : name;
+  const description = localizedField(offer, "description", lang);
+  const badge =
+    offer.discountType === "percentage"
+      ? `-${offer.discountValue}%`
+      : `-${offer.discountValue} E£`;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`relative overflow-hidden text-left transition-transform bg-white border shadow-sm dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 rounded-2xl active:scale-[0.98] aspect-square ${
-        featured ? "w-40" : "w-full"
-      }`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`flex flex-col h-full p-4 text-start transition-transform bg-white border shadow-sm cursor-pointer dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 rounded-3xl active:scale-[0.98] ${offer.isOutOfStock ? "opacity-60" : ""
+        }`}
     >
-      {offer.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={toImageSrc(offer.image)}
-          alt={name}
-          className="absolute inset-0 object-cover w-full h-full"
-        />
-      )}
-
-      {/* Bottom gradient so the badge/price stay readable over any photo */}
-      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
-        <span className="inline-flex items-center gap-1 px-2 py-1 mb-1 text-[10px] font-bold rounded-lg bg-green-50 text-green-600">
-          <BadgePercent size={12} />
-          {offer.discountValue}
-          {offer.discountType === "percentage" ? "%" : ""}
-        </span>
-        {offerName && (
-          <h3 className="text-xs font-bold text-white truncate">{offerName}</h3>
+      {/* Image + discount badge */}
+      <div
+        className="relative w-full h-24 overflow-hidden sm:h-28 rounded-2xl"
+        style={{ backgroundColor: `${accent}1F` }}
+      >
+        {offer.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={toImageSrc(offer.image)}
+            alt={name}
+            className="absolute inset-0 object-cover w-full h-full"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <BadgePercent size={36} style={{ color: accent }} />
+          </div>
         )}
-        <div className="flex items-center gap-2">
-          <span className="text-xs line-through text-zinc-300">
-            {offer.price}
-          </span>
-          <span className="text-sm font-black text-white">
-            {offer.discountPrice}
-          </span>
-        </div>
+        <span
+          className="absolute px-2 py-1 text-xs font-bold text-white rounded-lg top-2 start-2"
+          style={{ backgroundColor: accent, color: accentText }}
+        >
+          {badge}
+        </span>
       </div>
-    </button>
+
+      {/* Text */}
+      <h3 className="mt-3 text-base font-bold truncate text-zinc-900 dark:text-white">
+        {name}
+      </h3>
+      <p className="h-5 text-sm truncate text-zinc-500 dark:text-zinc-400">
+        {description}
+      </p>
+
+      {/* Prices */}
+      <div className="flex items-baseline gap-2 mt-2">
+        <span className="text-lg font-black" style={{ color: accent }}>
+          {offer.discountPrice} E£
+        </span>
+        <span className="text-sm line-through text-zinc-400 dark:text-zinc-500">
+          {offer.price} E£
+        </span>
+      </div>
+
+      {/* Add button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        aria-label={name}
+        className="flex items-center justify-center w-full py-2.5 mt-4 rounded-full shadow-sm transition-all active:scale-95 hover:opacity-90"
+        style={{ backgroundColor: accent, color: accentText }}
+      >
+        <Plus size={20} strokeWidth={3} />
+      </button>
+    </div>
   );
 }
