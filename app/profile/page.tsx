@@ -166,6 +166,7 @@ interface UserProfile {
   photo: string | null;
   isVerified: boolean;
   isProfileComplete: boolean;
+  isGuest?: boolean;
   createdAt: string;
   addresses: Address[];
 }
@@ -338,10 +339,11 @@ function PrepCountdown({
 
   return (
     <div
-      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${isDone
-        ? "bg-green-500/10 text-green-600 dark:text-green-400"
-        : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
-        } ${className}`}
+      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${
+        isDone
+          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+          : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
+      } ${className}`}
     >
       <Clock size={12} />
       {isDone
@@ -542,7 +544,7 @@ export default function ProfilePage() {
         console.error("Error fetching order details:", error);
         toast.error(
           t("errorFetchingDetails") ||
-          "Error pulling item data configurations.",
+            "Error pulling item data configurations.",
         );
         setSelectedOrderId(null);
       } finally {
@@ -591,9 +593,9 @@ export default function ProfilePage() {
       );
       setCancelReasons(
         response.data?.data?.data?.reasons ||
-        response.data?.data?.reasons ||
-        response.data?.reasons ||
-        [],
+          response.data?.data?.reasons ||
+          response.data?.reasons ||
+          [],
       );
     } catch (error) {
       console.error("Error fetching cancel reasons:", error);
@@ -706,32 +708,32 @@ export default function ProfilePage() {
     labelFallbackEn: string;
     labelFallbackAr: string;
   }[] = [
-      {
-        key: "pending",
-        labelFallbackEn: "Pending",
-        labelFallbackAr: "قيد الانتظار",
-      },
-      {
-        key: "accepted",
-        labelFallbackEn: "Confirmed",
-        labelFallbackAr: "تم التأكيد",
-      },
-      {
-        key: "preparing",
-        labelFallbackEn: "Preparing",
-        labelFallbackAr: "قيد التحضير",
-      },
-      {
-        key: "out_for_delivery",
-        labelFallbackEn: "Ready",
-        labelFallbackAr: "جاهز",
-      },
-      {
-        key: "delivered",
-        labelFallbackEn: "Delivered",
-        labelFallbackAr: "تم التوصيل",
-      },
-    ];
+    {
+      key: "pending",
+      labelFallbackEn: "Pending",
+      labelFallbackAr: "قيد الانتظار",
+    },
+    {
+      key: "accepted",
+      labelFallbackEn: "Confirmed",
+      labelFallbackAr: "تم التأكيد",
+    },
+    {
+      key: "preparing",
+      labelFallbackEn: "Preparing",
+      labelFallbackAr: "قيد التحضير",
+    },
+    {
+      key: "out_for_delivery",
+      labelFallbackEn: "Ready",
+      labelFallbackAr: "جاهز",
+    },
+    {
+      key: "delivered",
+      labelFallbackEn: "Delivered",
+      labelFallbackAr: "تم التوصيل",
+    },
+  ];
 
   // Maps a raw order status to its index within ORDER_STATUS_STEPS so the
   // tracker knows which step is completed / current / upcoming.
@@ -868,7 +870,7 @@ export default function ProfilePage() {
     if (formData.alternatePhone && !phoneRegex.test(altPhoneDigits)) {
       toast.error(
         t("invalidAlternatePhone") ||
-        "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
+          "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
       );
       return;
     }
@@ -1137,10 +1139,11 @@ export default function ProfilePage() {
           }
           toggleTab(tabKey);
         }}
-        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${isOpen
-          ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
-          : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
-          }`}
+        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${
+          isOpen
+            ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
+            : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
+        }`}
       >
         <div className="flex items-center gap-3">
           {icon}
@@ -1148,8 +1151,9 @@ export default function ProfilePage() {
         </div>
         <ChevronDown
           size={18}
-          className={`transform transition-transform duration-300 ${isOpen ? "rotate-180" : ""
-            }`}
+          className={`transform transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
         />
       </button>
     );
@@ -1413,7 +1417,7 @@ export default function ProfilePage() {
                         {t("savedAddresses") || "العناوين المحفوظة"}
                       </h3>
 
-                      {!isFormOpen && (
+                      {!isFormOpen && !userData?.isGuest && (
                         <button
                           onClick={handleAddNewClick}
                           className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-all active:scale-95 shadow-md shadow-yellow-400/20"
@@ -1664,10 +1668,11 @@ export default function ProfilePage() {
                         {userData.addresses?.map((address) => (
                           <div
                             key={address.id}
-                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${editingAddressId === address.id
-                              ? "ring-2 ring-yellow-400/50 border-yellow-400"
-                              : "hover:border-yellow-400/50"
-                              }`}
+                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${
+                              editingAddressId === address.id
+                                ? "ring-2 ring-yellow-400/50 border-yellow-400"
+                                : "hover:border-yellow-400/50"
+                            }`}
                           >
                             <div>
                               <div className="flex items-center justify-between mb-3">
@@ -1844,20 +1849,22 @@ export default function ProfilePage() {
                     <div className="flex p-1 bg-gray-100 dark:bg-zinc-800/60 rounded-2xl">
                       <button
                         onClick={() => setOrderSubTab("active")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "active"
-                          ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
-                          : "text-gray-500 dark:text-zinc-400"
-                          }`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "active"
+                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                            : "text-gray-500 dark:text-zinc-400"
+                        }`}
                       >
                         <Clock size={16} />
                         {t("activeOrders") || "الطلبات النشطة"}
                       </button>
                       <button
                         onClick={() => setOrderSubTab("history")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "history"
-                          ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
-                          : "text-gray-500 dark:text-zinc-400"
-                          }`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          orderSubTab === "history"
+                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                            : "text-gray-500 dark:text-zinc-400"
+                        }`}
                       >
                         <History size={16} />
                         {t("orderHistory") || "سجل الطلبات"}
@@ -1979,9 +1986,9 @@ export default function ProfilePage() {
                           <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
                             {orderSubTab === "active"
                               ? t("noActiveOrdersDesc") ||
-                              "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
+                                "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
                               : t("noHistoryOrdersDesc") ||
-                              "لا يوجد سجل طلبات سابقة لهذا المطعم."}
+                                "لا يوجد سجل طلبات سابقة لهذا المطعم."}
                           </p>
                         </div>
                       )}
@@ -2215,12 +2222,13 @@ export default function ProfilePage() {
                                 >
                                   <div className="flex flex-col items-center">
                                     <span
-                                      className={`flex items-center justify-center flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors ${isCompleted
-                                        ? "bg-yellow-400 border-yellow-400"
-                                        : isCurrent
-                                          ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                                          : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
-                                        }`}
+                                      className={`flex items-center justify-center flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors ${
+                                        isCompleted
+                                          ? "bg-yellow-400 border-yellow-400"
+                                          : isCurrent
+                                            ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                                            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                                      }`}
                                     >
                                       {isCompleted && (
                                         <CheckCircle2
@@ -2235,20 +2243,22 @@ export default function ProfilePage() {
                                     </span>
                                     {!isLast && (
                                       <span
-                                        className={`w-0.5 flex-1 min-h-[24px] ${isCompleted
-                                          ? "bg-yellow-400"
-                                          : "bg-gray-200 dark:bg-zinc-700"
-                                          }`}
+                                        className={`w-0.5 flex-1 min-h-[24px] ${
+                                          isCompleted
+                                            ? "bg-yellow-400"
+                                            : "bg-gray-200 dark:bg-zinc-700"
+                                        }`}
                                       />
                                     )}
                                   </div>
                                   <p
-                                    className={`text-sm ${isLast ? "pb-0" : "pb-6"} ${isCurrent
-                                      ? "font-black text-yellow-500"
-                                      : isCompleted
-                                        ? "font-bold text-gray-900 dark:text-white"
-                                        : "font-bold text-gray-300 dark:text-zinc-600"
-                                      }`}
+                                    className={`text-sm ${isLast ? "pb-0" : "pb-6"} ${
+                                      isCurrent
+                                        ? "font-black text-yellow-500"
+                                        : isCompleted
+                                          ? "font-bold text-gray-900 dark:text-white"
+                                          : "font-bold text-gray-300 dark:text-zinc-600"
+                                    }`}
                                   >
                                     {label}
                                   </p>
@@ -2310,53 +2320,47 @@ export default function ProfilePage() {
 
                                   {(parsedVariations.length > 0 ||
                                     parsedAddons.length > 0) && (
-                                      <div className="ml-10 flex flex-col gap-1">
-                                        {parsedVariations.map(
-                                          (v: any, vi: number) => (
-                                            <div
-                                              key={`v-${vi}`}
-                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                            >
+                                    <div className="ml-10 flex flex-col gap-1">
+                                      {parsedVariations.map(
+                                        (v: any, vi: number) => (
+                                          <div
+                                            key={`v-${vi}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              •{" "}
+                                              {(isRtl
+                                                ? v.optionNameAr
+                                                : v.optionName) ||
+                                                v.name ||
+                                                t("variation")}
+                                            </span>
+                                          </div>
+                                        ),
+                                      )}
+                                      {parsedAddons.map(
+                                        (a: any, ai: number) => (
+                                          <div
+                                            key={`a-${ai}`}
+                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                          >
+                                            <span>
+                                              +{" "}
+                                              {(isArabic ? a.nameAr : a.name) ||
+                                                a.name ||
+                                                t("addon")}
+                                            </span>
+                                            {a.price && (
                                               <span>
-                                                •{" "}
-                                                {(isRtl
-                                                  ? v.optionNameAr
-                                                  : v.optionName) ||
-                                                  v.name ||
-                                                  t("variation")}
+                                                +{a.price}{" "}
+                                                {t("currency") || "ج.م"}
                                               </span>
-                                              {v.additionalPrice && (
-                                                <span>
-                                                  +{v.additionalPrice}{" "}
-                                                  {t("currency") || "ج.م"}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ),
-                                        )}
-                                        {parsedAddons.map(
-                                          (a: any, ai: number) => (
-                                            <div
-                                              key={`a-${ai}`}
-                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                            >
-                                              <span>
-                                                +{" "}
-                                                {(isArabic ? a.nameAr : a.name) ||
-                                                  a.name ||
-                                                  t("addon")}
-                                              </span>
-                                              {a.price && (
-                                                <span>
-                                                  +{a.price}{" "}
-                                                  {t("currency") || "ج.م"}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ),
-                                        )}
-                                      </div>
-                                    )}
+                                            )}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
 
                                   {item.note && (
                                     <div className="ml-10 text-xs italic text-gray-400">
@@ -2499,10 +2503,11 @@ export default function ProfilePage() {
                     cancelReasons.map((reason: any) => (
                       <label
                         key={reason.id}
-                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === reason.id
-                          ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
-                          : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
-                          }`}
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                          selectedReasonId === reason.id
+                            ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                            : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                        }`}
                       >
                         <span className="text-sm text-gray-800 dark:text-zinc-200">
                           {(isRtl ? reason.nameAr : reason.name) || reason.name}
@@ -2524,10 +2529,11 @@ export default function ProfilePage() {
                   )}
 
                   <label
-                    className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === "other"
-                      ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
-                      : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
-                      }`}
+                    className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                      selectedReasonId === "other"
+                        ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                        : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                    }`}
                   >
                     <span className="text-sm text-gray-800 dark:text-zinc-200">
                       {t("otherReason") || "أخرى"}

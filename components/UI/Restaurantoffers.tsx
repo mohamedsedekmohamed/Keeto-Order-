@@ -1067,16 +1067,6 @@ export default function RestaurantOffers({
                                   {localizedField(option, "name", lang)}
                                 </span>
                               </div>
-                              {!!option.price && (
-                                <span
-                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${isSelected
-                                      ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105"
-                                      : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"
-                                    }`}
-                                >
-                                  + {option.price} E£
-                                </span>
-                              )}
                             </div>
                           );
                         })}

@@ -442,12 +442,6 @@ export default function OrdersPage() {
                                                 v.name ||
                                                 t("variation")}
                                             </span>
-                                            {v.additionalPrice && (
-                                              <span>
-                                                +{v.additionalPrice}{" "}
-                                                {t("currency")}
-                                              </span>
-                                            )}
                                           </div>
                                         ),
                                       )}
