@@ -214,7 +214,10 @@ export default function RestaurantAndMenuProvider({
   }, [restaurant?.id, restaurantSlug]);
 
   return (
-    <RestaurantSettingsProvider restaurantId={restaurant?.id || restaurantId}>
+    <RestaurantSettingsProvider
+      key={restaurant?.id || restaurantId}
+      restaurantId={restaurant?.id || restaurantId}
+    >
       <RestaurantContext.Provider
         value={{ restaurant, isLoading: loading || false, isError: !!error }}
       >

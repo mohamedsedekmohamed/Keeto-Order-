@@ -20,6 +20,7 @@ import { useToken } from "@/context/TokenContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import Script from "next/script";
 import { useEffect } from "react";
+import toast from "react-hot-toast";
 
 const AppleIcon = ({ className }: { className?: string }) => (
   <svg
@@ -66,6 +67,8 @@ export default function SignIn() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
+  const [googleButtonWidth, setGoogleButtonWidth] = useState(350);
+  const googleButtonContainerRef = useRef<HTMLDivElement>(null);
   // Visitors coming from "start order" (callbackSlug) get the email form open
   // right away, so the browser / password manager can autofill the fields.
   const [showEmailForm, setShowEmailForm] = useState(() =>
@@ -89,6 +92,20 @@ export default function SignIn() {
       const lastEmail = localStorage.getItem("lastLoginEmail");
       if (lastEmail) setFormData((prev) => ({ ...prev, email: lastEmail }));
     } catch {}
+  }, []);
+  useEffect(() => {
+    const container = googleButtonContainerRef.current;
+    if (!container) return;
+
+    const updateWidth = () => {
+      const width = Math.floor(container.getBoundingClientRect().width);
+      if (width > 0) setGoogleButtonWidth(width);
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(container);
+    return () => observer.disconnect();
   }, []);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -363,56 +380,74 @@ export default function SignIn() {
               </span>
             </button>
             {/* Google Button */}
-            <div className="relative h-12 w-full">
+            <div
+              ref={googleButtonContainerRef}
+              className={`relative flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-gray-200 bg-white text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white ${
+                isGoogleLoading ? "pointer-events-none opacity-70" : ""
+              }`}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 48 48"
+                className="pointer-events-none h-5 w-5"
+              >
+                <path
+                  fill="#4285F4"
+                  d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44Z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M12.6 27.7a12 12 0 0 1 0-7.4V15H5.8a20 20 0 0 0 0 18Z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M24 11.9c3 0 5.7 1 7.8 3.1l5.8-5.8C34.1 6 29.5 4 24 4A20 20 0 0 0 5.8 15l6.8 5.3c1.6-4.8 6.1-8.4 11.4-8.4Z"
+                />
+              </svg>
+              <span className="pointer-events-none text-base font-bold text-gray-700 dark:text-white">
+                Google
+              </span>
               <GoogleLogin
+                type="standard"
+                size="large"
+                theme="outline"
+                shape="rectangular"
+                text="signin"
+                width={googleButtonWidth}
                 onSuccess={async (credentialResponse) => {
+                  if (!credentialResponse.credential || isGoogleLoading) return;
+
                   try {
-                    if (credentialResponse.credential) {
-                      const response = await loginWithGoogle(
-                        { token: credentialResponse.credential, restaurantId },
-                        null,
-                        t("loginSuccess"),
-                      );
-                      handleAuthResponse(response);
-                    }
-                  } catch {}
+                    const response = await loginWithGoogle(
+                      { token: credentialResponse.credential, restaurantId },
+                      null,
+                      t("loginSuccess"),
+                    );
+                    handleAuthResponse(response);
+                  } catch (error) {
+                    console.error("Google sign-in failed:", error);
+                  }
                 }}
+                onError={() =>
+                  toast.error(
+                    t("googleLoginFailed") ||
+                      "Google sign-in failed. Please try again.",
+                  )
+                }
                 containerProps={{
+                  className:
+                    "absolute inset-0 z-10 flex items-center justify-center opacity-0",
                   style: {
                     width: "100%",
-                    height: "100%",
-                    opacity: 0,
-                    position: "absolute",
-                    zIndex: 10,
+                    height: "48px",
                     cursor: "pointer",
                   },
                 }}
               />
-              <div className="w-full h-full flex items-center justify-center gap-3 border-2 border-gray-200 dark:border-zinc-700 rounded-2xl bg-white dark:bg-zinc-800 text-gray-700 dark:text-white font-bold pointer-events-none transition-all">
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.3-4.74 3.3-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.19 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                <span>Google</span>
-              </div>
             </div>
 
             {/* Apple Button */}

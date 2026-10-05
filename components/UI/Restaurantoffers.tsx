@@ -595,7 +595,7 @@ export default function RestaurantOffers({
       {offerGroups.map((group) => (
         <div key={group.key}>
           {/* Offer title + "See all" */}
-          <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="relative flex items-center justify-center gap-3 mb-3">
             <div className="flex items-center min-w-0 gap-2">
               <BadgePercent
                 size={24}
@@ -608,7 +608,7 @@ export default function RestaurantOffers({
             </div>
             <button
               onClick={() => handleBannerClick(group)}
-              className="text-sm font-bold shrink-0 hover:underline"
+              className="absolute end-0 text-sm font-bold shrink-0 hover:underline"
               style={{ color: accent }}
             >
               {t("seeAll") ||
@@ -620,7 +620,7 @@ export default function RestaurantOffers({
               so the logo doesn't stretch across the whole page */}
           <button
             onClick={() => handleBannerClick(group)}
-            className="relative block w-full mb-4 overflow-hidden border shadow-sm rounded-2xl border-zinc-100 dark:border-zinc-800 aspect-[16/9] sm:aspect-[21/9] md:max-w-2xl bg-zinc-100 dark:bg-zinc-900"
+            className="relative block w-full mx-auto mb-4 overflow-hidden border shadow-sm rounded-2xl border-zinc-100 dark:border-zinc-800 aspect-[16/9] sm:aspect-[21/9] md:max-w-2xl bg-zinc-100 dark:bg-zinc-900"
           >
             {group.logo ? (
               // eslint-disable-next-line @next/next/no-img-element

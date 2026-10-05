@@ -15,7 +15,7 @@ import {
   useMenu,
   useRestaurantSettings,
 } from "@/context/RestaurantContext";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useRef, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
@@ -81,6 +81,7 @@ type FocusTarget =
 
 export default function Restaurant() {
   const params = useParams();
+  const router = useRouter();
   const { t, language } = useLanguage();
   const dispatch = useAppDispatch();
   const restaurantName = params.slug as string;
@@ -136,7 +137,19 @@ export default function Restaurant() {
 
   const { restaurant, isLoading: restaurantLoading } = useRestaurant();
   const { menu, isLoading: menuLoading } = useMenu();
-  const { firstColor, textFirstColor, productView } = useRestaurantSettings();
+  const {
+    firstColor,
+    textFirstColor,
+    productView,
+    instantOrder,
+    isLoading: settingsLoading,
+  } = useRestaurantSettings();
+
+  useEffect(() => {
+    if (!settingsLoading && instantOrder) {
+      router.replace(basePath);
+    }
+  }, [basePath, instantOrder, router, settingsLoading]);
 
   const [showFulfillmentDialog, setShowFulfillmentDialog] = useState(false);
 
@@ -258,13 +271,15 @@ export default function Restaurant() {
     }
   }, [restaurant?.id, restaurantName]);
 
-  if (restaurantLoading || menuLoading || !isReady) {
+  if (restaurantLoading || menuLoading || !isReady || settingsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen text-yellow-500 bg-white dark:bg-black">
         {t("loading")}
       </div>
     );
   }
+
+  if (instantOrder) return null;
 
   if (!restaurant) {
     return <div className="p-8 text-center">{t("no-restaurant")}</div>;

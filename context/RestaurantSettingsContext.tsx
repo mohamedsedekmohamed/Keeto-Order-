@@ -100,7 +100,9 @@ export function RestaurantSettingsProvider({
       : null);
 
   const [settings, setSettings] = useState<RestaurantSettings | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    Boolean(activeRestaurantId),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const fetchSettings = useCallback(
