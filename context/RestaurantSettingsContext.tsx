@@ -22,7 +22,7 @@ export interface RestaurantSettings {
   text_first_color?: string;
   text_second_color?: string;
   productView?: string;
-  instantOrder?: boolean;
+  instantOrder?: boolean | string;
   [key: string]: any;
 }
 
@@ -261,7 +261,11 @@ export function RestaurantSettingsProvider({
   }, [activeRestaurantId, fetchSettings]);
 
   const productView = settings?.productView ?? "";
-  const instantOrder = Boolean(settings?.instantOrder);
+  const rawInstantOrder = settings?.instantOrder;
+  const instantOrder =
+    typeof rawInstantOrder === "string"
+      ? rawInstantOrder.trim().toLowerCase() === "true"
+      : rawInstantOrder === true;
 
   const value = useMemo(
     () => ({

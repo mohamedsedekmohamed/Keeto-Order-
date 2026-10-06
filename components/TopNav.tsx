@@ -62,7 +62,7 @@ export default function TopNav() {
 
   const handleClick = () => {
     if (typeof window !== "undefined" && router) {
-       if (instantOrder) return;
+      if (!instantOrder) return;
       if (!restaurantSlug) {
         localStorage.setItem("login_source", "food_aggregator");
         router.push(`/auth/sign-in`);
@@ -106,7 +106,7 @@ export default function TopNav() {
           </Link>
         ) : (
           <span className="cursor-pointer font-medium" onClick={handleClick}>
-            {instantOrder ? "" : t("signIn")}
+            {instantOrder ? t("signIn") : ""}
           </span>
         )}
 

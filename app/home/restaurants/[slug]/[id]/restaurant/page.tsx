@@ -146,7 +146,7 @@ export default function Restaurant() {
   } = useRestaurantSettings();
 
   useEffect(() => {
-    if (!settingsLoading && instantOrder) {
+    if (!settingsLoading && !instantOrder) {
       router.replace(basePath);
     }
   }, [basePath, instantOrder, router, settingsLoading]);
@@ -279,7 +279,7 @@ export default function Restaurant() {
     );
   }
 
-  if (instantOrder) return null;
+  if (!instantOrder) return null;
 
   if (!restaurant) {
     return <div className="p-8 text-center">{t("no-restaurant")}</div>;

@@ -147,7 +147,7 @@ export default function MenuImageDownload() {
 
   const handleOrderNowClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    if (instantOrder) return;
+    if (!instantOrder) return;
     router.push(`${basePath}/restaurant`);
   };
 
@@ -692,9 +692,9 @@ export default function MenuImageDownload() {
               <button
                 type="button"
                 onClick={handleOrderNowClick}
-                disabled={instantOrder}
+                disabled={!instantOrder}
                 className={`flex w-full h-11 min-w-0 items-center justify-center gap-1.5 px-2 text-sm font-bold rounded-xl transition-colors ${
-                  instantOrder
+                  !instantOrder
                     ? "bg-gray-300 text-gray-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed"
                     : "text-gray-900 bg-yellow-400 hover:bg-yellow-500"
                 }`}
