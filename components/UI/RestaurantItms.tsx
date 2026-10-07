@@ -1,20 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import {
-  Search,
-  Plus,
-  X,
-  Minus,
-  LayoutGrid,
-  AlertTriangle,
-  FileText,
-  MapPin,
-  Store,
-  Truck,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
+import { Search, Plus, X, Minus, LayoutGrid } from "lucide-react";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
@@ -22,12 +9,18 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import { useRouter, useParams } from "next/navigation";
 import AddAddressPopup from "./ResturantitmsComps/AddAddressPopup";
+import CartConflictDialog from "./ResturantitmsComps/CartConflictDialog";
+import FoodAddonOptions, {
+  type AddonItem,
+} from "./ResturantitmsComps/FoodAddonOptions";
 import FoodCard from "./ResturantitmsComps/FoodCard";
+import AddToCartDialog from "./ResturantitmsComps/AddToCartDialog";
+import FoodVariationOptions from "./ResturantitmsComps/FoodVariationOptions";
+import FulfillmentDialog from "./ResturantitmsComps/FulfillmentDialog";
 import SubCategoryCard from "./ResturantitmsComps/SubCategoryCard";
 import {
   hasDiscount,
   getEffectivePrice,
-  getDiscountBadge,
 } from "./ResturantitmsComps/menuPricing";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAppDispatch } from "@/redux/hooks";
@@ -43,19 +36,6 @@ import {
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
 import { useToken } from "@/context/TokenContext";
-
-interface AddonItem {
-  id: string;
-  name: string;
-  nameAr: string;
-  price: string;
-  status: string;
-  category?: {
-    id: string;
-    name: string;
-    nameAr: string;
-  };
-}
 
 interface DerivedSubCategory {
   id: string; // subcategory id OR "__no_sub__"
@@ -1452,594 +1432,63 @@ export default function RestaurantItms({
 
         {/* ── FOOD ITEM MODAL ── */}
         {selectedItem && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-md transition-all duration-500 animate-in fade-in">
-            <div className="relative w-full max-w-xl overflow-hidden bg-white dark:bg-zinc-900 border-t sm:border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[90vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-12 duration-500 ease-out overscroll-behavior-contain">
-              <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 via-black/10 to-transparent pointer-events-none">
-                <button
-                  onClick={() => setSelectedItem(null)}
-                  className="pointer-events-auto p-2.5 rounded-full shadow-lg bg-white/80 hover:bg-white dark:bg-zinc-800/80 dark:hover:bg-zinc-700 backdrop-blur-md text-zinc-800 dark:text-zinc-100 transition-all active:scale-90 hover:scale-105"
-                >
-                  <X size={20} strokeWidth={2.5} />
-                </button>
-              </div>
-
-              <div className="relative w-full h-56 sm:h-72 shrink-0 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                <img
-                  src={selectedItem.image}
-                  alt={selectedItem.name}
-                  loading="eager"
-                  decoding="async"
-                  className="object-cover w-full h-full transform transition-transform duration-[1000ms] ease-out hover:scale-105 will-change-transform"
-                  style={{
-                    imageRendering: "-webkit-optimize-contrast",
-                    transform: "translate3d(0,0,0)",
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-zinc-900 via-zinc-950/10 to-black/20 pointer-events-none" />
-              </div>
-
-              <div
-                className="flex-1 px-6 pb-8 overflow-y-auto space-y-6 scroll-smooth overscroll-contain"
-                style={{
-                  WebkitOverflowScrolling: "touch",
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                  maskImage:
-                    "linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%)",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%)",
-                }}
-              >
-                <style
-                  dangerouslySetInnerHTML={{
-                    __html: `div::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }`,
-                  }}
-                />
-
-                <div className="pt-4 animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 fill-mode-both">
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
-                      {isRtl ? selectedItem.nameAr : selectedItem.name}
-                    </h2>
-                    <div className="text-left shrink-0 bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-2xl border border-zinc-100 dark:border-zinc-800/40">
-                      {hasDiscount(selectedItem) ? (
-                        <div className="flex flex-col items-end">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-yellow-500">
-                              {selectedItem.discountPrice}
-                            </span>
-                            <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500">
-                              E£
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-zinc-400 line-through dark:text-zinc-500">
-                              {selectedItem.price} E£
-                            </span>
-                            <span className="px-1.5 py-0.5 text-[10px] font-black text-white bg-red-500 rounded-md">
-                              {getDiscountBadge(selectedItem)}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <span className="text-2xl font-black text-yellow-500">
-                            {selectedItem.price}
-                          </span>
-                          <span
-                            className={`text-xs font-bold text-zinc-400 dark:text-zinc-500 ${
-                              isRtl ? "mr-1" : "ml-1"
-                            }`}
-                          >
-                            E£
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {selectedItem.description && (
-                    <p className="mt-4 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 font-medium bg-zinc-50/40 dark:bg-zinc-800/10 p-3.5 rounded-2xl border border-zinc-100/50 dark:border-zinc-800/20">
-                      {isRtl
-                        ? selectedItem.descriptionAr
-                        : selectedItem.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* ── VARIATIONS SELECTION ── */}
-                {Array.isArray(selectedItem.variations) &&
-                  selectedItem.variations.length > 0 && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both">
-                      {selectedItem.variations.map((variation: Variation) => (
-                        <div
-                          key={`variation-${variation.id}`}
-                          className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50"
-                        >
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-base text-zinc-800 dark:text-zinc-200">
-                                {isRtl ? variation.nameAr : variation.name}
-                              </h4>
-                              {variation.isRequired && (
-                                <span className="px-2 py-0.5 text-[10px] font-black text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-100/40 dark:border-red-900/30">
-                                  {isRtl ? "مطلوب" : "Required"}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-xs font-bold px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200/10">
-                              {variation.selectionType === "single"
-                                ? isRtl
-                                  ? "اختر واحد"
-                                  : "Select One"
-                                : variation.max
-                                  ? isRtl
-                                    ? `حد أقصى ${variation.max}`
-                                    : `Max ${variation.max}`
-                                  : isRtl
-                                    ? "اختياري"
-                                    : "Optional"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2.5">
-                            {Array.isArray(variation.options) &&
-                              variation.options.map((option) => {
-                                const isSelected = (
-                                  selectedOptions[variation.id] || []
-                                ).includes(option.id);
-                                return (
-                                  <div
-                                    key={`option-${option.id}`}
-                                    onClick={() =>
-                                      handleOptionSelect(variation, option)
-                                    }
-                                    className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
-                                  ${
-                                    isSelected
-                                      ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
-                                      : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                                  }`}
-                                  >
-                                    <div className="flex items-center gap-3.5">
-                                      <input
-                                        type={
-                                          variation.selectionType === "single"
-                                            ? "radio"
-                                            : "checkbox"
-                                        }
-                                        name={variation.name}
-                                        checked={isSelected}
-                                        readOnly
-                                        className="w-5 h-5 accent-yellow-400 rounded-full border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
-                                      />
-                                      <span
-                                        className={`text-sm transition-all duration-200 ${
-                                          isSelected
-                                            ? "font-black text-zinc-950 dark:text-zinc-50"
-                                            : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
-                                        }`}
-                                      >
-                                        {isRtl ? option.nameAr : option.name}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                {/* ── ADDONS SELECTION ── */}
-                {Array.isArray(selectedItem.addons) &&
-                  selectedItem.addons.length > 0 && (
-                    <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold text-base text-zinc-800 dark:text-zinc-200">
-                          {isRtl ? "الإضافات" : "Add-ons"}
-                        </h4>
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-                          {isRtl ? "اختياري" : "Optional"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2.5">
-                        {selectedItem.addons.map((addon: AddonItem) => {
-                          const isAddonSelected = selectedAddons.includes(
-                            addon.id,
-                          );
-                          return (
-                            <label
-                              key={`addon-option-${addon.id}`}
-                              className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group
-                              ${
-                                isAddonSelected
-                                  ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
-                                  : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3.5">
-                                <input
-                                  type="checkbox"
-                                  checked={isAddonSelected}
-                                  onChange={() => handleAddonToggle(addon.id)}
-                                  className="w-5 h-5 accent-yellow-400 rounded-lg border-zinc-300 dark:border-zinc-700 transition-transform duration-200 group-hover:scale-105"
-                                />
-                                <span
-                                  className={`text-sm transition-all duration-200 ${
-                                    isAddonSelected
-                                      ? "font-black text-zinc-950 dark:text-zinc-50"
-                                      : "font-semibold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
-                                  }`}
-                                >
-                                  {isRtl ? addon.nameAr : addon.name}
-                                </span>
-                              </div>
-                              {parseFloat(addon.price) > 0 && (
-                                <span
-                                  className={`text-xs font-black px-2.5 py-1 rounded-xl transition-all duration-300 ${
-                                    isAddonSelected
-                                      ? "text-yellow-600 dark:text-yellow-400 bg-yellow-100/40 dark:bg-yellow-400/10 scale-105"
-                                      : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-850"
-                                  }`}
-                                >
-                                  + {addon.price} E£
-                                </span>
-                              )}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                {/* ── ORDER NOTES SECTION ── */}
-                <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
-                  <div className="flex items-center gap-2 mb-3">
-                    <FileText
-                      size={18}
-                      className="text-zinc-400 dark:text-zinc-500"
-                    />
-                    <h4 className="font-bold text-base text-zinc-800 dark:text-zinc-200">
-                      {isRtl ? "ملاحظات الطلب" : "Order Notes"}
-                    </h4>
-                  </div>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder={
-                      isRtl
-                        ? "مثال: بدون بصل، زيادة صوص..."
-                        : "E.g. No onions, extra sauce..."
-                    }
-                    rows={3}
-                    className="w-full p-4 text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl outline-none resize-none focus:ring-2 focus:ring-yellow-400 transition-all duration-200"
-                  />
-                </div>
-              </div>
-
-              <div className="p-6 bg-white border-t border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] shrink-0 space-y-4 z-10">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
-                      {isRtl ? "الإجمالي النهائي" : "Total Price"}
-                    </span>
-                    <div className="flex items-baseline gap-0.5">
-                      <span className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight transition-all duration-300 transform">
-                        {calculateTotalPrice().toFixed(2)}
-                      </span>
-                      <span
-                        className={`text-xs font-bold text-yellow-500 ${
-                          isRtl ? "mr-1" : "ml-1"
-                        }`}
-                      >
-                        E£
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-1.5 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/10 rounded-2xl shadow-inner">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="flex items-center justify-center w-9 h-9 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 bg-white dark:bg-zinc-700 hover:bg-zinc-50 rounded-xl transition-all shadow-sm active:scale-90"
-                    >
-                      <Minus size={16} strokeWidth={2.5} />
-                    </button>
-                    <span className="w-6 text-base font-black text-center text-zinc-800 dark:text-zinc-100 tabular-nums animate-in fade-in zoom-in-75 duration-200">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="flex items-center justify-center w-9 h-9 text-zinc-900 dark:text-zinc-900 bg-yellow-400 hover:bg-yellow-500 rounded-xl transition-all shadow-md active:scale-90"
-                    >
-                      <Plus size={16} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                </div>
-                <button
-                  disabled={loading}
-                  onClick={handleAddToCartSubmit}
-                  className="w-full bg-yellow-400 hover:bg-yellow-500 disabled:hover:bg-yellow-400 text-zinc-950 disabled:text-zinc-400 font-black text-base py-4 rounded-2xl shadow-xl shadow-yellow-400/10 hover:shadow-yellow-400/20 transition-all duration-300 active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <span className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    t("addToCart")
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+          <AddToCartDialog
+            item={selectedItem}
+            isRtl={isRtl}
+            selectedOptions={selectedOptions}
+            selectedAddons={selectedAddons}
+            quantity={quantity}
+            note={note}
+            totalPrice={calculateTotalPrice()}
+            loading={loading}
+            addToCartLabel={t("addToCart")}
+            onClose={() => setSelectedItem(null)}
+            onSelectVariation={handleOptionSelect}
+            onToggleAddon={handleAddonToggle}
+            onQuantityChange={setQuantity}
+            onNoteChange={setNote}
+            onSubmit={handleAddToCartSubmit}
+          />
         )}
 
-        {/* ── 409 CONFLICT RESIDUAL CART REPLACEMENT DIALOG ── */}
-        {showConflictDialog && (
-          <div className="fixed inset-0 z-[1110] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full max-w-md p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-300">
-              <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100 dark:border-amber-900/30">
-                <AlertTriangle size={28} />
-              </div>
+        <CartConflictDialog
+          isOpen={showConflictDialog}
+          isRtl={isRtl}
+          loading={loading}
+          onConfirm={handleClearCartAndAdd}
+          onCancel={() => {
+            setShowConflictDialog(false);
+            setPendingCartPayload(null);
+          }}
+        />
 
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                  {isRtl
-                    ? "هل أنت متأكد من رغبتك في إضافة هذا المنتج إلى السلة؟"
-                    : "Are you sure you want to add this item to the cart ?"}
-                </h3>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={handleClearCartAndAdd}
-                  disabled={loading}
-                  className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-zinc-950 font-black py-3 rounded-xl shadow-lg transition-all active:scale-[0.98] disabled:opacity-50"
-                >
-                  {loading ? (
-                    <span className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin inline-block" />
-                  ) : isRtl ? (
-                    "نعم، متأكد"
-                  ) : (
-                    "Yes, Sure"
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowConflictDialog(false);
-                    setPendingCartPayload(null);
-                  }}
-                  disabled={loading}
-                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 font-bold py-3 rounded-xl transition-all active:scale-[0.98] border border-zinc-200/40 dark:border-zinc-700/30"
-                >
-                  {isRtl ? "إلغاء" : "Cancel"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── FULFILLMENT SELECTION DIALOG ── */}
-        {showFulfillmentDialog && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full max-w-md p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300 overflow-y-auto overscroll-contain max-h-[90vh] [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-zinc-300 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                  {isRtl ? "طريقة الاستلام" : "Fulfillment Method"}
-                </h3>
-                <p className="text-sm text-zinc-500">
-                  {isRtl
-                    ? "يرجى تحديد طريقة استلام هذا الطلب."
-                    : "Please select how you want to receive this item."}
-                </p>
-              </div>
-
-              {/* Mode Selection */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    id: "delivery" as const,
-                    label: isRtl ? "توصيل" : "Delivery",
-                    icon: Truck,
-                  },
-                  {
-                    id: "takeaway" as const,
-                    label: isRtl ? "استلام من الفرع" : "Takeaway",
-                    icon: Store,
-                  },
-                ].map((mode) => (
-                  <button
-                    key={mode.id}
-                    onClick={() => {
-                      setFulfillmentMode(mode.id);
-                      setSelectedFulfillmentId("");
-                    }}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                      fulfillmentMode === mode.id
-                        ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
-                        : "border-zinc-100 dark:border-zinc-800 text-zinc-500"
-                    }`}
-                  >
-                    <mode.icon size={24} />
-                    <span className="text-xs font-bold">{mode.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Dynamic List Rendering */}
-              {fulfillmentMode === "delivery" && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                      {isRtl ? "اختر العنوان" : "Select Address"}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddAddressPopup(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-950 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors"
-                    >
-                      <Plus size={14} />
-                      {isRtl ? "إضافة عنوان" : "Add Address"}
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 max-h-[45vh] overflow-y-auto overscroll-contain pr-2 scroll-smooth [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-zinc-300 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    {allAddresses.length === 0 ? (
-                      <div className="p-6 text-center border-2 border-dashed rounded-2xl border-zinc-200 dark:border-zinc-800">
-                        <p className="text-xs font-semibold text-zinc-500">
-                          {isRtl
-                            ? "لا يوجد عناوين محفوظة"
-                            : "No saved addresses yet"}
-                        </p>
-                      </div>
-                    ) : (
-                      allAddresses.map((addr: any) => (
-                        <div
-                          key={addr.id}
-                          onClick={() =>
-                            addr.isDeliverable &&
-                            setSelectedFulfillmentId(addr.id)
-                          }
-                          className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${
-                            addr.isDeliverable
-                              ? "cursor-pointer"
-                              : "cursor-not-allowed opacity-80"
-                          } ${
-                            selectedFulfillmentId === addr.id
-                              ? addr.isDeliverable
-                                ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                                : "border-red-400 bg-red-50 dark:bg-red-950/20"
-                              : "border-zinc-100 dark:border-zinc-800"
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-xl mt-1">
-                              <MapPin size={18} />
-                            </div>
-                            <div>
-                              <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                                {addr.title}
-                              </p>
-                              <p className="text-xs text-zinc-500">
-                                {addr.street}
-                                {addr.number ? `, ${addr.number}` : ""}
-                              </p>
-
-                              {!addr.isDeliverable && (
-                                <div className="flex items-center gap-1 mt-2 text-red-500">
-                                  <AlertCircle size={14} />
-                                  <p className="text-xs font-bold">
-                                    {isRtl
-                                      ? "المطعم لا يوصل لهذا العنوان"
-                                      : "Delivery unavailable for this address"}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {selectedFulfillmentId === addr.id &&
-                            addr.isDeliverable && (
-                              <CheckCircle2
-                                size={20}
-                                className="text-yellow-500 shrink-0"
-                              />
-                            )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {fulfillmentMode === "takeaway" && (
-                <div className="mt-4">
-                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 block mb-3">
-                    {isRtl ? "اختر الفرع" : "Select Branch"}
-                  </label>
-
-                  <div className="space-y-3 max-h-[45vh] overflow-y-auto overscroll-contain pr-2 scroll-smooth [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.300)_transparent] dark:[scrollbar-color:theme(colors.zinc.700)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-zinc-300 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    {availableBranches.length === 0 ? (
-                      <div className="p-6 text-center border-2 border-dashed rounded-2xl border-zinc-200 dark:border-zinc-800">
-                        <p className="text-xs font-semibold text-red-500">
-                          {isRtl
-                            ? "هذا المنتج غير متاح فى أى فرع حالياً"
-                            : "This item isn't available for pickup at any branch right now"}
-                        </p>
-                      </div>
-                    ) : (
-                      availableBranches.map((branch: any) => (
-                        <div
-                          key={branch.id}
-                          onClick={() => setSelectedFulfillmentId(branch.id)}
-                          className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                            selectedFulfillmentId === branch.id
-                              ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                              : "border-zinc-100 dark:border-zinc-800"
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-xl mt-1">
-                              <Store size={18} />
-                            </div>
-                            <div>
-                              <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                                {isRtl && branch.nameAr
-                                  ? branch.nameAr
-                                  : branch.name}
-                              </p>
-                              {branch.address && (
-                                <p className="text-xs text-zinc-500">
-                                  {branch.address}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          {selectedFulfillmentId === branch.id && (
-                            <CheckCircle2
-                              size={20}
-                              className="text-yellow-500 shrink-0"
-                            />
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    const fulfillmentData =
-                      fulfillmentMode === "delivery"
-                        ? { addressId: selectedFulfillmentId }
-                        : { branchId: selectedFulfillmentId };
-
-                    executeAddToCart(fulfillmentData);
-                  }}
-                  disabled={loading || !selectedFulfillmentId}
-                  className="flex-1 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center"
-                >
-                  {loading ? (
-                    <span className="w-5 h-5 border-2 border-white dark:border-zinc-900 border-t-transparent rounded-full animate-spin inline-block" />
-                  ) : isRtl ? (
-                    "تأكيد"
-                  ) : (
-                    "Confirm"
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowFulfillmentDialog(false);
-                    setFulfillmentMode(null);
-                    setSelectedFulfillmentId("");
-                  }}
-                  disabled={loading}
-                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 font-bold py-3 rounded-xl transition-all border border-zinc-200/40 dark:border-zinc-700/30"
-                >
-                  {isRtl ? "إلغاء" : "Cancel"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <FulfillmentDialog
+          isOpen={showFulfillmentDialog}
+          isRtl={isRtl}
+          loading={loading}
+          mode={fulfillmentMode}
+          selectedId={selectedFulfillmentId}
+          addresses={allAddresses}
+          branches={availableBranches}
+          onModeChange={(mode) => {
+            setFulfillmentMode(mode);
+            setSelectedFulfillmentId("");
+          }}
+          onSelectionChange={setSelectedFulfillmentId}
+          onAddAddress={() => setShowAddAddressPopup(true)}
+          onConfirm={(mode, selectedId) => {
+            const fulfillmentData =
+              mode === "delivery"
+                ? { addressId: selectedId }
+                : { branchId: selectedId };
+            executeAddToCart(fulfillmentData);
+          }}
+          onCancel={() => {
+            setShowFulfillmentDialog(false);
+            setFulfillmentMode(null);
+            setSelectedFulfillmentId("");
+          }}
+        />
 
         {/* ── ADD ADDRESS POPUP (opened from the fulfillment dialog) ── */}
         {showAddAddressPopup && (
@@ -2142,125 +1591,35 @@ export default function RestaurantItms({
 
                           {/* ── Variations ── */}
                           {Array.isArray(food.variations) &&
-                            food.variations.length > 0 &&
-                            food.variations.map((variation: Variation) => (
-                              <div key={`rec-variation-${variation.id}`}>
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                                    {isRtl ? variation.nameAr : variation.name}
-                                  </span>
-                                  {variation.isRequired && (
-                                    <span className="px-1.5 py-0.5 text-[9px] font-black text-red-500 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-100/40 dark:border-red-900/30">
-                                      {isRtl ? "مطلوب" : "Required"}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="grid grid-cols-1 gap-1.5">
-                                  {Array.isArray(variation.options) &&
-                                    variation.options.map((option) => {
-                                      const isSelected = (
-                                        sel.selectedOptions[variation.id] || []
-                                      ).includes(option.id);
-                                      return (
-                                        <label
-                                          key={`rec-option-${option.id}`}
-                                          onClick={() =>
-                                            handleRecommendedOptionSelect(
-                                              food,
-                                              variation,
-                                              option,
-                                            )
-                                          }
-                                          className={`flex items-center justify-between px-3 py-2 border rounded-xl cursor-pointer transition-all select-none ${
-                                            isSelected
-                                              ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 ring-1 ring-yellow-400"
-                                              : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <input
-                                              type={
-                                                variation.selectionType ===
-                                                "single"
-                                                  ? "radio"
-                                                  : "checkbox"
-                                              }
-                                              name={`rec-${food.id}-${variation.id}`}
-                                              checked={isSelected}
-                                              readOnly
-                                              className="w-4 h-4 accent-yellow-400"
-                                            />
-                                            <span
-                                              className={`text-xs ${
-                                                isSelected
-                                                  ? "font-black text-zinc-950 dark:text-zinc-50"
-                                                  : "font-semibold text-zinc-600 dark:text-zinc-400"
-                                              }`}
-                                            >
-                                              {isRtl
-                                                ? option.nameAr
-                                                : option.name}
-                                            </span>
-                                          </div>
-                                        </label>
-                                      );
-                                    })}
-                                </div>
-                              </div>
-                            ))}
+                            food.variations.length > 0 && (
+                              <FoodVariationOptions
+                                variations={food.variations}
+                                selectedOptions={sel.selectedOptions}
+                                isRtl={isRtl}
+                                compact
+                                groupId={food.id}
+                                onSelect={(variation, option) =>
+                                  handleRecommendedOptionSelect(
+                                    food,
+                                    variation,
+                                    option,
+                                  )
+                                }
+                              />
+                            )}
 
                           {/* ── Addons ── */}
                           {Array.isArray(food.addons) &&
                             food.addons.length > 0 && (
-                              <div>
-                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1.5">
-                                  {isRtl ? "الإضافات" : "Add-ons"}
-                                </span>
-                                <div className="grid grid-cols-1 gap-1.5">
-                                  {food.addons.map((addon: AddonItem) => {
-                                    const isAddonSelected =
-                                      sel.selectedAddons.includes(addon.id);
-                                    return (
-                                      <label
-                                        key={`rec-addon-${addon.id}`}
-                                        className={`flex items-center justify-between px-3 py-2 border rounded-xl cursor-pointer transition-all select-none ${
-                                          isAddonSelected
-                                            ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 ring-1 ring-yellow-400"
-                                            : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            checked={isAddonSelected}
-                                            onChange={() =>
-                                              handleRecommendedAddonToggle(
-                                                food,
-                                                addon.id,
-                                              )
-                                            }
-                                            className="w-4 h-4 accent-yellow-400"
-                                          />
-                                          <span
-                                            className={`text-xs ${
-                                              isAddonSelected
-                                                ? "font-black text-zinc-950 dark:text-zinc-50"
-                                                : "font-semibold text-zinc-600 dark:text-zinc-400"
-                                            }`}
-                                          >
-                                            {isRtl ? addon.nameAr : addon.name}
-                                          </span>
-                                        </div>
-                                        {parseFloat(addon.price) > 0 && (
-                                          <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400">
-                                            + {addon.price} E£
-                                          </span>
-                                        )}
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                              <FoodAddonOptions
+                                addons={food.addons}
+                                selectedAddons={sel.selectedAddons}
+                                isRtl={isRtl}
+                                compact
+                                onToggle={(addonId) =>
+                                  handleRecommendedAddonToggle(food, addonId)
+                                }
+                              />
                             )}
 
                           {/* ── Quantity + Add to cart ── */}

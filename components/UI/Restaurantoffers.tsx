@@ -642,24 +642,31 @@ export default function RestaurantOffers({
             )}
           </button>
 
-          {/* This offer's products — horizontal strip of cards */}
-          <div className="flex gap-3 pb-2 overflow-x-auto snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {group.items.map((offer, index) => (
-              <div
-                key={`${offer.id}-${offer.discountId ?? index}`}
-                id={`offer-${offer.id}`}
-                className={`shrink-0 snap-start w-[220px] sm:w-60 lg:w-64 ${highlightedOfferId === offer.id ? "animate-pulse" : ""
-                  }`}
-              >
-                <OfferCard
-                  offer={offer}
-                  lang={lang}
-                  accent={accent}
-                  accentText={accentText}
-                  onClick={() => openOfferDetail(offer)}
-                />
-              </div>
-            ))}
+          {/* This offer's products — must stay horizontally scrollable in both
+              RTL and LTR layouts. Limit the desktop viewport to five cards so
+              additional products remain horizontally scrollable on wide screens. */}
+          <div
+            dir={lang === "ar" ? "rtl" : "ltr"}
+            className="mx-auto w-full max-w-[83rem] overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x snap-x snap-mandatory scroll-smooth pb-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-300 [&::-webkit-scrollbar-track]:bg-zinc-100 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-700 dark:[&::-webkit-scrollbar-track]:bg-zinc-800"
+          >
+            <div className="mx-auto flex w-max min-w-full items-stretch justify-center gap-3 pb-1">
+              {group.items.map((offer, index) => (
+                <div
+                  key={`${offer.id}-${offer.discountId ?? index}`}
+                  id={`offer-${offer.id}`}
+                  className={`shrink-0 snap-start w-[220px] sm:w-60 lg:w-64 ${highlightedOfferId === offer.id ? "animate-pulse" : ""
+                    }`}
+                >
+                  <OfferCard
+                    offer={offer}
+                    lang={lang}
+                    accent={accent}
+                    accentText={accentText}
+                    onClick={() => openOfferDetail(offer)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ))}
