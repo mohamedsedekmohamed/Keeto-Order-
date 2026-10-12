@@ -1574,6 +1574,8 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     lng: null as number | null,
     location: "" as string,
   });
+  const hasLocation =
+    addressForm.lat !== null && addressForm.lng !== null;
 
   const inputClass =
     "w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-zinc-900 dark:text-white text-sm";
@@ -1865,40 +1867,40 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </div>
         )}
 
-        {/* Interactive Map - drag the pin or tap the map to fine-tune the location */}
-        <div className="mb-4">
-          <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            {t("dir") === "rtl"
-              ? "اسحب الدبوس لتحديد موقعك بدقة"
-              : "Drag the pin to fine-tune your exact location"}
-          </p>
-          {mounted && (
-            <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
-              <LocationPicker
-                lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
-                lng={addressForm.lng ?? DEFAULT_MAP_CENTER[1]}
-                onChange={handleMapLocationChange}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Captured Coordinates Feedback */}
-        {addressForm.lat && addressForm.lng && (
-          <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
-            <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-            <div className="flex flex-col gap-0.5">
-              {addressForm.location && <span>{addressForm.location}</span>}
-              <span>
+        {hasLocation && (
+          <>
+            {/* Interactive Map - drag the pin or tap the map to fine-tune the location */}
+            <div className="mb-4">
+              <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 {t("dir") === "rtl"
-                  ? `تم التقاط الموقع: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`
-                  : `Location captured: (${addressForm.lat.toFixed(4)}, ${addressForm.lng.toFixed(4)})`}
-              </span>
+                  ? "اسحب الدبوس لتحديد موقعك بدقة"
+                  : "Drag the pin to fine-tune your exact location"}
+              </p>
+              {mounted && (
+                <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
+                  <LocationPicker
+                    lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
+                    lng={addressForm.lng ?? DEFAULT_MAP_CENTER[1]}
+                    onChange={handleMapLocationChange}
+                  />
+                </div>
+              )}
             </div>
-          </div>
-        )}
 
-        <form onSubmit={handleAddressSubmit} className="space-y-4">
+            {/* Captured Coordinates Feedback */}
+            <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
+              <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+              <div className="flex flex-col gap-0.5">
+                {addressForm.location && <span>{addressForm.location}</span>}
+                <span>
+                  {t("dir") === "rtl"
+                    ? `تم التقاط الموقع: (${addressForm.lat!.toFixed(4)}, ${addressForm.lng!.toFixed(4)})`
+                    : `Location captured: (${addressForm.lat!.toFixed(4)}, ${addressForm.lng!.toFixed(4)})`}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddressSubmit} className="space-y-4">
           <input
             name="title"
             placeholder={t("title")}
@@ -1979,7 +1981,9 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
               {postingAddress ? t("saving") : t("add-address-btn")}
             </button>
           </div>
-        </form>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

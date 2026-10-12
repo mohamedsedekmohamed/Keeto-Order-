@@ -1044,6 +1044,18 @@ export default function ProfilePage() {
   const handleAddressSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (
+      !editingAddressId &&
+      (addressForm.lat === null || addressForm.lng === null)
+    ) {
+      toast.error(
+        isArabic
+          ? "يرجى تحديد موقعك الحالي قبل إضافة العنوان."
+          : "Please capture your current location before adding the address.",
+      );
+      return;
+    }
+
     const payload = {
       ...addressForm,
       number: String(addressForm.number) || 0,
@@ -1430,7 +1442,56 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    {isFormOpen && (
+                    {isFormOpen && !editingAddressId && !hasLocation && (
+                      <div className="p-6 mb-6 space-y-4 bg-gray-50/80 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800 rounded-2xl">
+                        <div>
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                            {isArabic
+                              ? "حدد موقعك للمتابعة"
+                              : "Set your location to continue"}
+                          </h4>
+                          <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+                            {isArabic
+                              ? "يجب تحديد موقعك الحالي قبل إدخال تفاصيل العنوان."
+                              : "You must capture your current location before entering address details."}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleGetCurrentLocation}
+                          disabled={isLocating}
+                          className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 disabled:opacity-60 shadow-sm"
+                        >
+                          {isLocating ? (
+                            <Loader2
+                              size={18}
+                              className="animate-spin text-yellow-500"
+                            />
+                          ) : (
+                            <Navigation
+                              size={18}
+                              className="text-yellow-500 fill-yellow-500"
+                            />
+                          )}
+                          {isLocating
+                            ? isArabic
+                              ? "جاري تحديد موقعك..."
+                              : "Locating..."
+                            : isArabic
+                              ? "استخدام موقعي الحالي (GPS)"
+                              : "Use Current Location (GPS)"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetAddressForm}
+                          className="w-full py-3 font-bold text-gray-600 bg-gray-100 dark:bg-zinc-800 dark:text-zinc-300 rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700"
+                        >
+                          {t("cancel") || "Cancel"}
+                        </button>
+                      </div>
+                    )}
+
+                    {isFormOpen && (editingAddressId || hasLocation) && (
                       <form
                         onSubmit={handleAddressSubmit}
                         className="p-6 mb-6 space-y-5 bg-gray-50/80 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800 rounded-2xl transition-all"

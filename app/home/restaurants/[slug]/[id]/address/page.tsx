@@ -263,6 +263,15 @@ const AddressPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!editingId && !hasLocation) {
+      alert(
+        isArabic
+          ? "يرجى تحديد موقعك الحالي قبل إضافة العنوان."
+          : "Please capture your current location before adding the address.",
+      );
+      return;
+    }
+
     const payload = {
       ...form,
       number: String(form.number)|| 0,
@@ -385,6 +394,44 @@ const AddressPage = () => {
 
       {/* FORM SECTION */}
       <div className="w-full mb-10 lg:w-1/3 lg:sticky lg:top-24 shrink-0 lg:mb-0">
+        {!editingId && !hasLocation && (
+          <div className="p-6 space-y-5 bg-white border shadow-sm dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 rounded-3xl">
+            <div className="pb-2 border-b border-zinc-100 dark:border-zinc-800">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
+                {t("add-address")}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                {isArabic
+                  ? "حدد موقعك الحالي للمتابعة وإدخال تفاصيل العنوان."
+                  : "Capture your current location to continue and enter address details."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleGetCurrentLocation}
+              disabled={isLocating}
+              className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 disabled:opacity-60"
+            >
+              {isLocating ? (
+                <Loader2 size={18} className="animate-spin text-yellow-500" />
+              ) : (
+                <Navigation
+                  size={18}
+                  className="text-yellow-500 fill-yellow-500"
+                />
+              )}
+              {isLocating
+                ? isArabic
+                  ? "جاري تحديد موقعك..."
+                  : "Locating..."
+                : isArabic
+                  ? "استخدام موقعي الحالي (GPS)"
+                  : "Use Current Location (GPS)"}
+            </button>
+          </div>
+        )}
+
+        {(editingId || hasLocation) && (
         <form
           onSubmit={handleSubmit}
           className="p-6 space-y-5 bg-white border shadow-sm dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 rounded-3xl"
@@ -548,6 +595,7 @@ const AddressPage = () => {
             )}
           </div>
         </form>
+        )}
       </div>
 
       {/* LIST SECTION */}

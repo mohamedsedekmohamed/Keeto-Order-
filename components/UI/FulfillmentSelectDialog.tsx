@@ -6,6 +6,7 @@ import {
   Truck,
   Store,
   MapPin,
+  Navigation,
   CheckCircle2,
   ChevronRight,
   Plus,
@@ -15,6 +16,7 @@ import {
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import { useLanguage } from "@/context/LanguageContext";
+import toast from "react-hot-toast";
 import {
   MapContainer,
   TileLayer,
@@ -204,6 +206,7 @@ export default function FulfillmentSelectDialog({
   >(null);
   const [selectedId, setSelectedId] = useState<string>("");
   const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [addressForm, setAddressForm] = useState({
     title: "",
     type: "home",
@@ -317,6 +320,11 @@ export default function FulfillmentSelectDialog({
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
+      toast.error(
+        isRTL
+          ? "المتصفح الخاص بك لا يدعم تحديد الموقع."
+          : "Geolocation is not supported by your browser.",
+      );
       return;
     }
 
@@ -324,6 +332,11 @@ export default function FulfillmentSelectDialog({
       navigator.userAgent.includes("FBAN") ||
       navigator.userAgent.includes("FBAV")
     ) {
+      toast.error(
+        isRTL
+          ? "يرجى فتح الصفحة في متصفحك لاستخدام خدمات الموقع."
+          : "Please open this page in your browser to use location services.",
+      );
       return;
     }
 
@@ -333,13 +346,26 @@ export default function FulfillmentSelectDialog({
       maximumAge: 0,
     };
 
+    setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         await applyLocation(latitude, longitude);
+        setIsLocating(false);
+        toast.success(
+          isRTL
+            ? "تم تحديد موقعك الحالي بنجاح!"
+            : "Current location fetched successfully!",
+        );
       },
       (error) => {
+        setIsLocating(false);
         console.error("Error getting location:", error);
+        toast.error(
+          isRTL
+            ? "تعذر الوصول إلى موقعك الحالي. يرجى السماح بالوصول إلى الموقع ثم المحاولة مرة أخرى."
+            : "Unable to access your current location. Please allow location access and try again.",
+        );
       },
       options,
     );
@@ -349,6 +375,15 @@ export default function FulfillmentSelectDialog({
     e: React.FormEvent<HTMLFormElement>,
   ) => {
     e.preventDefault();
+
+    if (addressForm.lat === null || addressForm.lng === null) {
+      toast.error(
+        isRTL
+          ? "يرجى تحديد موقعك الحالي قبل إرسال العنوان."
+          : "Please capture your current location before submitting.",
+      );
+      return;
+    }
 
     const payload = {
       ...addressForm,
@@ -710,17 +745,32 @@ export default function FulfillmentSelectDialog({
                 </button>
               </div>
 
-              <form onSubmit={handleAddAddressSubmit} className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleGetCurrentLocation}
-                  className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
-                >
-                  <MapPin size={18} className="text-yellow-500" />
-                  {t("Use Current Location (GPS)") ||
-                    "Use Current Location (GPS)"}
-                </button>
-
+              {addressForm.lat === null || addressForm.lng === null ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-center text-gray-500 dark:text-zinc-400">
+                    {isRTL
+                      ? "حدد موقعك الحالي للمتابعة وإضافة عنوان."
+                      : "Capture your current location to continue adding an address."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGetCurrentLocation}
+                    disabled={isLocating}
+                    className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
+                  >
+                    {isLocating ? (
+                      <Loader2 size={18} className="animate-spin text-yellow-500" />
+                    ) : (
+                      <Navigation size={18} className="text-yellow-500" />
+                    )}
+                    {isLocating
+                      ? t("Locating...") || "Locating..."
+                      : t("Use Current Location (GPS)") ||
+                        "Use Current Location (GPS)"}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAddAddressSubmit} className="space-y-3">
                 <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
                   <LocationPicker
                     lat={addressForm.lat ?? 30.0444}
@@ -819,7 +869,8 @@ export default function FulfillmentSelectDialog({
                       : t("add-address-btn") || "Add Address"}
                   </button>
                 </div>
-              </form>
+                </form>
+              )}
             </motion.div>
           </motion.div>
         )}
