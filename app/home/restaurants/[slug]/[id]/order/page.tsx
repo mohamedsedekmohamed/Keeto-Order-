@@ -141,8 +141,21 @@ export default function Cart() {
     return () => clearInterval(interval);
   }, [deleteData, dispatch, t, restaurantId]);
 
-  const totalPrice = Number(cartData?.data?.data?.totalSummary?.subtotal || 0);
-  const freeDelivery = cartData?.data?.data?.totalSummary?.freeDelivery;
+  const totalSummary = cartData?.data?.data?.totalSummary;
+  const totalPrice = Number(totalSummary?.subtotal || 0);
+  const firstOrderDiscount = totalSummary?.firstOrderDiscount;
+  const firstOrderDiscountAmount = Number(
+    firstOrderDiscount?.discountAmount ?? 0,
+  );
+  const hasFirstOrderDiscount =
+    Number.isFinite(firstOrderDiscountAmount) && firstOrderDiscountAmount > 0;
+  const subtotalBeforeFirstOrderDiscount = hasFirstOrderDiscount
+    ? Number(
+        firstOrderDiscount?.summary?.subtotal ??
+          totalPrice + firstOrderDiscountAmount,
+      )
+    : totalPrice;
+  const freeDelivery = totalSummary?.freeDelivery;
   const isFreeDeliveryEligible = freeDelivery?.isEligible ?? false;
   const freeDeliveryMinOrder = Number(freeDelivery?.minOrderAmount || 0);
   const freeDeliveryRemaining = Number(freeDelivery?.remainingAmount || 0);
@@ -360,9 +373,20 @@ export default function Cart() {
             {t("subtotal")}
           </span>
           <span className="font-bold text-gray-900 dark:text-white">
-            {totalPrice} {t("currency")}
+            {subtotalBeforeFirstOrderDiscount} {t("currency")}
           </span>
         </div>
+
+        {hasFirstOrderDiscount && (
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100 dark:border-zinc-800">
+            <span className="text-gray-500 dark:text-zinc-400">
+              {t("firstOrderDiscount")}
+            </span>
+            <span className="font-bold text-green-600 dark:text-green-500">
+              -{firstOrderDiscountAmount} {t("currency")}
+            </span>
+          </div>
+        )}
 
         {freeDelivery && (
           <div

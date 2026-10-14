@@ -195,6 +195,7 @@
   "failedClearCart": "Failed to clear the cart",
   "orderSummary": "Order Summary",
   "subtotal": "Subtotal",
+  "firstOrderDiscount": "First-order discount",
   "total": "Total",
   "checkoutNow": "Checkout Now",
   "completeOrder": "Complete Order",
