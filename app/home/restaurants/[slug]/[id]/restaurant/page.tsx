@@ -476,11 +476,20 @@ export default function Restaurant() {
               </button>
               <h2
                 id="download-app-title"
-                className="mb-6 pr-8 text-center text-lg font-bold text-gray-900 dark:text-white"
+                className="mb-4 pr-8 text-center text-lg font-bold text-gray-900 dark:text-white"
               >
                 {t("downloadApplicationFor")}{" "}
                 {isRTL ? restaurant.nameAr : restaurant.name}
               </h2>
+              {restaurant.logo && (
+                <div className="mb-6 flex justify-center">
+                  <img
+                    src={restaurant.logo}
+                    alt={restaurant.name}
+                    className="h-20 w-20 rounded-2xl border border-gray-100 bg-white object-contain p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 {restaurant.iosApp ? (
                   <a
