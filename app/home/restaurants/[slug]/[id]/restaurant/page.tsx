@@ -486,7 +486,7 @@ export default function Restaurant() {
                   <img
                     src={restaurant.logo}
                     alt={restaurant.name}
-                    className="h-20 w-20 rounded-2xl border border-gray-100 bg-white object-contain p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+                    className="h-36 w-36 rounded-3xl border border-gray-100 bg-white object-contain p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
                   />
                 </div>
               )}
