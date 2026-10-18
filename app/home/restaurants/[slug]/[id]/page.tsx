@@ -99,7 +99,6 @@ export default function Home() {
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-
   // Only fetch history when user is logged in AND restaurant is loaded
   const { data: historyRes } = useGet<any>(
     token && restaurant?.id
@@ -272,7 +271,7 @@ export default function Home() {
           >
             <FaApple className="w-6 h-6" />
             <div className="flex flex-col items-start leading-tight">
-              <span className="text-[10px] opacity-70">Download on</span>
+              <span className="text-[10px] opacity-70">{t("downloadOn")}</span>
               <span className="text-sm font-bold">{t("appStore")}</span>
             </div>
           </a>
@@ -280,7 +279,7 @@ export default function Home() {
           <div className="relative flex items-center justify-center gap-2 py-4 text-gray-400 bg-gray-100 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800/50 rounded-2xl opacity-60 cursor-not-allowed select-none">
             <FaApple className="w-6 h-6 opacity-40" />
             <div className="flex flex-col items-start leading-tight">
-              <span className="text-[10px] opacity-70">Download on</span>
+              <span className="text-[10px] opacity-70">{t("downloadOn")}</span>
               <span className="text-sm font-bold">{t("appStore")}</span>
             </div>
             <Lock className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
@@ -297,7 +296,7 @@ export default function Home() {
           >
             <FaGooglePlay className="w-5 h-5 text-green-500" />
             <div className="flex flex-col items-start leading-tight">
-              <span className="text-[10px] text-gray-500">Get it on</span>
+              <span className="text-[10px] text-gray-500">{t("getItOn")}</span>
               <span className="text-sm font-bold dark:text-zinc-300">
                 {t("googlePlay")}
               </span>
@@ -307,7 +306,7 @@ export default function Home() {
           <div className="relative flex items-center justify-center gap-2 py-4 bg-gray-100 border border-gray-200 dark:bg-zinc-800/40 dark:border-zinc-800/50 rounded-2xl opacity-60 cursor-not-allowed select-none text-gray-400 dark:text-zinc-500">
             <FaGooglePlay className="w-5 h-5 grayscale opacity-40" />
             <div className="flex flex-col items-start leading-tight">
-              <span className="text-[10px] opacity-70">Get it on</span>
+              <span className="text-[10px] opacity-70">{t("getItOn")}</span>
               <span className="text-sm font-bold">{t("googlePlay")}</span>
             </div>
             <Lock className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />

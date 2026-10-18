@@ -8,7 +8,9 @@ import RestaurantHeader from "@/components/UI/RestaurantHeader";
 import RestaurantItms from "@/components/UI/RestaurantItms";
 import RestaurantOffers from "@/components/UI/Restaurantoffers";
 import Link from "next/link";
-import { ShoppingBasket, X } from "lucide-react";
+import { Lock, ShoppingBasket, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { FaApple, FaGooglePlay } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
   useRestaurant,
@@ -83,6 +85,7 @@ export default function Restaurant() {
   const params = useParams();
   const router = useRouter();
   const { t, language } = useLanguage();
+  const isRTL = language === "العربية";
   const dispatch = useAppDispatch();
   const restaurantName = params.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
@@ -176,6 +179,19 @@ export default function Restaurant() {
     popupResponse?.data?.data?.[0] ?? null;
 
   const [showPromoPopup, setShowPromoPopup] = useState(false);
+  const [dismissedDownloadRestaurantId, setDismissedDownloadRestaurantId] =
+    useState<string | null>(null);
+  const showDownloadPopup =
+    Boolean(restaurant?.id) &&
+    dismissedDownloadRestaurantId !== restaurant?.id &&
+    Boolean(restaurant?.iosApp || restaurant?.androidApp);
+
+  const handleCloseDownloadPopup = () => {
+    if (restaurant?.id) {
+      setDismissedDownloadRestaurantId(restaurant.id);
+    }
+  };
+
   // Asks RestaurantItms / RestaurantOffers to scroll to a subcategory,
   // product or discount
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
@@ -433,6 +449,104 @@ export default function Restaurant() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {showDownloadPopup && restaurant && (
+          <div
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={handleCloseDownloadPopup}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="download-app-title"
+              onClick={(event) => event.stopPropagation()}
+              className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-zinc-900"
+            >
+              <button
+                type="button"
+                onClick={handleCloseDownloadPopup}
+                aria-label={t("close")}
+                className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-zinc-800"
+              >
+                <X size={20} className="dark:text-white" />
+              </button>
+              <h2
+                id="download-app-title"
+                className="mb-6 pr-8 text-center text-lg font-bold text-gray-900 dark:text-white"
+              >
+                {t("downloadApplicationFor")}{" "}
+                {isRTL ? restaurant.nameAr : restaurant.name}
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                {restaurant.iosApp ? (
+                  <a
+                    href={restaurant.iosApp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleCloseDownloadPopup}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white shadow-lg transition-colors hover:bg-zinc-800"
+                  >
+                    <FaApple className="h-6 w-6" />
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="text-[10px] opacity-70">
+                        {t("downloadOn")}
+                      </span>
+                      <span className="text-sm font-bold">{t("appStore")}</span>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="relative flex cursor-not-allowed select-none items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-100 py-4 text-gray-400 opacity-60 dark:border-zinc-800/50 dark:bg-zinc-800/40">
+                    <FaApple className="h-6 w-6 opacity-40" />
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="text-[10px] opacity-70">
+                        {t("downloadOn")}
+                      </span>
+                      <span className="text-sm font-bold">{t("appStore")}</span>
+                    </div>
+                    <Lock className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-gray-400 dark:text-zinc-500" />
+                  </div>
+                )}
+                {restaurant.androidApp ? (
+                  <a
+                    href={restaurant.androidApp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleCloseDownloadPopup}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-4 shadow-sm transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                  >
+                    <FaGooglePlay className="h-5 w-5 text-green-500" />
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="text-[10px] text-gray-500">
+                        {t("getItOn")}
+                      </span>
+                      <span className="text-sm font-bold dark:text-zinc-300">
+                        {t("googlePlay")}
+                      </span>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="relative flex cursor-not-allowed select-none items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-100 py-4 text-gray-400 opacity-60 dark:border-zinc-800/50 dark:bg-zinc-800/40 dark:text-zinc-500">
+                    <FaGooglePlay className="h-5 w-5 opacity-40 grayscale" />
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="text-[10px] opacity-70">
+                        {t("getItOn")}
+                      </span>
+                      <span className="text-sm font-bold">
+                        {t("googlePlay")}
+                      </span>
+                    </div>
+                    <Lock className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-gray-400 dark:text-zinc-500" />
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

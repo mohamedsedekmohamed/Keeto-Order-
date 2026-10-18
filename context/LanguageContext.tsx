@@ -25,29 +25,23 @@ interface LanguageProviderProps {
 
 export const LanguageProvider = ({ children }: LanguageProviderProps) => {
   // اللغة الافتراضية هي الإنجليزية
-  const [language, setLanguage] = useState<Language>("العربية");
-  
-  useEffect(() => {
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") return "العربية";
+
     const savedLang = localStorage.getItem("language") as Language | null;
-    
-    if (savedLang && (savedLang === "English" || savedLang === "العربية")) {
-      // ✅ التعديل هنا: مش هنعمل setState إلا لو اللغة المحفوظة مختلفة عن الافتراضية
-      if (savedLang !== "English") {
-        setLanguage(savedLang);
-      }
-      
-      // تحديث اتجاه لغة المتصفح فوراً عند التحميل
-      document.documentElement.dir = savedLang === "العربية" ? "rtl" : "ltr";
-      document.documentElement.lang = savedLang === "العربية" ? "ar" : "en";
-    }
-  }, []);
+    return savedLang === "English" || savedLang === "العربية"
+      ? savedLang
+      : "العربية";
+  });
+
+  useEffect(() => {
+    document.documentElement.dir = language === "العربية" ? "rtl" : "ltr";
+    document.documentElement.lang = language === "العربية" ? "ar" : "en";
+  }, [language]);
 
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
     localStorage.setItem("language", lang);
-    
-    document.documentElement.dir = lang === "العربية" ? "rtl" : "ltr";
-    document.documentElement.lang = lang === "العربية" ? "ar" : "en";
   };
 
   const t = (key: TranslationKey | string): string => {
