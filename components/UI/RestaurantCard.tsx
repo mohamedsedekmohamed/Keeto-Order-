@@ -252,10 +252,8 @@ export default function RestaurantCard({
   const router = useRouter();
   const params = useParams();
   const restaurantSlug = params?.slug as string;
-  const { t } = useLanguage();
-
-  const isRTL =
-    typeof window !== "undefined" && document.documentElement.dir === "rtl";
+  const { t, language } = useLanguage();
+  const isRTL = language === "العربية";
 
   /* ---------------- FETCH BRANCHES ---------------- */
   // Retrieve the correct ID based on the slug[cite: 2]
