@@ -172,7 +172,7 @@ export default function Restaurant() {
   // Active promo popup for this restaurant. Skips the request until we
   // actually have a restaurant id to avoid firing on "/api/user/popup/undefined".
   const { data: popupResponse } = useGet(
-    restaurant?.id ? `/api/user/popup/${restaurant.id}` : null,
+    restaurant?.id ? `/api/user/popup/${restaurant.id}?source=home_web` : null,
   ) as { data: PopupApiResponse | null };
 
   const activePopup: RestaurantPopup | null =
