@@ -45,7 +45,11 @@ import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
 import useDelete from "@/app/hooks/useDelete";
 import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
-import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
+import ZoneSelect, {
+  getZoneCenter,
+  getZoneName,
+  DeliveryZone,
+} from "@/components/Zoneselect";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import { getRestaurantId } from "@/context/Restaurantid";
@@ -798,7 +802,7 @@ export default function ProfilePage() {
   // Zones come from the same "select" API used elsewhere on this page.
   const { data: zonesRes } = useGet<any>(
     isFbBrowser && restaurantId
-      ? `/api/user/order/select?restaurantId=${restaurantId}&orderSource=online_order_web`
+      ? `/api/user/order/select?restaurantId=${restaurantId}&orderSource=${getOrderSource()}`
       : null,
   );
   const zones: DeliveryZone[] = Array.isArray(zonesRes?.data?.data?.zones)
@@ -813,7 +817,7 @@ export default function ProfilePage() {
       );
       return;
     }
-    const name = (isArabic && zone.nameAr ? zone.nameAr : zone.name) || "";
+    const name = getZoneName(zone, isArabic);
     setSelectedZoneId(String(zone.id));
     setAddressForm((prev) => ({
       ...prev,
@@ -822,7 +826,7 @@ export default function ProfilePage() {
       location: name,
       street: prev.street || name,
       fulladdress: prev.fulladdress || name,
-      zoneId: String(zone.zoneId ?? zone.id),
+      zoneId: String(zone.id),
     }));
   };
 
@@ -1167,8 +1171,6 @@ export default function ProfilePage() {
     !Number.isNaN(Number(addressForm.lat)) &&
     !Number.isNaN(Number(addressForm.lng));
 
-  const latDisplay = hasLocation ? Number(addressForm.lat).toFixed(4) : "";
-  const lngDisplay = hasLocation ? Number(addressForm.lng).toFixed(4) : "";
 
   if (isFetching || !userData) {
     return (
@@ -1483,7 +1485,7 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    {isFormOpen && !editingAddressId && !hasLocation && (
+                    {isFormOpen && !editingAddressId && !hasLocation && !isFbBrowser && (
                       <div className="p-6 mb-6 space-y-4 bg-gray-50/80 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800 rounded-2xl">
                         <div>
                           <h4 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -1501,35 +1503,31 @@ export default function ProfilePage() {
                                 : "You must capture your current location before entering address details."}
                           </p>
                         </div>
-                        {isFbBrowser ? (
-                          <ZoneSelect zones={zones} value={selectedZoneId} isRtl={isArabic} onSelect={handleZoneSelect} />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleGetCurrentLocation}
-                            disabled={isLocating}
-                            className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 disabled:opacity-60 shadow-sm"
-                          >
-                            {isLocating ? (
-                              <Loader2
-                                size={18}
-                                className="animate-spin text-yellow-500"
-                              />
-                            ) : (
-                              <Navigation
-                                size={18}
-                                className="text-yellow-500 fill-yellow-500"
-                              />
-                            )}
-                            {isLocating
-                              ? isArabic
-                                ? "جاري تحديد موقعك..."
-                                : "Locating..."
-                              : isArabic
-                                ? "استخدام موقعي الحالي (GPS)"
-                                : "Use Current Location (GPS)"}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={handleGetCurrentLocation}
+                          disabled={isLocating}
+                          className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 disabled:opacity-60 shadow-sm"
+                        >
+                          {isLocating ? (
+                            <Loader2
+                              size={18}
+                              className="animate-spin text-yellow-500"
+                            />
+                          ) : (
+                            <Navigation
+                              size={18}
+                              className="text-yellow-500 fill-yellow-500"
+                            />
+                          )}
+                          {isLocating
+                            ? isArabic
+                              ? "جاري تحديد موقعك..."
+                              : "Locating..."
+                            : isArabic
+                              ? "استخدام موقعي الحالي (GPS)"
+                              : "Use Current Location (GPS)"}
+                        </button>
                         <button
                           type="button"
                           onClick={resetAddressForm}
@@ -1540,7 +1538,7 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    {isFormOpen && (editingAddressId || hasLocation) && (
+                    {isFormOpen && (editingAddressId || hasLocation || isFbBrowser) && (
                       <form
                         onSubmit={handleAddressSubmit}
                         className="p-6 mb-6 space-y-5 bg-gray-50/80 dark:bg-zinc-800/40 border border-gray-200 dark:border-zinc-800 rounded-2xl transition-all"
@@ -1609,13 +1607,9 @@ export default function ProfilePage() {
                               className="shrink-0 mt-0.5"
                             />
                             <div className="flex flex-col gap-0.5">
-                              {addressForm.location && (
-                                <span>{addressForm.location}</span>
-                              )}
                               <span>
-                                {isArabic
-                                  ? `تم التقاط الموقع: (${latDisplay}, ${lngDisplay})`
-                                  : `Location captured: (${latDisplay}, ${lngDisplay})`}
+                                {addressForm.location ||
+                                  (isArabic ? "تم تحديد الموقع" : "Location selected")}
                               </span>
                             </div>
                           </div>

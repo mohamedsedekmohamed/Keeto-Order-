@@ -6,7 +6,11 @@ import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
 import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
-import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
+import ZoneSelect, {
+  getZoneCenter,
+  getZoneName,
+  DeliveryZone,
+} from "@/components/Zoneselect";
 import { getRestaurantId } from "@/context/Restaurantid";
 import {
   MapPin,
@@ -1597,8 +1601,8 @@ function AddAddressPopup({
       return;
     }
     const name =
-      (t("dir") === "rtl" && zone.nameAr ? zone.nameAr : zone.name) || "";
-    setSelectedZoneId(String(zone.zoneId ?? zone.id));
+      getZoneName(zone, t("dir") === "rtl");
+    setSelectedZoneId(String(zone.id));
     setAddressForm((prev) => ({
       ...prev,
       lat: c.lat,
@@ -1606,7 +1610,7 @@ function AddAddressPopup({
       location: name,
       street: prev.street || name,
       fulladdress: prev.fulladdress || name,
-      zoneId: String(zone.zoneId ?? zone.id),
+      zoneId: String(zone.id),
     }));
   };
   const hasLocation =
@@ -1942,11 +1946,9 @@ function AddAddressPopup({
             <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
               <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
               <div className="flex flex-col gap-0.5">
-                {addressForm.location && <span>{addressForm.location}</span>}
                 <span>
-                  {t("dir") === "rtl"
-                    ? `تم التقاط الموقع: (${addressForm.lat!.toFixed(4)}, ${addressForm.lng!.toFixed(4)})`
-                    : `Location captured: (${addressForm.lat!.toFixed(4)}, ${addressForm.lng!.toFixed(4)})`}
+                  {addressForm.location ||
+                    (t("dir") === "rtl" ? "تم تحديد الموقع" : "Location selected")}
                 </span>
               </div>
             </div>

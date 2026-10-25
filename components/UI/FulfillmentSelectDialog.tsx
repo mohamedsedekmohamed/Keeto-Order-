@@ -18,7 +18,11 @@ import usePost from "@/app/hooks/usePost";
 import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
-import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
+import ZoneSelect, {
+  getZoneCenter,
+  getZoneName,
+  DeliveryZone,
+} from "@/components/Zoneselect";
 
 import {
   MapContainer,
@@ -268,7 +272,7 @@ export default function FulfillmentSelectDialog({
       );
       return;
     }
-    const name = (isRTL && zone.nameAr ? zone.nameAr : zone.name) || "";
+    const name = getZoneName(zone, isRTL);
     setSelectedZoneId(String(zone.id));
     setAddressForm((prev) => ({
       ...prev,
@@ -277,7 +281,7 @@ export default function FulfillmentSelectDialog({
       location: name,
       street: prev.street || name,
       fulladdress: prev.fulladdress || name,
-      zoneId: String(zone.zoneId ?? zone.id),
+      zoneId: String(zone.id),
     }));
   };
 
@@ -784,20 +788,26 @@ export default function FulfillmentSelectDialog({
                 </button>
               </div>
 
+              {isFbBrowser && (
+                <ZoneSelect
+                  className="mb-3"
+                  zones={zones}
+                  value={selectedZoneId}
+                  isRtl={isRTL}
+                  onSelect={handleZoneSelect}
+                />
+              )}
+
               {addressForm.lat === null || addressForm.lng === null ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-center text-gray-500 dark:text-zinc-400">
-                    {isFbBrowser
-                      ? isRTL
-                        ? "اختر منطقة التوصيل للمتابعة وإضافة عنوان."
-                        : "Select your delivery zone to continue adding an address."
-                      : isRTL
+                  {!isFbBrowser && (
+                    <p className="text-sm text-center text-gray-500 dark:text-zinc-400">
+                      {isRTL
                         ? "حدد موقعك الحالي للمتابعة وإضافة عنوان."
                         : "Capture your current location to continue adding an address."}
-                  </p>
-                  {isFbBrowser ? (
-                    <ZoneSelect zones={zones} value={selectedZoneId} isRtl={isRTL} onSelect={handleZoneSelect} />
-                  ) : (
+                    </p>
+                  )}
+                  {!isFbBrowser && (
                     <button
                       type="button"
                       onClick={handleGetCurrentLocation}

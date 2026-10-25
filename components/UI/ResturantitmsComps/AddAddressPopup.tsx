@@ -29,7 +29,11 @@ import { useLanguage } from "@/context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
 import useGet from "@/app/hooks/useGet";
 import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
-import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
+import ZoneSelect, {
+  getZoneCenter,
+  getZoneName,
+  DeliveryZone,
+} from "@/components/Zoneselect";
 
 // AddAddressPopup Component
 // Ported from the checkout page so the fulfillment dialog can create a
@@ -113,12 +117,14 @@ interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
   restaurantId?: string; // needed to load the restaurant zones in Facebook browser
+  orderSource?: string; // same value the page uses for /api/user/order/select
 }
 
 function AddAddressPopup({
   onClose,
   onSuccess,
   restaurantId,
+  orderSource = "online_order_web",
 }: AddAddressPopupProps) {
   const { language, t } = useLanguage();
   const isRtl = language === "العربية";
@@ -131,7 +137,7 @@ function AddAddressPopup({
   // Zones come from the same "select" API used by the fulfillment dialog.
   const { data: selectRes } = useGet<any>(
     isFbBrowser && restaurantId
-      ? `/api/user/order/select?restaurantId=${restaurantId}&orderSource=online_order_web`
+      ? `/api/user/order/select?restaurantId=${restaurantId}&orderSource=${orderSource}`
       : null,
   );
   const zones: DeliveryZone[] = Array.isArray(selectRes?.data?.data?.zones)
@@ -145,7 +151,7 @@ function AddAddressPopup({
         isRtl ? "تعذر تحديد إحداثيات هذه المنطقة." : "This zone has no coordinates.",
       );
     }
-    const name = (isRtl && zone.nameAr ? zone.nameAr : zone.name) || "";
+    const name = getZoneName(zone, isRtl);
     setSelectedZoneId(String(zone.id));
     setAddressForm((prev) => ({
       ...prev,
@@ -154,7 +160,7 @@ function AddAddressPopup({
       location: name,
       street: prev.street || name,
       fulladdress: prev.fulladdress || name,
-      zoneId: zone.zoneId ?? zone.id,
+      zoneId: zone.id,
     }));
   };
 
@@ -518,11 +524,9 @@ function AddAddressPopup({
             <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl flex items-start gap-2 text-xs font-semibold text-green-700 dark:text-green-400 animate-in fade-in">
               <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
               <div className="flex flex-col gap-0.5">
-                {addressForm.location && <span>{addressForm.location}</span>}
                 <span>
-                  {isRtl
-                    ? `تم التقاط الموقع: (${addressForm.lat!.toFixed(4)}, ${addressForm.lng!.toFixed(4)})`
-                    : `Location captured: (${addressForm.lat!.toFixed(4)}, ${addressForm.lng!.toFixed(4)})`}
+                  {addressForm.location ||
+                    (isRtl ? "تم تحديد الموقع" : "Location selected")}
                 </span>
               </div>
             </div>

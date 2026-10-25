@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { MapPin } from "lucide-react";
+import { Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 
 // Matches the "zones" array returned by /api/user/order/select.
 // NOTE: `id` is the restaurant-zone row id. This is the id saved on an
@@ -150,6 +150,19 @@ export function getZoneCenter(zone: DeliveryZone): Pt | null {
     return null;
 }
 
+// Lower-cases, strips Arabic diacritics/tatweel and unifies letter variants so
+// "اسكندريه" matches "إسكندرية", etc.
+export function normalizeSearch(input: string): string {
+    return (input || "")
+        .toLowerCase()
+        .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+        .replace(/[أإآٱ]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 interface ZoneSelectProps {
     zones: DeliveryZone[];
     value: string;
@@ -165,6 +178,11 @@ export default function ZoneSelect({
     onSelect,
     className = "",
 }: ZoneSelectProps) {
+    const [open, setOpen] = React.useState(false);
+    const [query, setQuery] = React.useState("");
+    const rootRef = React.useRef<HTMLDivElement>(null);
+    const searchRef = React.useRef<HTMLInputElement>(null);
+
     const sorted = React.useMemo(
         () =>
             [...zones].sort((a, b) =>
@@ -176,27 +194,154 @@ export default function ZoneSelect({
         [zones, isRtl],
     );
 
+    // Search in both the Arabic and the English name, whatever the UI language.
+    const filtered = React.useMemo(() => {
+        const q = normalizeSearch(query);
+        if (!q) return sorted;
+        return sorted.filter((z) =>
+            normalizeSearch(
+                `${z.zoneName ?? z.name ?? ""} ${z.zoneNameAr ?? z.nameAr ?? ""}`,
+            ).includes(q),
+        );
+    }, [sorted, query]);
+
+    const selected = zones.find((z) => String(z.id) === value);
+
+    // close on outside click / Escape
+    React.useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent | TouchEvent) => {
+            if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setOpen(false);
+        };
+        document.addEventListener("mousedown", onDown);
+        document.addEventListener("touchstart", onDown);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("mousedown", onDown);
+            document.removeEventListener("touchstart", onDown);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
+
+    const toggle = () => {
+        setOpen((o) => {
+            const next = !o;
+            if (next) {
+                setQuery("");
+                setTimeout(() => searchRef.current?.focus(), 0);
+            }
+            return next;
+        });
+    };
+
+    const pick = (z: DeliveryZone) => {
+        onSelect(z);
+        setOpen(false);
+        setQuery("");
+    };
+
     return (
-        <div className={className}>
+        <div className={className} ref={rootRef} dir={isRtl ? "rtl" : "ltr"}>
             <label className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                 <MapPin size={16} className="text-yellow-500" />
                 {isRtl ? "اختر منطقة التوصيل" : "Select delivery zone"}
             </label>
-            <select
-                value={value}
-                onChange={(e) => {
-                    const z = zones.find((z) => String(z.id) === e.target.value);
-                    if (z) onSelect(z);
-                }}
-                className="w-full p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-zinc-900 dark:text-white text-sm"
+
+            <button
+                type="button"
+                onClick={toggle}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                className="w-full p-3.5 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm text-start"
             >
-                <option value="">{isRtl ? "اختر المنطقة..." : "Choose a zone..."}</option>
-                {sorted.map((z) => (
-                    <option key={z.id} value={z.id}>
-                        {getZoneName(z, isRtl)}
-                    </option>
-                ))}
-            </select>
+                <span
+                    className={
+                        selected
+                            ? "text-zinc-900 dark:text-white truncate"
+                            : "text-zinc-400 truncate"
+                    }
+                >
+                    {selected
+                        ? getZoneName(selected, isRtl)
+                        : isRtl
+                            ? "اختر المنطقة..."
+                            : "Choose a zone..."}
+                </span>
+                <ChevronDown
+                    size={18}
+                    className={`shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+                />
+            </button>
+
+            {open && (
+                <div className="mt-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                    <div className="relative border-b border-zinc-100 dark:border-zinc-800">
+                        <Search
+                            size={16}
+                            className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-400 pointer-events-none"
+                        />
+                        <input
+                            ref={searchRef}
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={isRtl ? "ابحث عن منطقة..." : "Search zones..."}
+                            className="w-full py-3 ps-9 pe-9 bg-transparent text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none"
+                        />
+                        {query && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setQuery("");
+                                    searchRef.current?.focus();
+                                }}
+                                aria-label={isRtl ? "مسح" : "Clear"}
+                                className="absolute top-1/2 -translate-y-1/2 end-3 text-zinc-400 hover:text-zinc-600"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    <ul
+                        role="listbox"
+                        className="max-h-56 overflow-y-auto overscroll-contain"
+                    >
+                        {filtered.length === 0 ? (
+                            <li className="px-4 py-3 text-xs font-semibold text-zinc-500">
+                                {isRtl ? "لا توجد نتائج" : "No zones found"}
+                            </li>
+                        ) : (
+                            filtered.map((z) => {
+                                const isSelected = String(z.id) === value;
+                                return (
+                                    <li key={z.id} role="option" aria-selected={isSelected}>
+                                        <button
+                                            type="button"
+                                            onClick={() => pick(z)}
+                                            className={`w-full px-4 py-3 flex items-center justify-between gap-2 text-sm text-start transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${isSelected
+                                                    ? "bg-yellow-50 dark:bg-yellow-500/10 font-bold text-yellow-700 dark:text-yellow-400"
+                                                    : "text-zinc-800 dark:text-zinc-200"
+                                                }`}
+                                        >
+                                            <span className="truncate">{getZoneName(z, isRtl)}</span>
+                                            {isSelected && (
+                                                <Check size={16} className="shrink-0 text-yellow-500" />
+                                            )}
+                                        </button>
+                                    </li>
+                                );
+                            })
+                        )}
+                    </ul>
+                </div>
+            )}
+
             {zones.length === 0 && (
                 <p className="mt-2 text-xs font-semibold text-red-500">
                     {isRtl
