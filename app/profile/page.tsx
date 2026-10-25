@@ -44,6 +44,8 @@ import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
 import useDelete from "@/app/hooks/useDelete";
+import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
+import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
 import { getRestaurantId } from "@/context/Restaurantid";
@@ -339,11 +341,10 @@ function PrepCountdown({
 
   return (
     <div
-      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${
-        isDone
-          ? "bg-green-500/10 text-green-600 dark:text-green-400"
-          : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
-      } ${className}`}
+      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg w-fit ${isDone
+        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+        : "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400"
+        } ${className}`}
     >
       <Clock size={12} />
       {isDone
@@ -544,7 +545,7 @@ export default function ProfilePage() {
         console.error("Error fetching order details:", error);
         toast.error(
           t("errorFetchingDetails") ||
-            "Error pulling item data configurations.",
+          "Error pulling item data configurations.",
         );
         setSelectedOrderId(null);
       } finally {
@@ -593,9 +594,9 @@ export default function ProfilePage() {
       );
       setCancelReasons(
         response.data?.data?.data?.reasons ||
-          response.data?.data?.reasons ||
-          response.data?.reasons ||
-          [],
+        response.data?.data?.reasons ||
+        response.data?.reasons ||
+        [],
       );
     } catch (error) {
       console.error("Error fetching cancel reasons:", error);
@@ -708,32 +709,32 @@ export default function ProfilePage() {
     labelFallbackEn: string;
     labelFallbackAr: string;
   }[] = [
-    {
-      key: "pending",
-      labelFallbackEn: "Pending",
-      labelFallbackAr: "قيد الانتظار",
-    },
-    {
-      key: "accepted",
-      labelFallbackEn: "Confirmed",
-      labelFallbackAr: "تم التأكيد",
-    },
-    {
-      key: "preparing",
-      labelFallbackEn: "Preparing",
-      labelFallbackAr: "قيد التحضير",
-    },
-    {
-      key: "out_for_delivery",
-      labelFallbackEn: "Ready",
-      labelFallbackAr: "جاهز",
-    },
-    {
-      key: "delivered",
-      labelFallbackEn: "Delivered",
-      labelFallbackAr: "تم التوصيل",
-    },
-  ];
+      {
+        key: "pending",
+        labelFallbackEn: "Pending",
+        labelFallbackAr: "قيد الانتظار",
+      },
+      {
+        key: "accepted",
+        labelFallbackEn: "Confirmed",
+        labelFallbackAr: "تم التأكيد",
+      },
+      {
+        key: "preparing",
+        labelFallbackEn: "Preparing",
+        labelFallbackAr: "قيد التحضير",
+      },
+      {
+        key: "out_for_delivery",
+        labelFallbackEn: "Ready",
+        labelFallbackAr: "جاهز",
+      },
+      {
+        key: "delivered",
+        labelFallbackEn: "Delivered",
+        labelFallbackAr: "تم التوصيل",
+      },
+    ];
 
   // Maps a raw order status to its index within ORDER_STATUS_STEPS so the
   // tracker knows which step is completed / current / upcoming.
@@ -789,7 +790,41 @@ export default function ProfilePage() {
     lat: null as number | null,
     lng: null as number | null,
     location: "",
+    zoneId: "",
   });
+  const isFbBrowser = useIsFacebookBrowser();
+  const [selectedZoneId, setSelectedZoneId] = useState("");
+
+  // Zones come from the same "select" API used elsewhere on this page.
+  const { data: zonesRes } = useGet<any>(
+    isFbBrowser && restaurantId
+      ? `/api/user/order/select?restaurantId=${restaurantId}&orderSource=online_order_web`
+      : null,
+  );
+  const zones: DeliveryZone[] = Array.isArray(zonesRes?.data?.data?.zones)
+    ? zonesRes.data.data.zones
+    : [];
+
+  const handleZoneSelect = (zone: DeliveryZone) => {
+    const c = getZoneCenter(zone);
+    if (!c) {
+      toast.error(
+        isArabic ? "تعذر تحديد إحداثيات هذه المنطقة." : "This zone has no coordinates.",
+      );
+      return;
+    }
+    const name = (isArabic && zone.nameAr ? zone.nameAr : zone.name) || "";
+    setSelectedZoneId(String(zone.id));
+    setAddressForm((prev) => ({
+      ...prev,
+      lat: c.lat,
+      lng: c.lng,
+      location: name,
+      street: prev.street || name,
+      fulladdress: prev.fulladdress || name,
+      zoneId: String(zone.zoneId ?? zone.id),
+    }));
+  };
 
   useEffect(() => {
     if (userData) {
@@ -870,7 +905,7 @@ export default function ProfilePage() {
     if (formData.alternatePhone && !phoneRegex.test(altPhoneDigits)) {
       toast.error(
         t("invalidAlternatePhone") ||
-          "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
+        "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
       );
       return;
     }
@@ -977,7 +1012,9 @@ export default function ProfilePage() {
       lat: null,
       lng: null,
       location: "",
+      zoneId: "",
     });
+    setSelectedZoneId("");
     setEditingAddressId(null);
     setIsFormOpen(false);
   };
@@ -1000,7 +1037,9 @@ export default function ProfilePage() {
       lat: address.lat !== null ? Number(address.lat) : null,
       lng: address.lng !== null ? Number(address.lng) : null,
       location: address.location || "",
+      zoneId: "",
     });
+    setSelectedZoneId("");
     setEditingAddressId(address.id);
     setIsFormOpen(true);
   };
@@ -1049,9 +1088,13 @@ export default function ProfilePage() {
       (addressForm.lat === null || addressForm.lng === null)
     ) {
       toast.error(
-        isArabic
-          ? "يرجى تحديد موقعك الحالي قبل إضافة العنوان."
-          : "Please capture your current location before adding the address.",
+        isFbBrowser
+          ? isArabic
+            ? "يرجى اختيار منطقة التوصيل أولاً."
+            : "Please select a delivery zone first."
+          : isArabic
+            ? "يرجى تحديد موقعك الحالي قبل إضافة العنوان."
+            : "Please capture your current location before adding the address.",
       );
       return;
     }
@@ -1151,11 +1194,10 @@ export default function ProfilePage() {
           }
           toggleTab(tabKey);
         }}
-        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${
-          isOpen
-            ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
-            : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
-        }`}
+        className={`w-full flex items-center justify-between px-6 py-4 font-bold rounded-2xl transition-all ${isOpen
+          ? "bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/20"
+          : "bg-white/80 dark:bg-zinc-900/80 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50 border border-white dark:border-zinc-800/50 shadow-sm"
+          }`}
       >
         <div className="flex items-center gap-3">
           {icon}
@@ -1163,9 +1205,8 @@ export default function ProfilePage() {
         </div>
         <ChevronDown
           size={18}
-          className={`transform transition-transform duration-300 ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`transform transition-transform duration-300 ${isOpen ? "rotate-180" : ""
+            }`}
         />
       </button>
     );
@@ -1451,36 +1492,44 @@ export default function ProfilePage() {
                               : "Set your location to continue"}
                           </h4>
                           <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-                            {isArabic
-                              ? "يجب تحديد موقعك الحالي قبل إدخال تفاصيل العنوان."
-                              : "You must capture your current location before entering address details."}
+                            {isFbBrowser
+                              ? isArabic
+                                ? "يجب اختيار منطقة التوصيل قبل إدخال تفاصيل العنوان."
+                                : "You must select a delivery zone before entering address details."
+                              : isArabic
+                                ? "يجب تحديد موقعك الحالي قبل إدخال تفاصيل العنوان."
+                                : "You must capture your current location before entering address details."}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleGetCurrentLocation}
-                          disabled={isLocating}
-                          className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 disabled:opacity-60 shadow-sm"
-                        >
-                          {isLocating ? (
-                            <Loader2
-                              size={18}
-                              className="animate-spin text-yellow-500"
-                            />
-                          ) : (
-                            <Navigation
-                              size={18}
-                              className="text-yellow-500 fill-yellow-500"
-                            />
-                          )}
-                          {isLocating
-                            ? isArabic
-                              ? "جاري تحديد موقعك..."
-                              : "Locating..."
-                            : isArabic
-                              ? "استخدام موقعي الحالي (GPS)"
-                              : "Use Current Location (GPS)"}
-                        </button>
+                        {isFbBrowser ? (
+                          <ZoneSelect zones={zones} value={selectedZoneId} isRtl={isArabic} onSelect={handleZoneSelect} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleGetCurrentLocation}
+                            disabled={isLocating}
+                            className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 disabled:opacity-60 shadow-sm"
+                          >
+                            {isLocating ? (
+                              <Loader2
+                                size={18}
+                                className="animate-spin text-yellow-500"
+                              />
+                            ) : (
+                              <Navigation
+                                size={18}
+                                className="text-yellow-500 fill-yellow-500"
+                              />
+                            )}
+                            {isLocating
+                              ? isArabic
+                                ? "جاري تحديد موقعك..."
+                                : "Locating..."
+                              : isArabic
+                                ? "استخدام موقعي الحالي (GPS)"
+                                : "Use Current Location (GPS)"}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={resetAddressForm}
@@ -1504,39 +1553,45 @@ export default function ProfilePage() {
                           </h4>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={handleGetCurrentLocation}
-                          disabled={isLocating}
-                          className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60 shadow-sm"
-                        >
-                          {isLocating ? (
-                            <Loader2
-                              size={18}
-                              className="animate-spin text-yellow-500"
-                            />
-                          ) : (
-                            <Navigation
-                              size={18}
-                              className="text-yellow-500 fill-yellow-500"
-                            />
-                          )}
-                          {isLocating
-                            ? isArabic
-                              ? "جاري تحديد موقعك..."
-                              : "Locating..."
-                            : isArabic
-                              ? "استخدام موقعي الحالي (GPS)"
-                              : "Use Current Location (GPS)"}
-                        </button>
+                        {isFbBrowser ? (
+                          <ZoneSelect zones={zones} value={selectedZoneId} isRtl={isArabic} onSelect={handleZoneSelect} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleGetCurrentLocation}
+                            disabled={isLocating}
+                            className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-gray-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60 shadow-sm"
+                          >
+                            {isLocating ? (
+                              <Loader2
+                                size={18}
+                                className="animate-spin text-yellow-500"
+                              />
+                            ) : (
+                              <Navigation
+                                size={18}
+                                className="text-yellow-500 fill-yellow-500"
+                              />
+                            )}
+                            {isLocating
+                              ? isArabic
+                                ? "جاري تحديد موقعك..."
+                                : "Locating..."
+                              : isArabic
+                                ? "استخدام موقعي الحالي (GPS)"
+                                : "Use Current Location (GPS)"}
+                          </button>
+                        )}
 
                         <div>
-                          <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-zinc-400">
-                            {isArabic
-                              ? "اسحب الدبوس لتحديد موقعك بدقة"
-                              : "Drag the pin to fine-tune your exact location"}
-                          </p>
-                          {mounted && (
+                          {!isFbBrowser && (
+                            <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-zinc-400">
+                              {isArabic
+                                ? "اسحب الدبوس لتحديد موقعك بدقة"
+                                : "Drag the pin to fine-tune your exact location"}
+                            </p>
+                          )}
+                          {mounted && !isFbBrowser && (
                             <div className="overflow-hidden border rounded-2xl border-gray-200 dark:border-zinc-700">
                               <LocationPicker
                                 lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
@@ -1566,9 +1621,13 @@ export default function ProfilePage() {
                           </div>
                         ) : (
                           <p className="text-xs font-medium text-amber-600 dark:text-amber-500">
-                            {isArabic
-                              ? "اضغط على الزر أعلاه لتحديد موقعك تلقائيًا قبل الحفظ."
-                              : "Tap the button above to auto-detect your location before saving."}
+                            {isFbBrowser
+                              ? isArabic
+                                ? "اختر منطقة التوصيل من القائمة أعلاه قبل الحفظ."
+                                : "Select a delivery zone from the list above before saving."
+                              : isArabic
+                                ? "اضغط على الزر أعلاه لتحديد موقعك تلقائيًا قبل الحفظ."
+                                : "Tap the button above to auto-detect your location before saving."}
                           </p>
                         )}
 
@@ -1729,11 +1788,10 @@ export default function ProfilePage() {
                         {userData.addresses?.map((address) => (
                           <div
                             key={address.id}
-                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${
-                              editingAddressId === address.id
-                                ? "ring-2 ring-yellow-400/50 border-yellow-400"
-                                : "hover:border-yellow-400/50"
-                            }`}
+                            className={`p-5 border bg-gray-50/50 dark:bg-zinc-800/30 border-gray-200 dark:border-zinc-800 rounded-2xl transition-all relative flex flex-col justify-between ${editingAddressId === address.id
+                              ? "ring-2 ring-yellow-400/50 border-yellow-400"
+                              : "hover:border-yellow-400/50"
+                              }`}
                           >
                             <div>
                               <div className="flex items-center justify-between mb-3">
@@ -1910,22 +1968,20 @@ export default function ProfilePage() {
                     <div className="flex p-1 bg-gray-100 dark:bg-zinc-800/60 rounded-2xl">
                       <button
                         onClick={() => setOrderSubTab("active")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                          orderSubTab === "active"
-                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
-                            : "text-gray-500 dark:text-zinc-400"
-                        }`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "active"
+                          ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                          : "text-gray-500 dark:text-zinc-400"
+                          }`}
                       >
                         <Clock size={16} />
                         {t("activeOrders") || "الطلبات النشطة"}
                       </button>
                       <button
                         onClick={() => setOrderSubTab("history")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                          orderSubTab === "history"
-                            ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
-                            : "text-gray-500 dark:text-zinc-400"
-                        }`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${orderSubTab === "history"
+                          ? "bg-white dark:bg-zinc-900 text-yellow-500 shadow-sm"
+                          : "text-gray-500 dark:text-zinc-400"
+                          }`}
                       >
                         <History size={16} />
                         {t("orderHistory") || "سجل الطلبات"}
@@ -2047,9 +2103,9 @@ export default function ProfilePage() {
                           <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
                             {orderSubTab === "active"
                               ? t("noActiveOrdersDesc") ||
-                                "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
+                              "إذا تغيرت حالة طلبك إلى مكتمل/تم التوصيل، فقد انتقل إلى تبويب 'سجل الطلبات'."
                               : t("noHistoryOrdersDesc") ||
-                                "لا يوجد سجل طلبات سابقة لهذا المطعم."}
+                              "لا يوجد سجل طلبات سابقة لهذا المطعم."}
                           </p>
                         </div>
                       )}
@@ -2283,13 +2339,12 @@ export default function ProfilePage() {
                                 >
                                   <div className="flex flex-col items-center">
                                     <span
-                                      className={`flex items-center justify-center flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors ${
-                                        isCompleted
-                                          ? "bg-yellow-400 border-yellow-400"
-                                          : isCurrent
-                                            ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                                            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
-                                      }`}
+                                      className={`flex items-center justify-center flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors ${isCompleted
+                                        ? "bg-yellow-400 border-yellow-400"
+                                        : isCurrent
+                                          ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                                          : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                                        }`}
                                     >
                                       {isCompleted && (
                                         <CheckCircle2
@@ -2304,22 +2359,20 @@ export default function ProfilePage() {
                                     </span>
                                     {!isLast && (
                                       <span
-                                        className={`w-0.5 flex-1 min-h-[24px] ${
-                                          isCompleted
-                                            ? "bg-yellow-400"
-                                            : "bg-gray-200 dark:bg-zinc-700"
-                                        }`}
+                                        className={`w-0.5 flex-1 min-h-[24px] ${isCompleted
+                                          ? "bg-yellow-400"
+                                          : "bg-gray-200 dark:bg-zinc-700"
+                                          }`}
                                       />
                                     )}
                                   </div>
                                   <p
-                                    className={`text-sm ${isLast ? "pb-0" : "pb-6"} ${
-                                      isCurrent
-                                        ? "font-black text-yellow-500"
-                                        : isCompleted
-                                          ? "font-bold text-gray-900 dark:text-white"
-                                          : "font-bold text-gray-300 dark:text-zinc-600"
-                                    }`}
+                                    className={`text-sm ${isLast ? "pb-0" : "pb-6"} ${isCurrent
+                                      ? "font-black text-yellow-500"
+                                      : isCompleted
+                                        ? "font-bold text-gray-900 dark:text-white"
+                                        : "font-bold text-gray-300 dark:text-zinc-600"
+                                      }`}
                                   >
                                     {label}
                                   </p>
@@ -2381,47 +2434,47 @@ export default function ProfilePage() {
 
                                   {(parsedVariations.length > 0 ||
                                     parsedAddons.length > 0) && (
-                                    <div className="ml-10 flex flex-col gap-1">
-                                      {parsedVariations.map(
-                                        (v: any, vi: number) => (
-                                          <div
-                                            key={`v-${vi}`}
-                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                          >
-                                            <span>
-                                              •{" "}
-                                              {(isRtl
-                                                ? v.optionNameAr
-                                                : v.optionName) ||
-                                                v.name ||
-                                                t("variation")}
-                                            </span>
-                                          </div>
-                                        ),
-                                      )}
-                                      {parsedAddons.map(
-                                        (a: any, ai: number) => (
-                                          <div
-                                            key={`a-${ai}`}
-                                            className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
-                                          >
-                                            <span>
-                                              +{" "}
-                                              {(isArabic ? a.nameAr : a.name) ||
-                                                a.name ||
-                                                t("addon")}
-                                            </span>
-                                            {a.price && (
+                                      <div className="ml-10 flex flex-col gap-1">
+                                        {parsedVariations.map(
+                                          (v: any, vi: number) => (
+                                            <div
+                                              key={`v-${vi}`}
+                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                            >
                                               <span>
-                                                +{a.price}{" "}
-                                                {t("currency") || "ج.م"}
+                                                •{" "}
+                                                {(isRtl
+                                                  ? v.optionNameAr
+                                                  : v.optionName) ||
+                                                  v.name ||
+                                                  t("variation")}
                                               </span>
-                                            )}
-                                          </div>
-                                        ),
-                                      )}
-                                    </div>
-                                  )}
+                                            </div>
+                                          ),
+                                        )}
+                                        {parsedAddons.map(
+                                          (a: any, ai: number) => (
+                                            <div
+                                              key={`a-${ai}`}
+                                              className="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400"
+                                            >
+                                              <span>
+                                                +{" "}
+                                                {(isArabic ? a.nameAr : a.name) ||
+                                                  a.name ||
+                                                  t("addon")}
+                                              </span>
+                                              {a.price && (
+                                                <span>
+                                                  +{a.price}{" "}
+                                                  {t("currency") || "ج.م"}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ),
+                                        )}
+                                      </div>
+                                    )}
 
                                   {item.note && (
                                     <div className="ml-10 text-xs italic text-gray-400">
@@ -2564,11 +2617,10 @@ export default function ProfilePage() {
                     cancelReasons.map((reason: any) => (
                       <label
                         key={reason.id}
-                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
-                          selectedReasonId === reason.id
-                            ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
-                            : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
-                        }`}
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === reason.id
+                          ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                          : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                          }`}
                       >
                         <span className="text-sm text-gray-800 dark:text-zinc-200">
                           {(isRtl ? reason.nameAr : reason.name) || reason.name}
@@ -2590,11 +2642,10 @@ export default function ProfilePage() {
                   )}
 
                   <label
-                    className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
-                      selectedReasonId === "other"
-                        ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
-                        : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${selectedReasonId === "other"
+                      ? "border-red-500 bg-red-50/40 dark:bg-red-950/10 font-bold"
+                      : "border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900"
+                      }`}
                   >
                     <span className="text-sm text-gray-800 dark:text-zinc-200">
                       {t("otherReason") || "أخرى"}

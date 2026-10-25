@@ -27,6 +27,9 @@ if (typeof window !== "undefined") {
 }
 import { useLanguage } from "@/context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
+import useGet from "@/app/hooks/useGet";
+import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
+import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
 
 // AddAddressPopup Component
 // Ported from the checkout page so the fulfillment dialog can create a
@@ -109,13 +112,51 @@ function LocationPicker({
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
+  restaurantId?: string; // needed to load the restaurant zones in Facebook browser
 }
 
-function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
+function AddAddressPopup({
+  onClose,
+  onSuccess,
+  restaurantId,
+}: AddAddressPopupProps) {
   const { language, t } = useLanguage();
   const isRtl = language === "العربية";
   const { postData: postAddress, loading: postingAddress } =
     usePost("/api/user/address");
+
+  const isFbBrowser = useIsFacebookBrowser();
+  const [selectedZoneId, setSelectedZoneId] = useState("");
+
+  // Zones come from the same "select" API used by the fulfillment dialog.
+  const { data: selectRes } = useGet<any>(
+    isFbBrowser && restaurantId
+      ? `/api/user/order/select?restaurantId=${restaurantId}&orderSource=online_order_web`
+      : null,
+  );
+  const zones: DeliveryZone[] = Array.isArray(selectRes?.data?.data?.zones)
+    ? selectRes.data.data.zones
+    : [];
+
+  const handleZoneSelect = (zone: DeliveryZone) => {
+    const c = getZoneCenter(zone);
+    if (!c) {
+      return toast.error(
+        isRtl ? "تعذر تحديد إحداثيات هذه المنطقة." : "This zone has no coordinates.",
+      );
+    }
+    const name = (isRtl && zone.nameAr ? zone.nameAr : zone.name) || "";
+    setSelectedZoneId(String(zone.id));
+    setAddressForm((prev) => ({
+      ...prev,
+      lat: c.lat,
+      lng: c.lng,
+      location: name,
+      street: prev.street || name,
+      fulladdress: prev.fulladdress || name,
+      zoneId: zone.zoneId ?? zone.id,
+    }));
+  };
 
   const [isLocating, setIsLocating] = useState(false);
   const [locationErrorType, setLocationErrorType] = useState<
@@ -142,6 +183,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     lat: null as number | null,
     lng: null as number | null,
     location: "" as string,
+    zoneId: "" as string,
   });
   const hasLocation =
     addressForm.lat !== null && addressForm.lng !== null;
@@ -311,9 +353,13 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
     if (addressForm.lat === null || addressForm.lng === null) {
       return toast.error(
-        isRtl
-          ? "يرجى تحديد الموقع الحالي أولاً لتأكيد إرسال الإحداثيات."
-          : "Please capture your current location before submitting.",
+        isFbBrowser
+          ? isRtl
+            ? "يرجى اختيار منطقة التوصيل أولاً."
+            : "Please select a delivery zone first."
+          : isRtl
+            ? "يرجى تحديد الموقع الحالي أولاً لتأكيد إرسال الإحداثيات."
+            : "Please capture your current location before submitting.",
       );
     }
 
@@ -331,7 +377,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
       );
       onClose();
       onSuccess(response?.data?.data?.id || response?.data?.id);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -349,29 +395,41 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </button>
         </div>
 
-        {/* GPS Location Button */}
-        <button
-          type="button"
-          onClick={handleGetCurrentLocation}
-          disabled={isLocating}
-          className="w-full mb-4 py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
-        >
-          {isLocating ? (
-            <Loader2 size={18} className="animate-spin text-yellow-500" />
-          ) : (
-            <Navigation size={18} className="text-yellow-500 fill-yellow-500" />
-          )}
-          {isLocating
-            ? isRtl
-              ? "جاري تحديد موقعك..."
-              : "Locating..."
-            : isRtl
-              ? "استخدام موقعي الحالي (GPS)"
-              : "Use Current Location (GPS)"}
-        </button>
+        {isFbBrowser ? (
+          <ZoneSelect
+            className="mb-4"
+            zones={zones}
+            value={selectedZoneId}
+            isRtl={isRtl}
+            onSelect={handleZoneSelect}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleGetCurrentLocation}
+              disabled={isLocating}
+              className="w-full mb-4 py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
+            >
+              {isLocating ? (
+                <Loader2 size={18} className="animate-spin text-yellow-500" />
+              ) : (
+                <Navigation size={18} className="text-yellow-500 fill-yellow-500" />
+              )}
+              {isLocating
+                ? isRtl
+                  ? "جاري تحديد موقعك..."
+                  : "Locating..."
+                : isRtl
+                  ? "استخدام موقعي الحالي (GPS)"
+                  : "Use Current Location (GPS)"}
+            </button>
+
+          </>
+        )}
 
         {/* Alert box when permission is denied */}
-        {locationErrorType && (
+        {!isFbBrowser && locationErrorType && (
           <div className="mb-4 p-4 rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300 animate-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-2.5">
               <span className="text-lg mt-0.5">⚠️</span>
@@ -381,7 +439,7 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
                 </p>
 
                 {navigator.userAgent.includes("FBAN") ||
-                navigator.userAgent.includes("FBAV") ? (
+                  navigator.userAgent.includes("FBAV") ? (
                   <div className="space-y-3">
                     <p>
                       {isRtl
@@ -438,12 +496,14 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           <>
             {/* Interactive Map - drag the pin or tap the map to fine-tune the location */}
             <div className="mb-4">
-              <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                {isRtl
-                  ? "اسحب الدبوس لتحديد موقعك بدقة"
-                  : "Drag the pin to fine-tune your exact location"}
-              </p>
-              {mounted && (
+              {!isFbBrowser && (
+                <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  {isRtl
+                    ? "اسحب الدبوس لتحديد موقعك بدقة"
+                    : "Drag the pin to fine-tune your exact location"}
+                </p>
+              )}
+              {mounted && !isFbBrowser && (
                 <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
                   <LocationPicker
                     lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
@@ -468,92 +528,92 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             </div>
 
             <form onSubmit={handleAddressSubmit} className="space-y-4">
-          <input
-            name="title"
-            placeholder={isRtl ? "العنوان (مثال: المنزل)" : "Title (e.g. Home)"}
-            value={addressForm.title}
-            onChange={handleInputChange}
-            className={inputClass}
-            required
-          />
+              <input
+                name="title"
+                placeholder={isRtl ? "العنوان (مثال: المنزل)" : "Title (e.g. Home)"}
+                value={addressForm.title}
+                onChange={handleInputChange}
+                className={inputClass}
+                required
+              />
 
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              name="street"
-              placeholder={isRtl ? "الشارع" : "Street"}
-              value={addressForm.street}
-              onChange={handleInputChange}
-              className={`col-span-2 ${inputClass}`}
-              required
-            />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  name="street"
+                  placeholder={isRtl ? "الشارع" : "Street"}
+                  value={addressForm.street}
+                  onChange={handleInputChange}
+                  className={`col-span-2 ${inputClass}`}
+                  required
+                />
 
-            <textarea
-              name="fulladdress"
-              placeholder={isRtl ? "العنوان بالكامل" : "Full Address"}
-              value={addressForm.fulladdress}
-              onChange={handleInputChange}
-              className={`col-span-2 ${inputClass} resize-none`}
-              rows={2}
-              required
-            />
+                <textarea
+                  name="fulladdress"
+                  placeholder={isRtl ? "العنوان بالكامل" : "Full Address"}
+                  value={addressForm.fulladdress}
+                  onChange={handleInputChange}
+                  className={`col-span-2 ${inputClass} resize-none`}
+                  rows={2}
+                  required
+                />
 
-            <input
-              name="number"
-              placeholder={isRtl ? "رقم المبنى" : "Number"}
-              value={addressForm.number}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="floor"
-              placeholder={isRtl ? "الدور" : "Floor"}
-              value={addressForm.floor}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="apartment"
-              placeholder={isRtl ? "الشقة" : "Apartment"}
-              value={addressForm.apartment}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="landmark"
-              placeholder={isRtl ? "علامة مميزة" : "Landmark"}
-              value={addressForm.landmark}
-              onChange={handleInputChange}
-              className={`col-span-2 ${inputClass}`}
-              required
-            />
-          </div>
+                <input
+                  name="number"
+                  placeholder={isRtl ? "رقم المبنى" : "Number"}
+                  value={addressForm.number}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="floor"
+                  placeholder={isRtl ? "الدور" : "Floor"}
+                  value={addressForm.floor}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="apartment"
+                  placeholder={isRtl ? "الشقة" : "Apartment"}
+                  value={addressForm.apartment}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="landmark"
+                  placeholder={isRtl ? "علامة مميزة" : "Landmark"}
+                  value={addressForm.landmark}
+                  onChange={handleInputChange}
+                  className={`col-span-2 ${inputClass}`}
+                  required
+                />
+              </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors text-sm"
-            >
-              {isRtl ? "إلغاء" : "Cancel"}
-            </button>
-            <button
-              type="submit"
-              disabled={postingAddress || isLocating}
-              className="flex-1 py-3 font-bold text-zinc-950 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
-            >
-              {postingAddress && <Loader2 size={16} className="animate-spin" />}
-              {postingAddress
-                ? isRtl
-                  ? "جاري الحفظ..."
-                  : "Saving..."
-                : isRtl
-                  ? "إضافة العنوان"
-                  : "Add Address"}
-            </button>
-          </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors text-sm"
+                >
+                  {isRtl ? "إلغاء" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={postingAddress || isLocating}
+                  className="flex-1 py-3 font-bold text-zinc-950 bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  {postingAddress && <Loader2 size={16} className="animate-spin" />}
+                  {postingAddress
+                    ? isRtl
+                      ? "جاري الحفظ..."
+                      : "Saving..."
+                    : isRtl
+                      ? "إضافة العنوان"
+                      : "Add Address"}
+                </button>
+              </div>
             </form>
           </>
         )}

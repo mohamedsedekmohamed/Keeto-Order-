@@ -17,6 +17,9 @@ import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
+import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
+import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
+
 import {
   MapContainer,
   TileLayer,
@@ -136,6 +139,7 @@ type CheckoutSelectResponse = {
     data: {
       branches?: Branch[];
       addresses?: Address[];
+      zones?: DeliveryZone[];
     };
   };
 };
@@ -219,7 +223,10 @@ export default function FulfillmentSelectDialog({
     lat: null as number | null,
     lng: null as number | null,
     location: "",
+    zoneId: "",
   });
+  const isFbBrowser = useIsFacebookBrowser();
+  const [selectedZoneId, setSelectedZoneId] = useState("");
 
   const { postData: postAddress, loading: postingAddress } =
     usePost("/api/user/address");
@@ -240,6 +247,7 @@ export default function FulfillmentSelectDialog({
   const selectData = checkoutRes?.data?.data ?? {
     branches: [],
     addresses: [],
+    zones: [] as DeliveryZone[],
   };
   const branches: Branch[] = Array.isArray(selectData.branches)
     ? selectData.branches
@@ -247,6 +255,31 @@ export default function FulfillmentSelectDialog({
   const addresses: Address[] = Array.isArray(selectData.addresses)
     ? selectData.addresses
     : [];
+
+  const zones: DeliveryZone[] = Array.isArray((selectData as any).zones)
+    ? ((selectData as any).zones as DeliveryZone[])
+    : [];
+
+  const handleZoneSelect = (zone: DeliveryZone) => {
+    const c = getZoneCenter(zone);
+    if (!c) {
+      toast.error(
+        isRTL ? "تعذر تحديد إحداثيات هذه المنطقة." : "This zone has no coordinates.",
+      );
+      return;
+    }
+    const name = (isRTL && zone.nameAr ? zone.nameAr : zone.name) || "";
+    setSelectedZoneId(String(zone.id));
+    setAddressForm((prev) => ({
+      ...prev,
+      lat: c.lat,
+      lng: c.lng,
+      location: name,
+      street: prev.street || name,
+      fulladdress: prev.fulladdress || name,
+      zoneId: String(zone.zoneId ?? zone.id),
+    }));
+  };
 
   // ── Step transitions ────────────────────────────────────────────────────────
   const handleModeSelect = (mode: "delivery" | "takeaway") => {
@@ -277,7 +310,9 @@ export default function FulfillmentSelectDialog({
       lat: null,
       lng: null,
       location: "",
+      zoneId: "",
     });
+    setSelectedZoneId("");
   };
 
   const applyLocation = async (latitude: number, longitude: number) => {
@@ -378,9 +413,13 @@ export default function FulfillmentSelectDialog({
 
     if (addressForm.lat === null || addressForm.lng === null) {
       toast.error(
-        isRTL
-          ? "يرجى تحديد موقعك الحالي قبل إرسال العنوان."
-          : "Please capture your current location before submitting.",
+        isFbBrowser
+          ? isRTL
+            ? "يرجى اختيار منطقة التوصيل أولاً."
+            : "Please select a delivery zone first."
+          : isRTL
+            ? "يرجى تحديد موقعك الحالي قبل إرسال العنوان."
+            : "Please capture your current location before submitting.",
       );
       return;
     }
@@ -458,7 +497,7 @@ export default function FulfillmentSelectDialog({
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
               {step === "mode"
                 ? t("How would you like to receive your order?") ||
-                  "How would you like to receive your order?"
+                "How would you like to receive your order?"
                 : step === "branch"
                   ? t("Select Branch") || "Select Branch"
                   : t("Select Address") || "Select Address"}
@@ -549,9 +588,9 @@ export default function FulfillmentSelectDialog({
                         style={
                           isSelected
                             ? {
-                                borderColor: firstColor,
-                                backgroundColor: `${firstColor}10`,
-                              }
+                              borderColor: firstColor,
+                              backgroundColor: `${firstColor}10`,
+                            }
                             : {}
                         }
                       >
@@ -651,9 +690,9 @@ export default function FulfillmentSelectDialog({
                         style={
                           isSelected
                             ? {
-                                borderColor: firstColor,
-                                backgroundColor: `${firstColor}10`,
-                              }
+                              borderColor: firstColor,
+                              backgroundColor: `${firstColor}10`,
+                            }
                             : {}
                         }
                       >
@@ -748,127 +787,137 @@ export default function FulfillmentSelectDialog({
               {addressForm.lat === null || addressForm.lng === null ? (
                 <div className="space-y-3">
                   <p className="text-sm text-center text-gray-500 dark:text-zinc-400">
-                    {isRTL
-                      ? "حدد موقعك الحالي للمتابعة وإضافة عنوان."
-                      : "Capture your current location to continue adding an address."}
+                    {isFbBrowser
+                      ? isRTL
+                        ? "اختر منطقة التوصيل للمتابعة وإضافة عنوان."
+                        : "Select your delivery zone to continue adding an address."
+                      : isRTL
+                        ? "حدد موقعك الحالي للمتابعة وإضافة عنوان."
+                        : "Capture your current location to continue adding an address."}
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleGetCurrentLocation}
-                    disabled={isLocating}
-                    className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
-                  >
-                    {isLocating ? (
-                      <Loader2 size={18} className="animate-spin text-yellow-500" />
-                    ) : (
-                      <Navigation size={18} className="text-yellow-500" />
-                    )}
-                    {isLocating
-                      ? t("Locating...") || "Locating..."
-                      : t("Use Current Location (GPS)") ||
+                  {isFbBrowser ? (
+                    <ZoneSelect zones={zones} value={selectedZoneId} isRtl={isRTL} onSelect={handleZoneSelect} />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGetCurrentLocation}
+                      disabled={isLocating}
+                      className="w-full py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
+                    >
+                      {isLocating ? (
+                        <Loader2 size={18} className="animate-spin text-yellow-500" />
+                      ) : (
+                        <Navigation size={18} className="text-yellow-500" />
+                      )}
+                      {isLocating
+                        ? t("Locating...") || "Locating..."
+                        : t("Use Current Location (GPS)") ||
                         "Use Current Location (GPS)"}
-                  </button>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <form onSubmit={handleAddAddressSubmit} className="space-y-3">
-                <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
-                  <LocationPicker
-                    lat={addressForm.lat ?? 30.0444}
-                    lng={addressForm.lng ?? 31.2357}
-                    onChange={handleMapLocationChange}
-                  />
-                </div>
+                  {!isFbBrowser && (
+                    <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
+                      <LocationPicker
+                        lat={addressForm.lat ?? 30.0444}
+                        lng={addressForm.lng ?? 31.2357}
+                        onChange={handleMapLocationChange}
+                      />
+                    </div>
+                  )}
 
-                <input
-                  name="title"
-                  value={addressForm.title}
-                  onChange={handleAddressFormChange}
-                  placeholder={t("title") || "Address title"}
-                  required
-                  className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-
-                <input
-                  name="street"
-                  value={addressForm.street}
-                  onChange={handleAddressFormChange}
-                  placeholder={t("street") || "Street"}
-                  required
-                  className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-
-                <textarea
-                  name="fulladdress"
-                  value={addressForm.fulladdress}
-                  onChange={handleAddressFormChange}
-                  placeholder={t("address") || "Full address"}
-                  required
-                  rows={2}
-                  className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
-                />
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <input
-                    name="number"
-                    value={addressForm.number}
+                    name="title"
+                    value={addressForm.title}
                     onChange={handleAddressFormChange}
-                    placeholder={t("number") || "Number"}
+                    placeholder={t("title") || "Address title"}
                     required
                     className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
                   />
+
                   <input
-                    name="floor"
-                    value={addressForm.floor}
+                    name="street"
+                    value={addressForm.street}
                     onChange={handleAddressFormChange}
-                    placeholder={t("floor") || "Floor"}
+                    placeholder={t("street") || "Street"}
                     required
                     className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
                   />
-                  <input
-                    name="apartment"
-                    value={addressForm.apartment}
+
+                  <textarea
+                    name="fulladdress"
+                    value={addressForm.fulladdress}
                     onChange={handleAddressFormChange}
-                    placeholder={t("apartment") || "Apartment"}
+                    placeholder={t("address") || "Full address"}
+                    required
+                    rows={2}
+                    className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+                  />
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <input
+                      name="number"
+                      value={addressForm.number}
+                      onChange={handleAddressFormChange}
+                      placeholder={t("number") || "Number"}
+                      required
+                      className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                    <input
+                      name="floor"
+                      value={addressForm.floor}
+                      onChange={handleAddressFormChange}
+                      placeholder={t("floor") || "Floor"}
+                      required
+                      className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                    <input
+                      name="apartment"
+                      value={addressForm.apartment}
+                      onChange={handleAddressFormChange}
+                      placeholder={t("apartment") || "Apartment"}
+                      required
+                      className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+
+                  <input
+                    name="landmark"
+                    value={addressForm.landmark}
+                    onChange={handleAddressFormChange}
+                    placeholder={t("landmark") || "Landmark"}
                     required
                     className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
                   />
-                </div>
 
-                <input
-                  name="landmark"
-                  value={addressForm.landmark}
-                  onChange={handleAddressFormChange}
-                  placeholder={t("landmark") || "Landmark"}
-                  required
-                  className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-
-                <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddAddressForm(false);
-                      resetAddressForm();
-                    }}
-                    className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors"
-                  >
-                    {t("cancel") || "Cancel"}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={postingAddress}
-                    className="flex-1 py-3 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {postingAddress ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Save size={16} />
-                    )}
-                    {postingAddress
-                      ? t("saving") || "Saving..."
-                      : t("add-address-btn") || "Add Address"}
-                  </button>
-                </div>
+                  <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddAddressForm(false);
+                        resetAddressForm();
+                      }}
+                      className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors"
+                    >
+                      {t("cancel") || "Cancel"}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={postingAddress}
+                      className="flex-1 py-3 font-bold text-gray-900 bg-yellow-400 rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {postingAddress ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Save size={16} />
+                      )}
+                      {postingAddress
+                        ? t("saving") || "Saving..."
+                        : t("add-address-btn") || "Add Address"}
+                    </button>
+                  </div>
                 </form>
               )}
             </motion.div>
