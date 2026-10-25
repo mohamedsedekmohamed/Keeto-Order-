@@ -5,6 +5,8 @@ import { useLanguage } from "../../../../../../context/LanguageContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
+import useIsFacebookBrowser from "@/context/Useisfacebookbrowser";
+import ZoneSelect, { getZoneCenter, DeliveryZone } from "@/components/Zoneselect";
 import { getRestaurantId } from "@/context/Restaurantid";
 import {
   MapPin,
@@ -706,8 +708,8 @@ export default function Checkout() {
                 key={type.id}
                 onClick={() => setOrderType(type.id as any)}
                 className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${activeOrderType === type.id
-                    ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
-                    : "border-gray-100 dark:border-zinc-800 text-gray-500"
+                  ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+                  : "border-gray-100 dark:border-zinc-800 text-gray-500"
                   }`}
               >
                 <type.icon size={24} />
@@ -747,10 +749,10 @@ export default function Checkout() {
                     key={addr.id}
                     onClick={() => setSelectedAddress(addr.id)}
                     className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedAddress === addr.id
-                        ? addr.isDeliverable
-                          ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                          : "border-red-400 bg-red-50 dark:bg-red-950/20"
-                        : "border-gray-100 dark:border-zinc-800"
+                      ? addr.isDeliverable
+                        ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                        : "border-red-400 bg-red-50 dark:bg-red-950/20"
+                      : "border-gray-100 dark:border-zinc-800"
                       } ${!addr.isDeliverable && "opacity-80"}`}
                   >
                     <div className="flex items-start gap-3">
@@ -799,8 +801,8 @@ export default function Checkout() {
                 key={branch.id}
                 onClick={() => setSelectedBranch(branch.id)}
                 className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${selectedBranch === branch.id
-                    ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                    : "border-gray-100 dark:border-zinc-800"
+                  ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                  : "border-gray-100 dark:border-zinc-800"
                   }`}
               >
                 <div>
@@ -834,8 +836,8 @@ export default function Checkout() {
                   key={method.id}
                   onClick={() => setSelectedPayment(method.id)}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedPayment === method.id
-                      ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                      : "border-gray-100 dark:border-zinc-800"
+                    ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                    : "border-gray-100 dark:border-zinc-800"
                     }`}
                 >
                   <div className="flex-1">
@@ -1123,6 +1125,7 @@ export default function Checkout() {
       {/* Address Popup */}
       {showAddressPopup && (
         <AddAddressPopup
+          zones={Array.isArray(data?.zones) ? data.zones : []}
           onClose={() => setShowAddressPopup(false)}
           onSuccess={(newAddressId) => {
             refetch();
@@ -1540,10 +1543,17 @@ function LocationPicker({
 interface AddAddressPopupProps {
   onClose: () => void;
   onSuccess: (id?: string) => void;
+  zones?: DeliveryZone[]; // restaurant zones from /api/user/order/select
 }
 
-function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
+function AddAddressPopup({
+  onClose,
+  onSuccess,
+  zones = [],
+}: AddAddressPopupProps) {
   const { t } = useLanguage();
+  const isFbBrowser = useIsFacebookBrowser();
+  const [selectedZoneId, setSelectedZoneId] = useState("");
   const { postData: postAddress, loading: postingAddress } =
     usePost("/api/user/address");
 
@@ -1573,7 +1583,32 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
     lat: null as number | null,
     lng: null as number | null,
     location: "" as string,
+    zoneId: "" as string,
   });
+
+  const handleZoneSelect = (zone: DeliveryZone) => {
+    const c = getZoneCenter(zone);
+    if (!c) {
+      toast.error(
+        t("dir") === "rtl"
+          ? "تعذر تحديد إحداثيات هذه المنطقة."
+          : "This zone has no coordinates.",
+      );
+      return;
+    }
+    const name =
+      (t("dir") === "rtl" && zone.nameAr ? zone.nameAr : zone.name) || "";
+    setSelectedZoneId(String(zone.zoneId ?? zone.id));
+    setAddressForm((prev) => ({
+      ...prev,
+      lat: c.lat,
+      lng: c.lng,
+      location: name,
+      street: prev.street || name,
+      fulladdress: prev.fulladdress || name,
+      zoneId: String(zone.zoneId ?? zone.id),
+    }));
+  };
   const hasLocation =
     addressForm.lat !== null && addressForm.lng !== null;
 
@@ -1742,9 +1777,13 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
 
     if (addressForm.lat === null || addressForm.lng === null) {
       return toast.error(
-        t("dir") === "rtl"
-          ? "يرجى تحديد الموقع الحالي أولاً لتأكيد إرسال الإحداثيات."
-          : "Please capture your current location before submitting.",
+        isFbBrowser
+          ? t("dir") === "rtl"
+            ? "يرجى اختيار منطقة التوصيل أولاً."
+            : "Please select a delivery zone first."
+          : t("dir") === "rtl"
+            ? "يرجى تحديد الموقع الحالي أولاً لتأكيد إرسال الإحداثيات."
+            : "Please capture your current location before submitting.",
       );
     }
 
@@ -1780,29 +1819,39 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           </button>
         </div>
 
-        {/* GPS Location Button */}
-        <button
-          type="button"
-          onClick={handleGetCurrentLocation}
-          disabled={isLocating}
-          className="w-full mb-4 py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
-        >
-          {isLocating ? (
-            <Loader2 size={18} className="animate-spin text-yellow-500" />
-          ) : (
-            <Navigation size={18} className="text-yellow-500 fill-yellow-500" />
-          )}
-          {isLocating
-            ? t("dir") === "rtl"
-              ? "جاري تحديد موقعك..."
-              : "Locating..."
-            : t("dir") === "rtl"
-              ? "استخدام موقعي الحالي (GPS)"
-              : "Use Current Location (GPS)"}
-        </button>
+        {/* GPS Location Button (hidden in the Facebook in-app browser) */}
+        {isFbBrowser ? (
+          <ZoneSelect
+            className="mb-4"
+            zones={zones}
+            value={selectedZoneId}
+            isRtl={t("dir") === "rtl"}
+            onSelect={handleZoneSelect}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleGetCurrentLocation}
+            disabled={isLocating}
+            className="w-full mb-4 py-3 px-4 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl font-bold text-sm transition-all border border-zinc-200 dark:border-zinc-700 active:scale-98 disabled:opacity-60"
+          >
+            {isLocating ? (
+              <Loader2 size={18} className="animate-spin text-yellow-500" />
+            ) : (
+              <Navigation size={18} className="text-yellow-500 fill-yellow-500" />
+            )}
+            {isLocating
+              ? t("dir") === "rtl"
+                ? "جاري تحديد موقعك..."
+                : "Locating..."
+              : t("dir") === "rtl"
+                ? "استخدام موقعي الحالي (GPS)"
+                : "Use Current Location (GPS)"}
+          </button>
+        )}
 
         {/* Alert box when permission is denied */}
-        {locationErrorType && (
+        {!isFbBrowser && locationErrorType && (
           <div className="mb-4 p-4 rounded-2xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300 animate-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-2.5">
               <span className="text-lg mt-0.5">⚠️</span>
@@ -1871,12 +1920,14 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
           <>
             {/* Interactive Map - drag the pin or tap the map to fine-tune the location */}
             <div className="mb-4">
-              <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                {t("dir") === "rtl"
-                  ? "اسحب الدبوس لتحديد موقعك بدقة"
-                  : "Drag the pin to fine-tune your exact location"}
-              </p>
-              {mounted && (
+              {!isFbBrowser && (
+                <p className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  {t("dir") === "rtl"
+                    ? "اسحب الدبوس لتحديد موقعك بدقة"
+                    : "Drag the pin to fine-tune your exact location"}
+                </p>
+              )}
+              {mounted && !isFbBrowser && (
                 <div className="overflow-hidden border rounded-2xl border-zinc-200 dark:border-zinc-800">
                   <LocationPicker
                     lat={addressForm.lat ?? DEFAULT_MAP_CENTER[0]}
@@ -1901,86 +1952,86 @@ function AddAddressPopup({ onClose, onSuccess }: AddAddressPopupProps) {
             </div>
 
             <form onSubmit={handleAddressSubmit} className="space-y-4">
-          <input
-            name="title"
-            placeholder={t("title")}
-            value={addressForm.title}
-            onChange={handleInputChange}
-            className={inputClass}
-            required
-          />
+              <input
+                name="title"
+                placeholder={t("title")}
+                value={addressForm.title}
+                onChange={handleInputChange}
+                className={inputClass}
+                required
+              />
 
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              name="street"
-              placeholder={t("street")}
-              value={addressForm.street}
-              onChange={handleInputChange}
-              className={`col-span-2 ${inputClass}`}
-              required
-            />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  name="street"
+                  placeholder={t("street")}
+                  value={addressForm.street}
+                  onChange={handleInputChange}
+                  className={`col-span-2 ${inputClass}`}
+                  required
+                />
 
-            <textarea
-              name="fulladdress"
-              placeholder={t("address") || "Full Address"}
-              value={addressForm.fulladdress}
-              onChange={handleInputChange}
-              className={`col-span-2 ${inputClass} resize-none`}
-              rows={2}
-              required
-            />
+                <textarea
+                  name="fulladdress"
+                  placeholder={t("address") || "Full Address"}
+                  value={addressForm.fulladdress}
+                  onChange={handleInputChange}
+                  className={`col-span-2 ${inputClass} resize-none`}
+                  rows={2}
+                  required
+                />
 
-            <input
-              name="number"
-              placeholder={t("number")}
-              value={addressForm.number}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="floor"
-              placeholder={t("floor")}
-              value={addressForm.floor}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="apartment"
-              placeholder={t("apartment")}
-              value={addressForm.apartment}
-              onChange={handleInputChange}
-              className={inputClass}
-              required
-            />
-            <input
-              name="landmark"
-              placeholder={t("landmark")}
-              value={addressForm.landmark}
-              onChange={handleInputChange}
-              className={`col-span-2 ${inputClass}`}
-              required
-            />
-          </div>
+                <input
+                  name="number"
+                  placeholder={t("number")}
+                  value={addressForm.number}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="floor"
+                  placeholder={t("floor")}
+                  value={addressForm.floor}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="apartment"
+                  placeholder={t("apartment")}
+                  value={addressForm.apartment}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                />
+                <input
+                  name="landmark"
+                  placeholder={t("landmark")}
+                  value={addressForm.landmark}
+                  onChange={handleInputChange}
+                  className={`col-span-2 ${inputClass}`}
+                  required
+                />
+              </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors text-sm"
-            >
-              {t("cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={postingAddress || isLocating}
-              className="flex-1 py-3 font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
-            >
-              {postingAddress && <Loader2 size={16} className="animate-spin" />}
-              {postingAddress ? t("saving") : t("add-address-btn")}
-            </button>
-          </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-3 font-bold text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-colors text-sm"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={postingAddress || isLocating}
+                  className="flex-1 py-3 font-bold text-theme-first-text bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  {postingAddress && <Loader2 size={16} className="animate-spin" />}
+                  {postingAddress ? t("saving") : t("add-address-btn")}
+                </button>
+              </div>
             </form>
           </>
         )}
