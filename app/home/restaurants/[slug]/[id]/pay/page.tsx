@@ -332,9 +332,12 @@ export default function Checkout() {
   );
 
   const cartTotalSummary = rawCartData?.totalSummary;
-  const originalSubtotal = Number(
-    cartTotalSummary?.originalSubtotal ?? subtotal,
-  );
+  const totalDiscount = Number(cartTotalSummary?.totalDiscount || 0);
+  const rawOriginalSubtotal = Number(cartTotalSummary?.originalSubtotal);
+  const originalSubtotal =
+    Number.isFinite(rawOriginalSubtotal) && rawOriginalSubtotal > 0
+      ? rawOriginalSubtotal
+      : subtotal + totalDiscount;
   const hasPriceChanges =
     !!rawCartData?.hasPriceChanges || priceChangedItems.length > 0;
 
@@ -1036,9 +1039,32 @@ export default function Checkout() {
           <div className="flex justify-between items-center">
             <span>{t("subtotal")}</span>
             <span className="text-gray-900 dark:text-white font-bold">
-              {subtotal} {t("egp")}
+              {totalDiscount > 0 ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="line-through text-gray-400 dark:text-zinc-500 font-normal text-xs">
+                    {originalSubtotal} {t("egp")}
+                  </span>
+                  <span>
+                    {subtotal} {t("egp")}
+                  </span>
+                </span>
+              ) : (
+                `${subtotal} ${t("egp")}`
+              )}
             </span>
           </div>
+
+          {totalDiscount > 0 && (
+            <div className="flex justify-between items-center text-green-600 dark:text-green-500">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Tag size={14} />
+                {t("totalDiscount") || (isRtl ? "إجمالي الخصم" : "Total Discount")}
+              </span>
+              <span className="font-bold">
+                -{totalDiscount} {t("egp")}
+              </span>
+            </div>
+          )}
 
           {activeOrderType === "delivery" && (
             <div className="flex justify-between items-center">
@@ -1093,12 +1119,35 @@ export default function Checkout() {
 
           <hr className="border-gray-200 dark:border-zinc-800 my-2" />
 
-          <div className="flex justify-between items-center text-base font-bold text-gray-900 dark:text-white pt-1">
-            <span>{t("total")}</span>
+          <div className="flex justify-between items-baseline text-base font-bold text-gray-900 dark:text-white pt-1">
+            <div>
+              <span>{t("total")}</span>
+              {totalDiscount > 0 && (
+                <span className="block text-xs font-semibold text-green-600 dark:text-green-500 mt-0.5">
+                  {isRtl
+                    ? `(${t("youSaved") || "وفرت"} ${totalDiscount} ${t("egp")})`
+                    : `(${t("youSaved") || "You saved"} ${totalDiscount} ${t("egp")})`}
+                </span>
+              )}
+            </div>
             <span className="text-yellow-500 text-lg">
               {total} {t("egp")}
             </span>
           </div>
+
+          {totalDiscount > 0 && (
+            <div className="flex items-center justify-between p-2.5 mt-2 rounded-xl bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 text-xs font-bold border border-green-200/80 dark:border-green-800/40">
+              <span className="flex items-center gap-1.5">
+                <Tag size={14} className="text-green-600 dark:text-green-400" />
+                {t("totalDiscount") || (isRtl ? "إجمالي الخصم" : "Total Discount")}
+              </span>
+              <span>
+                {isRtl
+                  ? `${t("youSaved") || "وفرت"} ${totalDiscount + couponDiscount > totalDiscount ? totalDiscount + couponDiscount : totalDiscount} ${t("egp")}`
+                  : `${t("youSaved") || "You saved"} ${totalDiscount + couponDiscount > totalDiscount ? totalDiscount + couponDiscount : totalDiscount} ${t("egp")}`}
+              </span>
+            </div>
+          )}
         </div>
       </section>
 

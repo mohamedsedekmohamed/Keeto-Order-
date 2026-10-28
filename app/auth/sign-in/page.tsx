@@ -69,11 +69,7 @@ export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [googleButtonWidth, setGoogleButtonWidth] = useState(350);
   const googleButtonContainerRef = useRef<HTMLDivElement>(null);
-  // Visitors coming from "start order" (callbackSlug) get the email form open
-  // right away, so the browser / password manager can autofill the fields.
-  const [showEmailForm, setShowEmailForm] = useState(() =>
-    Boolean(searchParams.get("callbackSlug")),
-  );
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [isFbBrowser, setIsFbBrowser] = useState(false);
   const fbRedirectHandled = useRef(false);
   const { setToken } = useToken();
