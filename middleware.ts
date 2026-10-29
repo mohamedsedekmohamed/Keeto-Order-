@@ -142,6 +142,24 @@ export async function middleware(request: NextRequest) {
   }
 
   // -------------------------------------------------------------
+  // Mode: Main Domain Shortcuts (e.g. /order, /cart)
+  // -------------------------------------------------------------
+  if (!isCustomDomain) {
+    if (pathname === "/order" || pathname === "/cart") {
+      const referer = request.headers.get("referer");
+      if (referer) {
+        const refMatch = referer.match(/\/home\/restaurants\/([^/?#]+)/);
+        if (refMatch && refMatch[1]) {
+          return NextResponse.redirect(
+            new URL(`/home/restaurants/${refMatch[1]}/order`, request.url)
+          );
+        }
+      }
+      return NextResponse.redirect(new URL("/home", request.url));
+    }
+  }
+
+  // -------------------------------------------------------------
   // Match: /home/restaurants/:slug
   // Runs for both custom domains and main domain
   // -------------------------------------------------------------

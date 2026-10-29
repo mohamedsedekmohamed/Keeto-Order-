@@ -347,7 +347,7 @@ export default function Restaurant() {
       {/* زر السلة العائم المطور مع مؤثرات إضافة ذكية */}
       {token && (
         <Link
-          href={buildLink("order")}
+          href={buildLink("order", restaurantName)}
           className={`fixed bottom-8 left-8 z-[90] flex items-center gap-3 bg-yellow-400 hover:bg-yellow-500 text-zinc-900 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group select-none
             ${
               isAnimate

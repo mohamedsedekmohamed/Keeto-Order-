@@ -80,9 +80,21 @@ export async function resolveTenant(hostOverride?: string): Promise<Tenant> {
 export function buildLink(
   tenant: { mode: "path" | "custom" | "notfound"; slug?: string | null },
   page: string = "",
+  slugOverride?: string | null,
 ): string {
   const cleanPage = page.replace(/^\/+/, "");
-  const slug = tenant.slug || "";
+  let slug = slugOverride || tenant.slug || "";
+
+  // If in browser and slug is not yet known, extract from current path (e.g. /home/restaurants/:slug)
+  if (!slug && typeof window !== "undefined") {
+    const match = window.location.pathname.match(
+      /^\/home\/restaurants\/([^/]+)/,
+    );
+    if (match) {
+      slug = match[1];
+    }
+  }
+
   if (!slug) return cleanPage ? `/${cleanPage}` : "/";
 
   if (!cleanPage) {

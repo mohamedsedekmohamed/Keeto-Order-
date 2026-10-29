@@ -463,7 +463,7 @@ export default function Cart() {
         </div>
 
         <Link
-          href={buildLink("pay")}
+          href={buildLink("pay", restaurantName)}
           onClick={(e) => {
             if (!isOpen) {
               e.preventDefault(); // يمنع التنقل

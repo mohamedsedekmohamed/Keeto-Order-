@@ -16,13 +16,14 @@ import {
 } from "@/lib/tenant";
 import { Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
+import { usePathname } from "next/navigation";
 
 interface TenantContextType {
   tenant: Tenant;
   isResolving: boolean;
   error: Error | null;
   retry: () => Promise<void>;
-  buildLink: (page?: string) => string;
+  buildLink: (page?: string, slugOverride?: string) => string;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -107,11 +108,20 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     }
   }, [tenant]);
 
+  const pathname = usePathname();
+
   const buildLink = useCallback(
-    (page: string = "") => {
-      return buildTenantLink(tenant, page);
+    (page: string = "", slugOverride?: string) => {
+      let slug = slugOverride || tenant.slug || "";
+      if (!slug && pathname) {
+        const match = pathname.match(/^\/home\/restaurants\/([^/]+)/);
+        if (match && match[1]) {
+          slug = match[1];
+        }
+      }
+      return buildTenantLink({ ...tenant, slug }, page, slug);
     },
-    [tenant],
+    [tenant, pathname],
   );
 
   // 1. Startup Loader: "Run once before the router mounts, and show a loader until it finishes."
