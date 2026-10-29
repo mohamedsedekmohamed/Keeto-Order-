@@ -74,28 +74,22 @@ export async function resolveTenant(hostOverride?: string): Promise<Tenant> {
 }
 
 /**
- * Single function for every internal link across path mode and custom mode.
- * - Mode custom: / -> restaurant page, /cart, /checkout, etc.
- * - Mode path: /home/restaurants/:slug/restaurant, etc.
+ * Helper to build internal links.
+ * When on custom domain or path mode, routes to /home/restaurants/:slug/:page
  */
 export function buildLink(
   tenant: { mode: "path" | "custom" | "notfound"; slug?: string | null },
   page: string = "",
 ): string {
   const cleanPage = page.replace(/^\/+/, "");
-
-  if (tenant.mode === "custom") {
-    if (!cleanPage || cleanPage === "restaurant") return "/";
-    return `/${cleanPage}`;
-  }
-
   const slug = tenant.slug || "";
   if (!slug) return cleanPage ? `/${cleanPage}` : "/";
 
-  if (!cleanPage || cleanPage === "restaurant") {
+  if (!cleanPage) {
+    return `/home/restaurants/${slug}`;
+  }
+  if (cleanPage === "restaurant") {
     return `/home/restaurants/${slug}/restaurant`;
   }
-
   return `/home/restaurants/${slug}/${cleanPage}`;
 }
-

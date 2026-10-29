@@ -2,7 +2,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { UtensilsCrossed, Home } from "lucide-react";
+import { Home } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
 import { useTenant } from "@/context/TenantContext";
@@ -12,6 +12,19 @@ import { FaApple, FaGooglePlay } from "react-icons/fa";
 
 export default function Landing() {
   const { t } = useLanguage();
+  const { tenant } = useTenant();
+  const router = useRouter();
+
+  // If a custom domain accesses root, do not show the main project page — go direct to the restaurant page
+  useEffect(() => {
+    if (tenant.mode === "custom" && tenant.slug) {
+      router.replace(`/home/restaurants/${tenant.slug}`);
+    }
+  }, [tenant, router]);
+
+  if (tenant.mode === "custom") {
+    return null;
+  }
 
   return (
     <div className="relative flex flex-col items-center min-h-screen px-6 py-10 overflow-hidden bg-white dark:bg-zinc-950">
@@ -58,48 +71,41 @@ export default function Landing() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="grid grid-cols-2 gap-4 mt-4 w-full max-w-md" // نفس العرض ونظام الشبكة
+        className="grid grid-cols-2 gap-4 mt-4 w-full max-w-md"
       >
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="flex items-center justify-center gap-2 py-4 text-white bg-black rounded-2xl cursor-pointer shadow-lg"
-        >
-          <FaApple className="w-6 h-6" />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="text-[10px] opacity-70">Download on</span>
-            <span className="text-sm font-bold">{t("appStore")}</span>
-          </div>
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Link
+            href="#"
+            className="flex items-center justify-center gap-3 px-4 py-3 text-white transition bg-black rounded-2xl hover:bg-zinc-800"
+          >
+            <FaApple className="text-2xl" />
+            <div className="text-left">
+              <p className="text-[10px] uppercase text-zinc-400">
+                Download on the
+              </p>
+              <p className="text-xs font-semibold">App Store</p>
+            </div>
+          </Link>
         </motion.div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 rounded-2xl dark:bg-zinc-900 dark:border-zinc-800 cursor-pointer shadow-sm"
-        >
-          <FaGooglePlay className="w-5 h-5 text-green-500" />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="text-[10px] text-gray-500">Get it on</span>
-            <span className="text-sm font-bold text-gray-700 dark:text-zinc-300">
-              {t("googlePlay")}
-            </span>
-          </div>
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Link
+            href="#"
+            className="flex items-center justify-center gap-3 px-4 py-3 text-white transition bg-black rounded-2xl hover:bg-zinc-800"
+          >
+            <FaGooglePlay className="text-xl" />
+            <div className="text-left">
+              <p className="text-[10px] uppercase text-zinc-400">Get it on</p>
+              <p className="text-xs font-semibold">Google Play</p>
+            </div>
+          </Link>
         </motion.div>
       </motion.div>
 
-      <div className="grid w-full max-w-md grid-cols-1 gap-4 mt-10">
-        <div className="p-5 bg-white border border-gray-100 rounded-2xl dark:bg-zinc-900 dark:border-zinc-800">
-          <UtensilsCrossed className="text-yellow-500" />
-          <h3 className="mt-3 font-bold text-gray-900 dark:text-white">
-            {t("feature1")}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-zinc-400">
-            {t("feature1Desc")}
-          </p>
-        </div>
-      </div>
       {/* Footer */}
-      <p className="mt-10 text-sm text-gray-400">{t("poweredBy")} Keeto</p>
+      <p className="mt-auto text-xs text-gray-400 dark:text-zinc-600">
+        © {new Date().getFullYear()} Keeto. {t("allRightsReserved")}
+      </p>
     </div>
   );
 }
