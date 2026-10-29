@@ -18,7 +18,7 @@ export default function Landing() {
   // If a custom domain accesses root, do not show the main project page — go direct to the restaurant page
   useEffect(() => {
     if (tenant.mode === "custom" && tenant.slug) {
-      router.replace(`/home/restaurants/${tenant.slug}`);
+      router.replace(`/home/restaurants/${tenant.slug}/restaurant`);
     }
   }, [tenant, router]);
 

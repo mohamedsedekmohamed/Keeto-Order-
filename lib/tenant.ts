@@ -86,7 +86,7 @@ export function buildLink(
   if (!slug) return cleanPage ? `/${cleanPage}` : "/";
 
   if (!cleanPage) {
-    return `/home/restaurants/${slug}`;
+    return `/home/restaurants/${slug}/restaurant`;
   }
   if (cleanPage === "restaurant") {
     return `/home/restaurants/${slug}/restaurant`;

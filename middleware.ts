@@ -70,10 +70,10 @@ export async function middleware(request: NextRequest) {
       const slug = tenantData.slug;
 
       // When opening the root or main landing page on a custom domain,
-      // don't open the main project page — go directly to domain/home/restaurants/:slug
+      // don't open the main project page — go directly to domain/home/restaurants/:slug/restaurant
       if (pathname === "/" || pathname === "" || pathname === "/home") {
         const redirectRes = NextResponse.redirect(
-          new URL(`/home/restaurants/${slug}`, request.url)
+          new URL(`/home/restaurants/${slug}/restaurant`, request.url)
         );
         redirectRes.cookies.set(cookieKey, JSON.stringify(tenantData), {
           maxAge: 3600,
