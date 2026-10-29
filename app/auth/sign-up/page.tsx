@@ -15,6 +15,7 @@ import {
 import { useLanguage } from "../../../context/LanguageContext";
 import Link from "next/link";
 import usePost from "@/app/hooks/usePost";
+import { useTenant } from "@/context/TenantContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useToken } from "@/context/TokenContext";
@@ -64,7 +65,7 @@ function SignUpForm() {
           clientId: "org.keeto.orderfood.web",
           scope: "name email",
           usePopup: true,
-          redirectURI: `https://orderfood.keeto.org/auth/apple/callback`,
+          redirectURI: typeof window !== "undefined" ? `${window.location.origin}/auth/apple/callback` : "https://orderfood.keeto.org/auth/apple/callback",
         });
 
         clearInterval(interval);
@@ -75,6 +76,8 @@ function SignUpForm() {
   }, []);
 
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
+  const { tenant } = useTenant();
+  const isCustomDomain = tenant.mode === "custom";
 
   // 1. Credentials Sign Up API Call
   const { postData: signupWithCredentials, loading: isSubmitting } = usePost(

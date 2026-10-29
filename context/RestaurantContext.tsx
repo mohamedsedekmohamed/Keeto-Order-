@@ -147,6 +147,7 @@ import {
   useThemeSettings,
 } from "./RestaurantSettingsContext";
 import { setRestaurantId } from "./Restaurantid";
+import { useTenant } from "./TenantContext";
 
 export { useRestaurantSettings, useThemeSettings };
 

@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import { UtensilsCrossed, Home } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
+import { useTenant } from "@/context/TenantContext";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
 
 export default function Landing() {

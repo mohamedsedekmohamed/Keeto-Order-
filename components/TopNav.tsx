@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { useLanguage } from "../context/LanguageContext";
 import { MapPin, ChevronDown, Sun, Moon, User } from "lucide-react";
 import { useToken } from "@/context/TokenContext";
+import { useTenant } from "@/context/TenantContext";
 import Link from "next/link";
 import ReactCountryFlag from "react-country-flag";
 import { usePathname, useParams, useSearchParams } from "next/navigation";
@@ -39,6 +40,7 @@ export default function TopNav() {
   const searchParams = useSearchParams();
    const { instantOrder } = useRestaurantSettings();
 
+  const { tenant, buildLink } = useTenant();
   const restaurantSlug =
     (params?.slug as string) ||
     (searchParams?.get("callbackSlug") as string) ||
@@ -78,7 +80,7 @@ export default function TopNav() {
           `login_source_${restaurantSlug}`,
           "online_order_web",
         );
-        router.push(`/auth/sign-in?callbackSlug=${restaurantSlug}`);
+        router.push(tenant.mode === "custom" ? "/auth/sign-in" : `/auth/sign-in?callbackSlug=${restaurantSlug}`);
       }
     }
   };

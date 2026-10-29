@@ -22,6 +22,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useRef, useState } from "react";
 import { setCartItems } from "@/redux/cartSlice";
 import { useToken } from "@/context/TokenContext";
+import { useTenant } from "@/context/TenantContext";
 import { setRestaurantId } from "@/context/Restaurantid";
 import useGet from "@/app/hooks/useGet";
 import { AnimatePresence } from "framer-motion";
@@ -87,7 +88,8 @@ export default function Restaurant() {
   const { t, language } = useLanguage();
   const isRTL = language === "العربية";
   const dispatch = useAppDispatch();
-  const restaurantName = params.slug as string;
+  const { tenant, buildLink } = useTenant();
+  const restaurantName = (params?.slug as string) || tenant?.slug || "";
   const basePath = `/home/restaurants/${restaurantName}`;
   const { getToken, isReady } = useToken();
   const token = getToken(restaurantName);
@@ -345,7 +347,7 @@ export default function Restaurant() {
       {/* زر السلة العائم المطور مع مؤثرات إضافة ذكية */}
       {token && (
         <Link
-          href={`${basePath}/order`}
+          href={buildLink("order")}
           className={`fixed bottom-8 left-8 z-[90] flex items-center gap-3 bg-yellow-400 hover:bg-yellow-500 text-zinc-900 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group select-none
             ${
               isAnimate

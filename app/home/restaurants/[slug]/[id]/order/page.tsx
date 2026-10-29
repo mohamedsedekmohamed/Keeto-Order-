@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "../../../../../../context/LanguageContext";
+import { useTenant } from "@/context/TenantContext";
 import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
 import { useRouter, useParams } from "next/navigation";
@@ -33,7 +34,8 @@ export default function Cart() {
   const dispatch = useAppDispatch();
   const { t } = useLanguage();
   const params = useParams();
-  const restaurantName = params.slug as string;
+  const { tenant, buildLink } = useTenant();
+  const restaurantName = (params?.slug as string) || tenant?.slug || "";
   const [showConfirm, setShowConfirm] = useState(false);
   const basePath = `/home/restaurants/${restaurantName}`;
   const router = useRouter();
@@ -461,7 +463,7 @@ export default function Cart() {
         </div>
 
         <Link
-          href={`${basePath}/pay`}
+          href={buildLink("pay")}
           onClick={(e) => {
             if (!isOpen) {
               e.preventDefault(); // يمنع التنقل

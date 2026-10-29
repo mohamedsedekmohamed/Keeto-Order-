@@ -17,6 +17,7 @@ import { useLanguage } from "../../../context/LanguageContext";
 import usePost from "@/app/hooks/usePost";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToken } from "@/context/TokenContext";
+import { useTenant } from "@/context/TenantContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import Script from "next/script";
 import { useEffect } from "react";
@@ -73,6 +74,8 @@ export default function SignIn() {
   const [isFbBrowser, setIsFbBrowser] = useState(false);
   const fbRedirectHandled = useRef(false);
   const { setToken } = useToken();
+  const { tenant } = useTenant();
+  const isCustomDomain = tenant.mode === "custom";
   const isRtl = typeof document !== "undefined" && document.dir === "rtl";
   const callbackSlug = searchParams.get("callbackSlug");
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
@@ -110,7 +113,7 @@ export default function SignIn() {
           clientId: "org.keeto.orderfood.web",
           scope: "name email",
           usePopup: true,
-          redirectURI: `https://orderfood.keeto.org/auth/apple/callback`,
+          redirectURI: typeof window !== "undefined" ? `${window.location.origin}/auth/apple/callback` : "https://orderfood.keeto.org/auth/apple/callback",
         });
 
         clearInterval(interval);
@@ -487,7 +490,7 @@ export default function SignIn() {
 
           {/* Collapsible Email Form */}
           <AnimatePresence>
-            {showEmailForm && (
+            {(isCustomDomain || showEmailForm) && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}

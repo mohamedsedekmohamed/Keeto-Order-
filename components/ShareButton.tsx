@@ -1,25 +1,35 @@
-import { Share2, Check, Copy } from "lucide-react";
+"use client";
+
+import { Share2, Check } from "lucide-react";
 import { useState } from "react";
 
 interface ShareButtonProps {
-  /** What to share — defaults to current page */
+  /** What to share — defaults to current origin + path */
   url?: string;
   title?: string;
   text?: string;
 }
 
 export default function ShareButton({
-  url = window.location.href,
-  title = document.title,
+  url,
+  title,
   text,
 }: ShareButtonProps) {
   const [status, setStatus] = useState<"idle" | "copied" | "shared">("idle");
 
   const handleShare = async () => {
+    const shareUrl =
+      url ||
+      (typeof window !== "undefined"
+        ? window.location.origin + window.location.pathname
+        : "");
+    const shareTitle =
+      title || (typeof document !== "undefined" ? document.title : "");
+
     // 1️⃣ Native share sheet (mobile + modern desktop)
     if (navigator.share) {
       try {
-        await navigator.share({ url, title, text });
+        await navigator.share({ url: shareUrl, title: shareTitle, text });
         setStatus("shared");
       } catch (err) {
         // User cancelled — do nothing
@@ -30,12 +40,12 @@ export default function ShareButton({
     } else {
       // 2️⃣ Fallback: copy URL to clipboard
       try {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shareUrl);
         setStatus("copied");
       } catch {
         // 3️⃣ Last resort for old browsers
         const el = document.createElement("input");
-        el.value = url;
+        el.value = shareUrl;
         document.body.appendChild(el);
         el.select();
         document.execCommand("copy");

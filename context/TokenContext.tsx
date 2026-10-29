@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import api, { setActiveSlug } from "@/api/api"; // adjust to your actual path
+import { useTenant } from "./TenantContext";
+
 type TokenContextType = {
   getToken: (slug?: string | null) => string | null;
   setToken: (token: string | null, slug?: string | null) => void;
@@ -18,10 +20,12 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
   const [, setTick] = useState(0);
   const params = useParams();
   const searchParams = useSearchParams(); // 👈 هيدر تفعيله هنا
+  const { tenant } = useTenant();
 
-  // جلب الـ slug الحالي سواء من الـ path أو من الـ query parameter
+  // جلب الـ slug الحالي سواء من الـ path أو من tenant context أو من الـ query parameter
   const currentSlug =
     (params?.slug as string) ||
+    tenant?.slug ||
     (searchParams?.get("callbackSlug") as string) ||
     undefined;
   // Push the resolved slug into axios's interceptor whenever it changes,
@@ -38,12 +42,14 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getToken = (slug?: string | null) => {
     if (typeof window === "undefined") return null;
-    const key = slug ? `token_${slug}` : "token";
+    const resolvedSlug = slug || currentSlug;
+    const key = resolvedSlug ? `token_${resolvedSlug}` : "token";
     return localStorage.getItem(key);
   };
 
   const setToken = (newToken: string | null, slug?: string | null) => {
-    const key = slug ? `token_${slug}` : "token";
+    const resolvedSlug = slug || currentSlug;
+    const key = resolvedSlug ? `token_${resolvedSlug}` : "token";
     if (newToken) {
       localStorage.setItem(key, newToken);
     } else {
@@ -53,7 +59,8 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = (slug?: string | null) => {
-    const key = slug ? `token_${slug}` : "token";
+    const resolvedSlug = slug || currentSlug;
+    const key = resolvedSlug ? `token_${resolvedSlug}` : "token";
     localStorage.removeItem(key);
     setTick((prev) => prev + 1);
   };

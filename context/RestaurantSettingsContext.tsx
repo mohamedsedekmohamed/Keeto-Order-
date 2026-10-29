@@ -11,6 +11,7 @@ import React, {
 import { useParams, useSearchParams } from "next/navigation";
 import api from "@/api/api";
 import { getRestaurantId, setRestaurantId as storeRestaurantId } from "./Restaurantid";
+import { useTenant } from "./TenantContext";
 
 export interface RestaurantSettings {
   firstColor?: string;

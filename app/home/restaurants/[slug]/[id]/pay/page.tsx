@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
+import { useTenant } from "@/context/TenantContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
 import usePut from "@/app/hooks/usePut";
@@ -89,7 +90,8 @@ export default function Checkout() {
   const isRtl = t("dir") === "rtl";
   const router = useRouter();
   const params = useParams();
-  const restaurantName = params.slug as string;
+  const { tenant, buildLink } = useTenant();
+  const restaurantName = (params?.slug as string) || tenant?.slug || "";
   const basePath = `/home/restaurants/${restaurantName}`;
 
   // The real restaurant.id (UUID) — the route only gives us the slug, so
@@ -612,7 +614,7 @@ export default function Checkout() {
       }
 
       toast.success(t("orderSuccess"));
-      router.push(`/profile?tab=tracking&callbackSlug=${restaurantName}`);
+      router.push(tenant.mode === "custom" ? `/profile?tab=tracking` : `/profile?tab=tracking&callbackSlug=${restaurantName}`);
     } catch {
       toast.error(t("orderFailed"));
     }

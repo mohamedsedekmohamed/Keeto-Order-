@@ -4,6 +4,7 @@ import "./globals.css";
 import ConditionalTopNav from "@/components/Conditionaltopnav";
 import { Providers } from "../context/providers";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { TenantProvider } from "@/context/TenantContext";
 import { Toaster } from "react-hot-toast";
 import { TokenProvider } from "@/context/TokenContext";
 import { AxiosInterceptor } from "../context/AxiosInterceptor";
@@ -38,17 +39,19 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <Providers>
           <LanguageProvider>
-            <TokenProvider>
-              <AxiosInterceptor>
-                <RestaurantSettingsProvider>
-                  <div className="flex flex-col min-h-screen">
-                    <ConditionalTopNav />
-                    <main className="flex-1">{children}</main>
-                    <Toaster position="top-center" reverseOrder={false} />
-                  </div>
-                </RestaurantSettingsProvider>
-              </AxiosInterceptor>
-            </TokenProvider>
+            <TenantProvider>
+              <TokenProvider>
+                <AxiosInterceptor>
+                  <RestaurantSettingsProvider>
+                    <div className="flex flex-col min-h-screen">
+                      <ConditionalTopNav />
+                      <main className="flex-1">{children}</main>
+                      <Toaster position="top-center" reverseOrder={false} />
+                    </div>
+                  </RestaurantSettingsProvider>
+                </AxiosInterceptor>
+              </TokenProvider>
+            </TenantProvider>
           </LanguageProvider>
         </Providers>
       </body>
