@@ -7,6 +7,7 @@ import RestaurantCard, {
 import RestaurantHeader from "@/components/UI/RestaurantHeader";
 import RestaurantItms from "@/components/UI/RestaurantItms";
 import RestaurantOffers from "@/components/UI/Restaurantoffers";
+import RestaurantBundles from "@/components/UI/RestaurantBundles";
 import Link from "next/link";
 import { Lock, ShoppingBasket, X } from "lucide-react";
 import { motion } from "framer-motion";
@@ -333,6 +334,13 @@ export default function Restaurant() {
         textFirstColor={textFirstColor}
         onCartUpdated={fetchCart}
         focusTarget={focusTarget?.type === "discount" ? focusTarget : null}
+      />
+
+      <RestaurantBundles
+        restaurantId={restaurant?.id ?? ""}
+        firstColor={firstColor}
+        textFirstColor={textFirstColor}
+        onCartUpdated={fetchCart}
       />
 
       <RestaurantItms

@@ -9,7 +9,8 @@ export interface CartVariation {
 // 2. تحديث هيكل العنصر ليطابق الـ JSON الراجع من الـ API
 export interface CartItem {
   cartId: string; // الـ ID الخاص بصف الاسترجاع/التعديل في السيرفر
-  foodId: string; // الـ ID الخاص بالوجبة نفسها
+  foodId?: string; // الـ ID الخاص بالوجبة نفسها
+  bundleId?: string; // الـ ID الخاص بالباقة
   name: string;
   nameAr: string;
   description: string;
@@ -48,7 +49,7 @@ const cartSlice = createSlice({
 
       // البحث عن منتج مطابقة (نفس النوع ونفس الإضافات)
       const existingIndex = state.items.findIndex((item) => {
-        const isSameFood = item.foodId === newItem.foodId;
+        const isSameFood = (item.foodId && newItem.foodId && item.foodId === newItem.foodId) || (item.bundleId && newItem.bundleId && item.bundleId === newItem.bundleId);
         // تحويل المصفوفة لنص للمقارنة العميقة بين الإضافات
         const isSameVariations =
           JSON.stringify(item.variations) ===
