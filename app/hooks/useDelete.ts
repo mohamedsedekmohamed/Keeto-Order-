@@ -14,20 +14,22 @@ type DeleteResponse = {
 };
 
 type UseDeleteReturn<T> = {
-  deleteData: (customUrl?: string | null,   customSuccessMessage?: string) => Promise<T>;
+  deleteData: (customUrl?: string | null, customSuccessMessage?: string) => Promise<T>;
   loading: boolean;
   error: string | null;
 };
 
 export default function useDelete<T = DeleteResponse>(
   defaultUrl: string,
-    successMessage: string = "Deleted successfully!"
-
+  successMessage: string = "Deleted successfully!",
 ): UseDeleteReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const deleteData = async (customUrl: string | null = null,    customSuccessMessage?: string): Promise<T> => {
+  const deleteData = async (
+    customUrl: string | null = null,
+    customSuccessMessage?: string,
+  ): Promise<T> => {
     try {
       setLoading(true);
       setError(null);
@@ -36,7 +38,7 @@ export default function useDelete<T = DeleteResponse>(
       const response = res.data as DeleteResponse;
 
       if (response?.success) {
-       // toast.success(customSuccessMessage || successMessage);
+        // toast.success(customSuccessMessage || successMessage);
       } else if (response?.error?.message) {
         toast.error(response.error.message);
       }
@@ -56,6 +58,19 @@ export default function useDelete<T = DeleteResponse>(
         errorMessage = axiosError.response.data.message;
       } else if (axiosError.message) {
         errorMessage = axiosError.message;
+      }
+
+      const lower = errorMessage.toLowerCase();
+      if (
+        lower.includes("no token") ||
+        lower.includes("invalid token") ||
+        lower.includes("jwt expired") ||
+        lower.includes("token expired") ||
+        lower.includes("jwt malformed") ||
+        lower.includes("invalid signature") ||
+        axiosError.response?.status === 401
+      ) {
+        errorMessage = "Please login first";
       }
 
       setError(errorMessage);

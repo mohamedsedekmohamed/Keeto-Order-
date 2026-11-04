@@ -9,14 +9,14 @@ type UsePutReturn<T> = {
   putData: (
     body?: any,
     customUrl?: string | null,
-    toastMessage?: string | null
+    toastMessage?: string | null,
   ) => Promise<T>;
   loading: boolean;
   error: string | null;
 };
 
 export default function usePut<T = any>(
-  defaultUrl: string = ""
+  defaultUrl: string = "",
 ): UsePutReturn<T> {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export default function usePut<T = any>(
   const putData = async (
     body: any = {},
     customUrl: string | null = null,
-    toastMessage: string | null = null
+    toastMessage: string | null = null,
   ): Promise<T> => {
     try {
       setLoading(true);
@@ -50,6 +50,19 @@ export default function usePut<T = any>(
         errorMessage = axiosError.response.data.message;
       } else if (axiosError.message) {
         errorMessage = axiosError.message;
+      }
+
+      const lower = errorMessage.toLowerCase();
+      if (
+        lower.includes("no token") ||
+        lower.includes("invalid token") ||
+        lower.includes("jwt expired") ||
+        lower.includes("token expired") ||
+        lower.includes("jwt malformed") ||
+        lower.includes("invalid signature") ||
+        axiosError.response?.status === 401
+      ) {
+        errorMessage = "Please login first";
       }
 
       setError(errorMessage);

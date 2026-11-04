@@ -46,11 +46,18 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
         axiosError.message ||
         "Request failed";
 
-      const isNoToken =
-        errorMsg.toLowerCase().includes("no token provided") ||
-        errorMsg.toLowerCase().includes("no token");
+      const lower = errorMsg.toLowerCase();
+      const isTokenError =
+        axiosError.response?.status === 401 ||
+        lower.includes("no token") ||
+        lower.includes("invalid token") ||
+        lower.includes("jwt expired") ||
+        lower.includes("token expired") ||
+        lower.includes("jwt malformed") ||
+        lower.includes("invalid signature") ||
+        lower.includes("unauthorized");
 
-      if (isNoToken) {
+      if (isTokenError) {
         setError(null);
       } else {
         setError(errorMsg);

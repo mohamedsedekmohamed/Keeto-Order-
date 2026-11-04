@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import api, { setActiveSlug } from "@/api/api"; // adjust to your actual path
+import api, { setActiveSlug, isJwtExpired, clearAuthTokens } from "@/api/api"; // adjust to your actual path
 import { useTenant } from "./TenantContext";
 
 type TokenContextType = {
@@ -34,23 +34,45 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     setActiveSlug(currentSlug ?? null);
   }, [currentSlug]);
-  // جلب الـ slug الحالي تلقائياً من المسار إن وجد
 
   useEffect(() => {
     setIsReady(true);
+  }, []);
+
+  // Listen to global auth:invalid-token events triggered by axios response interceptor
+  useEffect(() => {
+    const handleInvalidToken = () => {
+      setTick((prev) => prev + 1);
+    };
+
+    window.addEventListener("auth:invalid-token", handleInvalidToken);
+    return () => {
+      window.removeEventListener("auth:invalid-token", handleInvalidToken);
+    };
   }, []);
 
   const getToken = (slug?: string | null) => {
     if (typeof window === "undefined") return null;
     const resolvedSlug = slug || currentSlug;
     const key = resolvedSlug ? `token_${resolvedSlug}` : "token";
-    return localStorage.getItem(key);
+    const val = localStorage.getItem(key);
+
+    if (!val || val === "undefined" || val === "null" || !val.trim()) {
+      return null;
+    }
+
+    if (isJwtExpired(val)) {
+      clearAuthTokens(resolvedSlug);
+      return null;
+    }
+
+    return val;
   };
 
   const setToken = (newToken: string | null, slug?: string | null) => {
     const resolvedSlug = slug || currentSlug;
     const key = resolvedSlug ? `token_${resolvedSlug}` : "token";
-    if (newToken) {
+    if (newToken && newToken !== "undefined" && newToken !== "null") {
       localStorage.setItem(key, newToken);
     } else {
       localStorage.removeItem(key);
@@ -60,8 +82,7 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = (slug?: string | null) => {
     const resolvedSlug = slug || currentSlug;
-    const key = resolvedSlug ? `token_${resolvedSlug}` : "token";
-    localStorage.removeItem(key);
+    clearAuthTokens(resolvedSlug);
     setTick((prev) => prev + 1);
   };
 

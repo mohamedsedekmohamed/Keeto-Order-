@@ -53,9 +53,18 @@ export default function usePost<T = any>(
         errorMessage = axiosError.message;
       }
 
-      // 2. Intercept "no token" error and convert it to a user-friendly message
-      if (errorMessage.toLowerCase().includes("no token provided")) {
-        errorMessage = "Login please";
+      // 2. Intercept auth/token errors and convert to user-friendly message
+      const lower = errorMessage.toLowerCase();
+      if (
+        lower.includes("no token") ||
+        lower.includes("invalid token") ||
+        lower.includes("jwt expired") ||
+        lower.includes("token expired") ||
+        lower.includes("jwt malformed") ||
+        lower.includes("invalid signature") ||
+        axiosError.response?.status === 401
+      ) {
+        errorMessage = "Please login first";
       }
 
       // 3. Update state, show UI feedback, and pass the error upward
