@@ -14,6 +14,8 @@ import {
   Sparkles,
   ShoppingBag,
   CheckCircle2,
+  Layers,
+  PlusCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLanguage } from "@/context/LanguageContext";
@@ -29,22 +31,59 @@ import { AnimatePresence, motion } from "framer-motion";
 // Type Definitions
 // ─────────────────────────────────────────────
 
-export interface BundleFoodItem {
-  foodId: string;
-  quantity: number;
-  variations?: string | any[];
+export interface VariationOption {
+  id: string;
   name: string;
   nameAr?: string;
   nameFr?: string;
+  additionalPrice?: number;
+  price?: number;
+}
+
+export interface Variation {
+  id: string;
+  name: string;
+  nameAr?: string;
+  nameFr?: string;
+  isRequired?: boolean;
+  selectionType?: string;
+  min?: number;
+  max?: number;
+  options: VariationOption[];
+}
+
+export interface AddonItem {
+  id: string;
+  name: string;
+  nameAr?: string;
+  nameFr?: string;
+  price?: number;
+}
+
+export interface BundleFoodItem {
+  foodId: string;
+  quantity: number;
+  name: string;
+  nameAr?: string;
+  nameFr?: string;
+  description?: string;
+  descriptionAr?: string;
+  descriptionFr?: string;
   image: string;
-  price: number;
+  price?: number;
+  originalPrice?: number;
+  isOutOfStock?: boolean;
+  variations?: Variation[] | string;
+  addons?: AddonItem[] | string;
 }
 
 export interface BundleRestaurant {
   id: string;
   name: string;
   nameAr?: string;
+  nameFr?: string;
   logo?: string;
+  cover?: string;
 }
 
 export interface BundleItem {
@@ -66,7 +105,7 @@ export interface BundleItem {
 interface BundlesApiResponse {
   success: boolean;
   message?: string;
-  data: BundleItem[];
+  data: BundleItem[] | { message?: string; data: BundleItem[] };
 }
 
 interface RestaurantBundlesProps {
@@ -74,6 +113,18 @@ interface RestaurantBundlesProps {
   firstColor?: string;
   textFirstColor?: string;
   onCartUpdated?: () => void;
+}
+
+function parseList<T>(data: any): T[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === "string") {
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
 }
 
 export default function RestaurantBundles({
@@ -95,13 +146,17 @@ export default function RestaurantBundles({
   const accent = firstColor || "#facc15";
   const accentText = textFirstColor || "#111827";
 
-  // 1. Fetch All Bundles for this restaurant: GET /api/user/bundles?restaurantId=${restaurantId}
+  // 1. Fetch All Bundles: GET /api/user/bundles?restaurantId=${restaurantId}
   const { data: apiResponse, loading: fetchingBundles } = useGet(
     restaurantId ? `/api/user/bundles?restaurantId=${restaurantId}` : null,
   ) as { data: BundlesApiResponse | null; loading: boolean };
 
-  // Defensively extract bundles array
-  const rawData: any = apiResponse?.data;
+  // Defensively extract bundles array from various response formats
+  const rawData: any =
+    (apiResponse?.data as any)?.data ||
+    apiResponse?.data ||
+    (Array.isArray(apiResponse) ? apiResponse : []);
+
   const bundles: BundleItem[] = Array.isArray(rawData)
     ? rawData
     : Array.isArray(rawData?.data)
@@ -156,13 +211,14 @@ export default function RestaurantBundles({
       const res = await api.get(
         `/api/user/bundles/${bundle.id}?restaurantId=${restaurantId}`,
       );
-      const detail = res?.data?.data?.data || res?.data?.data || res?.data;
+      const detail =
+        res?.data?.data?.data || res?.data?.data || res?.data;
       if (detail && detail.id) {
         setSelectedBundle(detail);
       }
     } catch (err) {
       console.error("Error fetching bundle detail by ID:", err);
-      // fallback to initial bundle item already set in state
+      // fallback to initial bundle item already in state
     } finally {
       setLoadingDetail(false);
     }
@@ -230,9 +286,10 @@ export default function RestaurantBundles({
       if (stored.mode === "takeaway") fulfillmentData.branchId = stored.id;
     }
 
-    // Send bundleId in query param AND payload (omitting foodId as requested)
+    // Send offerId in query param AND payload (omitting foodId as requested)
     const payload = {
       offerId: selectedBundle.id,
+      bundleId: selectedBundle.id,
       restaurantId: restaurantId || selectedBundle.restaurant?.id,
       quantity,
       note: note.trim() || undefined,
@@ -280,7 +337,8 @@ export default function RestaurantBundles({
 
   // Calculate pricing breakdown for current selected bundle
   const selectedOriginalTotal = (selectedBundle?.foods || []).reduce(
-    (sum, f) => sum + (Number(f.price) || 0) * (Number(f.quantity) || 1),
+    (sum, f) =>
+      sum + (Number(f.price ?? f.originalPrice) || 0) * (Number(f.quantity) || 1),
     0,
   );
   const selectedBundlePrice = Number(selectedBundle?.price) || 0;
@@ -328,7 +386,8 @@ export default function RestaurantBundles({
           {bundles.map((bundle) => {
             const name = localizedField(bundle, "name", lang) || bundle.name;
             const originalTotal = (bundle.foods || []).reduce(
-              (sum, f) => sum + (Number(f.price) || 0) * (Number(f.quantity) || 1),
+              (sum, f) =>
+                sum + (Number(f.price ?? f.originalPrice) || 0) * (Number(f.quantity) || 1),
               0,
             );
             const bundlePrice = Number(bundle.price) || 0;
@@ -528,7 +587,7 @@ export default function RestaurantBundles({
                   </div>
                 )}
 
-                {/* Included Foods Breakdown */}
+                {/* Included Foods Breakdown with Variations & Addons Display */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-bold text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -549,44 +608,137 @@ export default function RestaurantBundles({
                       <span className="text-xs">{t("loading") || "Loading..."}</span>
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
                       {(selectedBundle.foods || []).map((food, idx) => {
-                        const foodName = localizedField(food, "name", lang) || food.name;
+                        const foodName =
+                          localizedField(food, "name", lang) || food.name;
+                        const foodPrice =
+                          Number(food.price ?? food.originalPrice) || 0;
+                        const variations = parseList<Variation>(food.variations);
+                        const addons = parseList<AddonItem>(food.addons);
+
                         return (
                           <div
                             key={food.foodId || idx}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800"
+                            className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 space-y-2.5"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-700 shrink-0">
-                                {food.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={toImageSrc(food.image)}
-                                    alt={foodName}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-zinc-400">
-                                    <Utensils size={18} />
+                            {/* Product Header */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-700 shrink-0">
+                                  {food.image ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={toImageSrc(food.image)}
+                                      alt={foodName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                                      <Utensils size={18} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <h5 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                    {foodName}
+                                  </h5>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="inline-block px-2 py-0.5 text-[10px] font-black rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                                      {isRTL
+                                        ? `الكمية: ${food.quantity}`
+                                        : `Qty: ${food.quantity}`}
+                                    </span>
+                                    {food.isOutOfStock && (
+                                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                                        {isRTL ? "غير متوفر" : "Out of stock"}
+                                      </span>
+                                    )}
                                   </div>
-                                )}
+                                </div>
                               </div>
-                              <div>
-                                <h5 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                                  {foodName}
-                                </h5>
-                                <span className="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-black rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                  {isRTL ? `الكمية: ${food.quantity}` : `Qty: ${food.quantity}`}
-                                </span>
-                              </div>
+
+                              {foodPrice > 0 && (
+                                <div className="text-end shrink-0">
+                                  <span className="text-xs font-black text-zinc-700 dark:text-zinc-300">
+                                    {foodPrice} E£
+                                  </span>
+                                </div>
+                              )}
                             </div>
 
-                            <div className="text-end">
-                              <span className="text-xs font-black text-zinc-700 dark:text-zinc-300">
-                                {food.price} E£
-                              </span>
-                            </div>
+                            {/* Variations Display (Options / Sizes) */}
+                            {variations.length > 0 && (
+                              <div className="pt-2 border-t border-zinc-200/50 dark:border-zinc-700/50 space-y-1.5">
+                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                                  <Layers size={13} style={{ color: accent }} />
+                                  <span>
+                                    {isRTL ? "الخيارات والأحجام:" : "Options & Variations:"}
+                                  </span>
+                                </div>
+                                <div className="space-y-1.5 ps-1">
+                                  {variations.map((v) => {
+                                    const vName =
+                                      localizedField(v, "name", lang) || v.name;
+                                    const options = Array.isArray(v.options)
+                                      ? v.options
+                                      : [];
+                                    return (
+                                      <div
+                                        key={v.id || vName}
+                                        className="text-xs flex flex-wrap items-center gap-1.5"
+                                      >
+                                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                                          {vName}:
+                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {options.map((opt) => {
+                                            const optName =
+                                              localizedField(opt, "name", lang) ||
+                                              opt.name;
+                                            return (
+                                              <span
+                                                key={opt.id || optName}
+                                                className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 shadow-sm"
+                                              >
+                                                {optName}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Add-ons Display */}
+                            {addons.length > 0 && (
+                              <div className="pt-2 border-t border-zinc-200/50 dark:border-zinc-700/50 space-y-1.5">
+                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                                  <PlusCircle size={13} className="text-emerald-500" />
+                                  <span>
+                                    {isRTL ? "الإضافات المتاحة:" : "Available Add-ons:"}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 ps-1">
+                                  {addons.map((addon) => {
+                                    const addonName =
+                                      localizedField(addon, "name", lang) ||
+                                      addon.name;
+                                    return (
+                                      <span
+                                        key={addon.id || addonName}
+                                        className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 shadow-sm"
+                                      >
+                                        {addonName}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -726,4 +878,3 @@ export default function RestaurantBundles({
     </section>
   );
 }
-
