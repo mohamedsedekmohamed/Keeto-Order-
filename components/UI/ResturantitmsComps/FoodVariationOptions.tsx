@@ -43,14 +43,19 @@ export default function FoodVariationOptions({
                   const isSelected = (
                     selectedOptions[variation.id] || []
                   ).includes(option.id);
+                  const selectedCount = (selectedOptions[variation.id] || []).length;
+                  const maxAllowed = variation.max ?? (variation.selectionType === "multiple" ? Infinity : 1);
+                  const isAtMax = variation.selectionType === "multiple" && !isSelected && selectedCount >= maxAllowed;
                   return (
                     <label
                       key={`rec-option-${option.id}`}
-                      onClick={() => onSelect(variation, option)}
-                      className={`flex items-center justify-between px-3 py-2 border rounded-xl cursor-pointer transition-all select-none ${
-                        isSelected
-                          ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 ring-1 ring-yellow-400"
-                          : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                      onClick={() => !isAtMax && onSelect(variation, option)}
+                      className={`flex items-center justify-between px-3 py-2 border rounded-xl transition-all select-none ${
+                        isAtMax
+                          ? "cursor-not-allowed opacity-40 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                          : isSelected
+                            ? "cursor-pointer border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 ring-1 ring-yellow-400"
+                            : "cursor-pointer border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -108,13 +113,23 @@ export default function FoodVariationOptions({
                 ? isRtl
                   ? "اختر واحد"
                   : "Select One"
-                : variation.max
-                  ? isRtl
-                    ? `حد أقصى ${variation.max}`
-                    : `Max ${variation.max}`
-                  : isRtl
-                    ? "اختياري"
-                    : "Optional"}
+                : (() => {
+                    const min = variation.min ?? 0;
+                    const max = variation.max ?? 0;
+                    if (min > 0 && max > 0 && min === max) {
+                      return isRtl ? `اختر ${min}` : `Select ${min}`;
+                    }
+                    if (min > 0 && max > 0) {
+                      return isRtl ? `اختر من ${min} إلى ${max}` : `Select ${min}–${max}`;
+                    }
+                    if (max > 0) {
+                      return isRtl ? `حد أقصى ${max}` : `Max ${max}`;
+                    }
+                    if (min > 0) {
+                      return isRtl ? `اختر ${min} على الأقل` : `Select at least ${min}`;
+                    }
+                    return isRtl ? "اختياري" : "Optional";
+                  })()}
             </span>
           </div>
           <div className="grid grid-cols-1 gap-2.5">
@@ -123,14 +138,19 @@ export default function FoodVariationOptions({
                 const isSelected = (
                   selectedOptions[variation.id] || []
                 ).includes(option.id);
+                const selectedCount = (selectedOptions[variation.id] || []).length;
+                const maxAllowed = variation.max ?? (variation.selectionType === "multiple" ? Infinity : 1);
+                const isAtMax = variation.selectionType === "multiple" && !isSelected && selectedCount >= maxAllowed;
                 return (
                   <div
                     key={`option-${option.id}`}
-                    onClick={() => onSelect(variation, option)}
-                    className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 ease-out select-none active:scale-[0.99] group ${
-                      isSelected
-                        ? "border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
-                        : "border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                    onClick={() => !isAtMax && onSelect(variation, option)}
+                    className={`flex items-center justify-between p-4 border rounded-2xl transition-all duration-300 ease-out select-none group ${
+                      isAtMax
+                        ? "cursor-not-allowed opacity-40 border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40"
+                        : isSelected
+                          ? "cursor-pointer active:scale-[0.99] border-yellow-400 bg-yellow-50/20 dark:bg-yellow-400/5 shadow-md shadow-yellow-400/5 ring-1 ring-yellow-400"
+                          : "cursor-pointer active:scale-[0.99] border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
                     }`}
                   >
                     <div className="flex items-center gap-3.5">

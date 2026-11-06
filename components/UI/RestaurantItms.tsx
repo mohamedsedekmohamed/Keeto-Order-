@@ -859,17 +859,21 @@ export default function RestaurantItms({
     const sel =
       recommendedSelections[food.id] || initRecommendedSelection(food);
 
-    const missingRequiredVariation = (food.variations || []).some(
-      (variation: Variation) =>
-        variation.isRequired &&
-        (!sel.selectedOptions[variation.id] ||
-          sel.selectedOptions[variation.id].length === 0),
+    const invalidVariation = (food.variations || []).find(
+      (variation: Variation) => {
+        if (!variation.isRequired) return false;
+        const selectedCount = (sel.selectedOptions[variation.id] || []).length;
+        const minRequired = variation.min ?? 1;
+        return selectedCount < minRequired;
+      },
     );
-    if (missingRequiredVariation) {
+    if (invalidVariation) {
+      const minRequired = invalidVariation.min ?? 1;
+      const vName = isRtl ? invalidVariation.nameAr || invalidVariation.name : invalidVariation.name;
       toast.error(
         isRtl
-          ? "يرجى اختيار جميع الخيارات المطلوبة"
-          : "Please select all required options",
+          ? `يرجى اختيار ${minRequired} خيار(ات) على الأقل من "${vName}"`
+          : `Please select at least ${minRequired} option(s) for "${vName}"`,
       );
       return;
     }
@@ -1036,18 +1040,22 @@ export default function RestaurantItms({
     }
     if (!selectedItem) return;
 
-    const missingRequiredVariation = selectedItem.variations?.some(
-      (variation: Variation) =>
-        variation.isRequired &&
-        (!selectedOptions[variation.id] ||
-          selectedOptions[variation.id].length === 0),
+    const invalidVariation = selectedItem.variations?.find(
+      (variation: Variation) => {
+        if (!variation.isRequired) return false;
+        const selectedCount = (selectedOptions[variation.id] || []).length;
+        const minRequired = variation.min ?? 1;
+        return selectedCount < minRequired;
+      },
     );
 
-    if (missingRequiredVariation) {
+    if (invalidVariation) {
+      const minRequired = invalidVariation.min ?? 1;
+      const vName = isRtl ? invalidVariation.nameAr || invalidVariation.name : invalidVariation.name;
       toast.error(
         isRtl
-          ? "يرجى اختيار جميع الخيارات المطلوبة"
-          : "Please select all required options",
+          ? `يرجى اختيار ${minRequired} خيار(ات) على الأقل من "${vName}"`
+          : `Please select at least ${minRequired} option(s) for "${vName}"`,
       );
       return;
     }
