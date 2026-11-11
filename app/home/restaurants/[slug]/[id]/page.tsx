@@ -428,6 +428,20 @@ export default function Home() {
         </div>
       )}
 
+      {isSectionEnabled("hotline") && restaurant?.callcenterphone && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 w-full max-w-md px-6 text-center"
+        >
+          <p className="flex items-center justify-center gap-2 text-sm font-semibold text-gray-700 dark:text-zinc-300">
+            <Phone size={16} style={{ color: firstColor }} />
+            <span>{t("hotline")}:</span>
+            <span dir="ltr">{restaurant.callcenterphone}</span>
+          </p>
+        </motion.div>
+      )}
+
       {/* ORDER BUTTON */}
       {isSectionEnabled("orderNow") && (
         <motion.div
@@ -448,23 +462,6 @@ export default function Home() {
             <ShoppingCart size={18} />
             {t("orderNow")}
           </button>
-        </motion.div>
-      )}
-
-      {isSectionEnabled("hotline") && restaurant?.ownerPhone && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md px-6"
-        >
-          <a
-            href={`tel:${restaurant.ownerPhone}`}
-            className="flex w-full items-center justify-center gap-2 py-3 mt-3 text-base font-bold rounded-xl transition-opacity hover:opacity-90"
-            style={{ backgroundColor: firstColor, color: textFirstColor }}
-          >
-            <Phone size={18} />
-            {t("hotline")}
-          </a>
         </motion.div>
       )}
 

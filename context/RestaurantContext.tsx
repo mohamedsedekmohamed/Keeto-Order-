@@ -19,6 +19,7 @@ export interface Restaurant {
   addressAr: string;
   addressFr?: string;
   ownerPhone: string;
+  callcenterphone?: string | null;
   ownerFirstName?: string;
   ownerLastName?: string;
   minDeliveryTime: string;
