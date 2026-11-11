@@ -394,11 +394,17 @@ export default function Home() {
 
       {/* CARDS */}
       {cards.length > 0 && (
-        <div className="grid w-full max-w-md grid-cols-2 gap-5 mt-10 px-6">
+        <div
+          className={`grid w-full max-w-md ${cards.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-5 mt-10 px-6`}
+        >
           {cards.map((item, i) => {
             const Icon = item.icon;
             return (
-              <Link key={item.setting} href={`${basePath}${item.nameToAdd}`}>
+              <Link
+                key={item.setting}
+                href={`${basePath}${item.nameToAdd}`}
+                className={cards.length === 1 ? "w-1/2 justify-self-center" : ""}
+              >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
