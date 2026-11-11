@@ -13,6 +13,18 @@ import api from "@/api/api";
 import { getRestaurantId, setRestaurantId as storeRestaurantId } from "./Restaurantid";
 import { useTenant } from "./TenantContext";
 
+export interface OrderNowSetting {
+  hotline?: boolean;
+  branches?: boolean;
+  name?: boolean;
+  orderNow?: boolean;
+  eMenu?: boolean;
+  socialMedia?: boolean;
+  menuPdf?: boolean;
+  iosIcon?: boolean;
+  androidIcon?: boolean;
+}
+
 export interface RestaurantSettings {
   firstColor?: string;
   secondColor?: string;
@@ -24,6 +36,7 @@ export interface RestaurantSettings {
   text_second_color?: string;
   productView?: string;
   instantOrder?: boolean | string;
+  orderNowSetting?: OrderNowSetting;
   [key: string]: any;
 }
 
