@@ -34,9 +34,10 @@ const Footer = () => {
               <Image
                 src="/main.webp"
                 alt="KeeTo Logo"
-                width={128} // تعادل w-32
-                height={128} // تعادل h-32
-                className="mx-auto"
+                width={450}
+                height={150}
+                loading="eager"
+                className="mx-auto w-32 h-auto"
               />
             </Link>
 
