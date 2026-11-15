@@ -42,6 +42,8 @@ export default function AddToCartDialog({
   onNoteChange,
   onSubmit,
 }: AddToCartDialogProps) {
+  const imageSrc = item.image?.trim();
+
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-md transition-all duration-500 animate-in fade-in">
       <div className="relative w-full max-w-xl overflow-hidden bg-white dark:bg-zinc-900 border-t sm:border border-zinc-100 dark:border-zinc-800 flex flex-col max-h-[90vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-12 duration-500 ease-out overscroll-behavior-contain">
@@ -55,17 +57,19 @@ export default function AddToCartDialog({
         </div>
 
         <div className="relative w-full h-56 sm:h-72 shrink-0 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-          <img
-            src={item.image}
-            alt={item.name}
-            loading="eager"
-            decoding="async"
-            className="object-cover w-full h-full transform transition-transform duration-[1000ms] ease-out hover:scale-105 will-change-transform"
-            style={{
-              imageRendering: "-webkit-optimize-contrast",
-              transform: "translate3d(0,0,0)",
-            }}
-          />
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={item.name}
+              loading="eager"
+              decoding="async"
+              className="object-cover w-full h-full transform transition-transform duration-[1000ms] ease-out hover:scale-105 will-change-transform"
+              style={{
+                imageRendering: "-webkit-optimize-contrast",
+                transform: "translate3d(0,0,0)",
+              }}
+            />
+          ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-zinc-900 via-zinc-950/10 to-black/20 pointer-events-none" />
         </div>
 
