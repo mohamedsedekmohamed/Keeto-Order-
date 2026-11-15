@@ -27,6 +27,7 @@ export default function FoodCard({
   onToggleFavorite,
 }: FoodCardProps) {
   const outOfStock = Boolean((item as any).isOutOfStock);
+  const imageSrc = item.image?.trim();
 
   return (
     <div
@@ -44,14 +45,16 @@ export default function FoodCard({
           : "cursor-pointer hover:shadow-md"
       }`}
     >
-      <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl">
-        <img
-          src={item.image}
-          alt={item.name}
-          className={`object-cover w-full h-full transition-transform ${
-            outOfStock ? "grayscale" : "group-hover:scale-110"
-          }`}
-        />
+      <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-xl bg-gray-100 dark:bg-zinc-800">
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={item.name}
+            className={`object-cover w-full h-full transition-transform ${
+              outOfStock ? "grayscale" : "group-hover:scale-110"
+            }`}
+          />
+        ) : null}
         {outOfStock && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <span className="px-2 py-1 text-[10px] font-black tracking-wide text-white uppercase rounded-md bg-black/70">
