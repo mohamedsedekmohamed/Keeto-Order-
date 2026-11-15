@@ -55,6 +55,9 @@ interface DerivedCategory {
   coverImage: string;
 }
 
+const getSubCategoryUniqueId = (catId: string, subId: string) =>
+  subId === "__no_sub__" ? `${catId}__no_sub__` : `${catId}__${subId}`;
+
 type ViewMode = "menu";
 
 export default function RestaurantItms({
@@ -243,10 +246,8 @@ export default function RestaurantItms({
     }[] = [];
     derivedMenu.forEach((cat) => {
       cat.subCategories.forEach((sub) => {
-        const uniqueId =
-          sub.id === "__no_sub__" ? `${cat.id}__no_sub__` : sub.id;
         subs.push({
-          id: uniqueId,
+          id: getSubCategoryUniqueId(cat.id, sub.id),
           rawId: sub.id,
           name: sub.name,
           nameAr: sub.nameAr,
@@ -446,9 +447,7 @@ export default function RestaurantItms({
             setActiveSubCategoryTab(subId === "__no_sub__" ? null : subId);
 
             const activeId =
-              subId === "__no_sub__"
-                ? `subtab-${parentCatId}__no_sub__`
-                : `subtab-${subId}`;
+              `subtab-${getSubCategoryUniqueId(parentCatId, subId)}`;
             centerActiveTab(activeId);
           }
         }
@@ -492,7 +491,9 @@ export default function RestaurantItms({
       return;
     }
 
-    const found = dynamicSubCategories.find((s) => s.id === subUniqueId);
+    const found = dynamicSubCategories.find(
+      (s) => s.id === subUniqueId || s.rawId === subUniqueId,
+    );
     if (found) {
       setActiveCategoryTab(found.catId);
       setActiveSubCategoryTab(
