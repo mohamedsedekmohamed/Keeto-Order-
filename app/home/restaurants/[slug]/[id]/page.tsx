@@ -15,7 +15,7 @@ import {
   MapPin,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../../context/LanguageContext";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
 import Loading from "@/components/Loading";
@@ -138,7 +138,6 @@ export default function Home() {
   const { t, language } = useLanguage();
   const params = useParams();
   const isRTL = language === "العربية";
-  const router = useRouter();
 
   const restaurantName = params?.slug as string;
   const basePath = `/home/restaurants/${restaurantName}`;
@@ -152,12 +151,6 @@ export default function Home() {
     useRestaurantSettings();
   const isSectionEnabled = (section: keyof OrderNowSetting) =>
     settings?.orderNowSetting?.[section] !== false;
-
-  const handleOrderNowClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    if (!instantOrder) return;
-    router.push(`${basePath}/restaurant`);
-  };
 
   const [showBranches, setShowBranches] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -220,11 +213,7 @@ export default function Home() {
         }
 
         if (!cancelled) {
-          setBranches(
-            result.data.data.filter(
-              (branch) => !branch.status || branch.status === "active",
-            ),
-          );
+          setBranches(result.data.data);
         }
       } catch (error) {
         if (!cancelled) {
@@ -403,7 +392,9 @@ export default function Home() {
               <Link
                 key={item.setting}
                 href={`${basePath}${item.nameToAdd}`}
-                className={cards.length === 1 ? "w-1/2 justify-self-center" : ""}
+                className={
+                  cards.length === 1 ? "w-1/2 justify-self-center" : ""
+                }
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -449,10 +440,13 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md px-6"
         >
-          <button
-            type="button"
-            onClick={handleOrderNowClick}
-            disabled={!instantOrder}
+          <a
+            href={`${basePath}/restaurant`}
+            aria-disabled={!instantOrder}
+            tabIndex={instantOrder ? undefined : -1}
+            onClick={(event) => {
+              if (!instantOrder) event.preventDefault();
+            }}
             className={`flex w-full items-center justify-center gap-2 py-3 mt-6 text-base font-bold rounded-xl transition-colors ${
               !instantOrder
                 ? "bg-gray-300 text-gray-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed"
@@ -461,7 +455,7 @@ export default function Home() {
           >
             <ShoppingCart size={18} />
             {t("orderNow")}
-          </button>
+          </a>
         </motion.div>
       )}
 
@@ -546,9 +540,7 @@ export default function Home() {
               <div className="relative flex items-center justify-center gap-2 py-4 bg-gray-100 border border-gray-200 dark:bg-zinc-800/40 dark:border-zinc-800/50 rounded-2xl opacity-60 cursor-not-allowed select-none text-gray-400 dark:text-zinc-500">
                 <FaGooglePlay className="w-5 h-5 grayscale opacity-40" />
                 <div className="flex flex-col items-start leading-tight">
-                  <span className="text-[10px] opacity-70">
-                    {t("getItOn")}
-                  </span>
+                  <span className="text-[10px] opacity-70">{t("getItOn")}</span>
                   <span className="text-sm font-bold">{t("googlePlay")}</span>
                 </div>
                 <Lock className="absolute top-2.5 right-2.5 w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
@@ -643,7 +635,8 @@ export default function Home() {
                   />
                   {t("loading")}
                 </div>
-              ) : branchesRestaurantId !== restaurant?.id ? null : branchesError ? (
+              ) : branchesRestaurantId !==
+                restaurant?.id ? null : branchesError ? (
                 <p className="py-8 text-sm text-center text-red-500">
                   {t("branchesLoadFailed")}
                 </p>

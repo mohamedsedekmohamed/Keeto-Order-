@@ -173,12 +173,31 @@ export default function Checkout() {
   // so it only auto-opens once — if the guest closes it, it stays closed.
   const autoOpenedGuestAddressPopupRef = useRef(false);
 
+  const orderSource = getOrderSource();
+  const checkoutQuery = useMemo(() => {
+    const query = new URLSearchParams();
+    if (restaurantId) query.set("restaurantId", restaurantId);
+    query.set("orderSource", orderSource);
+    if (orderType === "delivery" && selectedAddress) {
+      query.set("addressId", selectedAddress);
+    } else if (orderType !== "delivery" && selectedBranch) {
+      query.set("branchId", selectedBranch);
+    }
+    return query.toString();
+  }, [
+    orderSource,
+    orderType,
+    restaurantId,
+    selectedAddress,
+    selectedBranch,
+  ]);
+
   const {
     data: checkoutData,
     loading: isLoadingCheckout,
     refetch,
   } = useGet<any>(
-    `/api/user/order/select?restaurantId=${restaurantId}&orderSource=${getOrderSource()}`,
+    `/api/user/order/select?${checkoutQuery}`,
   );
 
   // /api/user/cart needs restaurantId + serviceModule always, plus
@@ -464,6 +483,15 @@ export default function Checkout() {
     0,
     freeDeliveryMinOrderAmount - subtotal,
   );
+  const freeDeliveryProgress =
+    freeDeliveryMinOrderAmount > 0
+      ? Math.min(
+          100,
+          ((freeDeliveryMinOrderAmount - freeDeliveryRemaining) /
+            freeDeliveryMinOrderAmount) *
+            100,
+        )
+      : 100;
 
   // Modified: Extract service fee from the root data object
   const serviceFee = Number(data?.serviceFee) || 0;
@@ -1156,19 +1184,68 @@ export default function Checkout() {
             </div>
           )}
 
-          {activeOrderType === "delivery" &&
-            currentAddress?.isDeliverable &&
-            isFreeDeliveryOfferActive &&
-            !qualifiesForFreeDelivery && (
-              <div className="flex items-center gap-2 text-xs font-semibold text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-500/10 rounded-xl px-3 py-2">
-                <Truck size={14} />
-                <span>
-                  {t("dir") === "rtl"
-                    ? `أضف ${freeDeliveryRemaining} ${t("egp")} أخرى (الحد الأدنى ${freeDeliveryMinOrderAmount} ${t("egp")}) للحصول على توصيل مجاني`
-                    : `Add ${freeDeliveryRemaining} ${t("egp")} more (min. ${freeDeliveryMinOrderAmount} ${t("egp")}) to get free delivery`}
-                </span>
+          {isFreeDeliveryOfferActive && (
+            <div
+              className={`flex flex-col gap-2 p-4 mb-4 rounded-2xl ${
+                qualifiesForFreeDelivery
+                  ? "bg-green-50 dark:bg-green-500/10"
+                  : "bg-yellow-50 dark:bg-yellow-500/10"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Truck
+                  size={18}
+                  className={
+                    qualifiesForFreeDelivery
+                      ? "text-green-600 dark:text-green-500"
+                      : "text-yellow-600 dark:text-yellow-500"
+                  }
+                />
+                {qualifiesForFreeDelivery ? (
+                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                    {t("freeDeliveryUnlocked") || "You've got free delivery!"}
+                  </span>
+                ) : (
+                  <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-500">
+                    {t("addMoreForFreeDelivery") ||
+                      `Add ${freeDeliveryRemaining} ${t("currency")} more to get free delivery`}
+                  </span>
+                )}
               </div>
-            )}
+
+              {!qualifiesForFreeDelivery && (
+                <>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">
+                    {t("freeDeliveryMinOrderNote") ||
+                      `Free delivery on orders over ${freeDeliveryMinOrderAmount} ${t("currency")}`}
+                  </p>
+                  <div className="w-full h-2 overflow-hidden rounded-full bg-yellow-100 dark:bg-zinc-800">
+                    <div
+                      className="h-full transition-all duration-500 bg-yellow-400 rounded-full"
+                      style={{ width: `${freeDeliveryProgress}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-zinc-300">
+                    <span>
+                      {freeDeliveryMinOrderAmount - freeDeliveryRemaining} /{" "}
+                      {freeDeliveryMinOrderAmount} {t("currency")}
+                    </span>
+                    <span className="text-yellow-600 dark:text-yellow-500">
+                      -{freeDeliveryRemaining} {t("currency")}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => router.back()}
+                    className="flex items-center justify-center gap-2 py-2 mt-2 text-sm font-bold transition-colors rounded-xl bg-white/70 dark:bg-zinc-900/40 hover:bg-white dark:hover:bg-zinc-900/70 text-gray-700 dark:text-zinc-200"
+                  >
+                    <ChevronLeft className="w-4 h-4 transform rotate-0 rtl:rotate-180" />
+                    <span>{t("backToShop") || "Back to shop"}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-between items-center">
             <span>{t("serviceFee")}</span>
