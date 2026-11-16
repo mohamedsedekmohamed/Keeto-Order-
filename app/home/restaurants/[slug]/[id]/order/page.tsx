@@ -31,7 +31,13 @@ import Image from "next/image";
 import api from "@/api/api";
 import type { CartItem } from "@/redux/cartSlice";
 
-type WeightRequestStatus = "idle" | "pending" | "accepted" | "rejected" | "error";
+type WeightRequestStatus =
+  | "idle"
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "error";
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -77,8 +83,9 @@ const normalizeWeightRequestStatus = (
     payload?.requestStatus ??
     payload?.request_status ??
     payload?.state;
+  const canCheckout = payload?.canCheckout ?? responseData?.canCheckout;
   if (typeof rawStatus !== "string") {
-    return responseData?.canCheckout === true ? "accepted" : "unknown";
+    return canCheckout === true ? "accepted" : "unknown";
   }
 
   const status = rawStatus.trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -98,12 +105,22 @@ const normalizeWeightRequestStatus = (
     "in_progress",
     "awaiting_weighing",
   ];
-  if (responseData?.canCheckout === true) return "accepted";
-  if (responseData?.canCheckout === false) {
-    return pendingStatuses.includes(status) ? "pending" : "unknown";
-  }
-  if (["accepted", "approved", "confirmed", "completed"].includes(status)) {
+  if (
+    [
+      "accepted",
+      "approved",
+      "confirmed",
+      "completed",
+      "success",
+      "successful",
+      "awaiting_customer_approval",
+    ].includes(status)
+  ) {
     return "accepted";
+  }
+  if (canCheckout === true) return "accepted";
+  if (canCheckout === false) {
+    return pendingStatuses.includes(status) ? "pending" : "unknown";
   }
   if (pendingStatuses.includes(status)) {
     return "pending";
@@ -146,6 +163,8 @@ export default function Cart() {
     null,
   );
   const [isSendingWeightRequest, setIsSendingWeightRequest] = useState(false);
+  const [isCancellingWeightRequest, setIsCancellingWeightRequest] =
+    useState(false);
   const [weightRequestRestored, setWeightRequestRestored] = useState(false);
   const weightItems = useMemo(
     () => items.filter((item) => item.sold_by === "weight"),
@@ -259,7 +278,8 @@ export default function Cart() {
       const next = { ...previous };
       weightItems.forEach((item) => {
         if (next[item.cartId] === undefined) {
-          next[item.cartId] = item.weight == null ? "" : String(item.weight);
+          const weight = item.finalWeight ?? item.weight;
+          next[item.cartId] = weight == null ? "" : String(weight);
         }
       });
       return next;
@@ -272,7 +292,9 @@ export default function Cart() {
       Object.fromEntries(
         weightItems.map((item) => [
           item.cartId,
-          item.weight == null ? "" : String(item.weight),
+          (item.finalWeight ?? item.weight) == null
+            ? ""
+            : String(item.finalWeight ?? item.weight),
         ]),
       ),
     );
@@ -305,9 +327,12 @@ export default function Cart() {
       const savedCartIds = Array.isArray(parsed?.cartIds)
         ? parsed.cartIds.map(String).sort()
         : [];
-      const validStatus = ["pending", "accepted", "rejected"].includes(
-        parsed?.status,
-      );
+      const validStatus = [
+        "pending",
+        "accepted",
+        "rejected",
+        "cancelled",
+      ].includes(parsed?.status);
       const validRequestId =
         parsed?.status !== "pending" ||
         (typeof parsed?.requestId === "string" && parsed.requestId.length > 0);
@@ -322,7 +347,11 @@ export default function Cart() {
         setWeightRequestId(null);
       } else {
         setWeightRequestStatus(parsed.status);
-        setWeightRequestId(parsed.status === "pending" ? parsed.requestId : null);
+        setWeightRequestId(
+          parsed.status === "pending" || parsed.status === "accepted"
+            ? parsed.requestId || null
+            : null,
+        );
       }
     } catch (error) {
       console.error("Failed to restore weight request state", error);
@@ -333,6 +362,56 @@ export default function Cart() {
 
     setWeightRequestRestored(true);
   }, [cartData, enrichCartItems, isLoadingMenu, weightRequestStorageKey]);
+
+  useEffect(() => {
+    const cartResponse = asRecord(cartData?.data?.data);
+    const activeRequest =
+      asRecord(cartResponse?.activeWeightRequest) ??
+      asRecord(cartResponse?.weightRequest);
+    const responseItems = Array.isArray(cartResponse?.items)
+      ? cartResponse.items
+      : [];
+    const requestId =
+      activeRequest?.id ??
+      responseItems
+        .map(asRecord)
+        .find((item) => item?.weightRequestId)?.weightRequestId;
+    if (
+      activeRequest?.status !== "awaiting_customer_approval" ||
+      (typeof requestId !== "string" && typeof requestId !== "number") ||
+      cartResponse?.canCheckout !== true
+    ) {
+      return;
+    }
+
+    persistWeightRequestState("accepted", String(requestId));
+    setWeightInputs((previous) => {
+      let changed = false;
+      const next = { ...previous };
+      responseItems.forEach((value: unknown) => {
+        const item = asRecord(value);
+        const finalWeightValue = item?.finalWeight;
+        const finalWeight = Number(finalWeightValue);
+        if (
+          item?.sold_by === "weight" &&
+          (typeof item.cartId === "string" ||
+            typeof item.cartId === "number") &&
+          (typeof finalWeightValue === "string" ||
+            typeof finalWeightValue === "number") &&
+          Number.isFinite(finalWeight) &&
+          finalWeight > 0
+        ) {
+          const cartId = String(item.cartId);
+          const weight = String(finalWeightValue);
+          if (next[cartId] !== weight) {
+            next[cartId] = weight;
+            changed = true;
+          }
+        }
+      });
+      return changed ? next : previous;
+    });
+  }, [cartData, persistWeightRequestState]);
 
   useEffect(() => {
     if (
@@ -362,9 +441,9 @@ export default function Cart() {
             refetch,
             t,
           } = weightRequestPollActionsRef.current;
-          const responseItems = getWeightRequestResponseData(
-            response.data,
-          )?.items;
+          const responseItems =
+            getWeightRequestPayload(response.data)?.items ??
+            getWeightRequestResponseData(response.data)?.items;
           if (Array.isArray(responseItems)) {
             setWeightInputs((previous) => {
               const next = { ...previous };
@@ -389,7 +468,7 @@ export default function Cart() {
               return next;
             });
           }
-          persistWeightRequestState("accepted");
+          persistWeightRequestState("accepted", weightRequestId);
           await refetch();
           toast.success(t("weightRequestAccepted"));
         } else if (status === "rejected") {
@@ -492,13 +571,6 @@ export default function Cart() {
     : totalPrice;
   const handleWeightInputChange = (cartId: string, value: string) => {
     setWeightInputs((previous) => ({ ...previous, [cartId]: value }));
-    if (
-      weightRequestStatus === "accepted" ||
-      weightRequestStatus === "rejected" ||
-      weightRequestStatus === "error"
-    ) {
-      persistWeightRequestState("idle");
-    }
   };
 
   const handleSendWeightRequest = async () => {
@@ -564,6 +636,52 @@ export default function Cart() {
   const weightCheckoutReady =
     weightItems.length === 0 || weightRequestStatus === "accepted";
 
+  const cancelWeightRequest = async (reason: string) => {
+    if (!weightRequestId) {
+      throw new Error(t("weightRequestMissingId"));
+    }
+
+    await api.post(
+      `/api/user/weight-requests/${encodeURIComponent(weightRequestId)}/cancel`,
+      { reason },
+    );
+    persistWeightRequestState("cancelled");
+  };
+
+  const handleCancelWeightRequest = async () => {
+    if (isCancellingWeightRequest) return;
+    if (!weightRequestId) {
+      const errorMessage = t("weightRequestMissingId");
+      setWeightRequestError(errorMessage);
+      toast.error(errorMessage);
+      return;
+    }
+
+    setIsCancellingWeightRequest(true);
+    setWeightRequestError(null);
+    try {
+      await cancelWeightRequest("Changed my mind");
+      await refetch();
+      toast.success(
+        isRtl
+          ? "تم إلغاء طلب الوزن. يمكنك تعديل الأوزان وإرساله مرة أخرى."
+          : "Weight request cancelled. You can edit the weights and send it again.",
+      );
+    } catch (error) {
+      console.error("Failed to cancel weight request", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : isRtl
+            ? "تعذر إلغاء طلب الوزن."
+            : "Could not cancel the weight request.";
+      setWeightRequestError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsCancellingWeightRequest(false);
+    }
+  };
+
   // دوال التعامل مع الـ API
   const handleQuantityChange = async (
     cartId: string,
@@ -580,6 +698,9 @@ export default function Cart() {
     if (newQuantity < 1) return;
 
     try {
+      if (item?.sold_by === "weight" && weightRequestStatus === "accepted") {
+        await cancelWeightRequest("A weight item was changed in the cart");
+      }
       await putData({ quantity: newQuantity }, `/api/user/cart/${cartId}`);
       if (item?.sold_by === "weight") {
         persistWeightRequestState("idle");
@@ -597,13 +718,11 @@ export default function Cart() {
     try {
       if (
         items.find((item) => item.cartId === cartId)?.sold_by === "weight" &&
-        weightRequestStatus === "pending" &&
+        (weightRequestStatus === "pending" ||
+          weightRequestStatus === "accepted") &&
         weightRequestId
       ) {
-        await api.post(
-          `/api/user/weight-requests/${encodeURIComponent(weightRequestId)}/cancel`,
-          { reason: "A weight item was removed from the cart" },
-        );
+        await cancelWeightRequest("A weight item was removed from the cart");
       }
       await deleteData(`/api/user/cart/${cartId}`, t("itemRemoved"));
       if (items.find((item) => item.cartId === cartId)?.sold_by === "weight") {
@@ -618,11 +737,12 @@ export default function Cart() {
 
   const handleClearCart = async () => {
     try {
-      if (weightRequestStatus === "pending" && weightRequestId) {
-        await api.post(
-          `/api/user/weight-requests/${encodeURIComponent(weightRequestId)}/cancel`,
-          { reason: "The cart was cleared" },
-        );
+      if (
+        (weightRequestStatus === "pending" ||
+          weightRequestStatus === "accepted") &&
+        weightRequestId
+      ) {
+        await cancelWeightRequest("The cart was cleared");
       }
       await deleteData(
         restaurantId
@@ -697,6 +817,99 @@ export default function Cart() {
         </button>
       </div>
 
+      {weightItems.length > 0 && (
+        <div
+          className={`p-5 mb-6 space-y-3 border border-yellow-200 bg-yellow-50/95 dark:border-yellow-500/20 dark:bg-zinc-900/95 rounded-2xl ${
+            weightRequestStatus === "pending" ||
+            weightRequestStatus === "accepted"
+              ? "sticky top-2 z-20 shadow-lg backdrop-blur"
+              : ""
+          }`}
+        >
+          <h3 className="font-bold text-gray-900 dark:text-white">
+            {t("weightRequestTitle")}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-zinc-300">
+            {weightRequestStatus === "pending"
+              ? t("weightRequestPending")
+              : weightRequestStatus === "accepted"
+                ? t("weightRequestAccepted")
+                : weightRequestStatus === "rejected"
+                  ? t("weightRequestRejected")
+                  : weightRequestStatus === "cancelled"
+                    ? isRtl
+                      ? "تم إلغاء طلب الوزن. يمكنك تعديل الأوزان وإرساله مرة أخرى."
+                      : "Weight request cancelled. You can edit the weights and send it again."
+                    : t("weightRequestInstructions")}
+          </p>
+          {weightRequestError && (
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              {weightRequestError}
+            </p>
+          )}
+          {weightRequestStatus === "accepted" && (
+            <Link
+              href={buildLink("pay", restaurantName)}
+              onClick={(event) => {
+                if (!isOpen) {
+                  event.preventDefault();
+                  alert(t("Restaurant is currently closed"));
+                }
+              }}
+              aria-disabled={!isOpen}
+              className={`flex w-full items-center justify-center rounded-xl px-4 py-3 font-bold text-gray-900 ${
+                isOpen
+                  ? "bg-yellow-400 hover:bg-yellow-500"
+                  : "cursor-not-allowed bg-gray-300 opacity-60"
+              }`}
+            >
+              {isOpen ? t("checkoutNow") : t("closed")}
+            </Link>
+          )}
+          {(weightRequestStatus === "pending" ||
+            weightRequestStatus === "accepted") && (
+            <button
+              type="button"
+              onClick={handleCancelWeightRequest}
+              disabled={isCancellingWeightRequest || isSendingWeightRequest}
+              className="w-full px-4 py-3 font-bold text-red-700 transition-colors border border-red-200 rounded-xl bg-white hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              {isCancellingWeightRequest
+                ? isRtl
+                  ? "جارٍ إلغاء الطلب..."
+                  : "Cancelling request..."
+                : weightRequestStatus === "accepted"
+                  ? isRtl
+                    ? "إلغاء الطلب وتعديل الأوزان"
+                    : "Cancel and edit weights"
+                  : isRtl
+                    ? "إلغاء طلب الوزن"
+                    : "Cancel weight request"}
+            </button>
+          )}
+          {weightRequestStatus !== "pending" &&
+            weightRequestStatus !== "accepted" && (
+              <button
+                type="button"
+                onClick={handleSendWeightRequest}
+                disabled={
+                  !weightRequestRestored ||
+                  isSendingWeightRequest ||
+                  isCancellingWeightRequest
+                }
+                className="w-full px-4 py-3 font-bold text-gray-900 transition-colors bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSendingWeightRequest
+                  ? t("sendingWeightRequest")
+                  : weightRequestStatus === "rejected" ||
+                      weightRequestStatus === "cancelled"
+                    ? t("resendWeightRequest")
+                    : t("sendWeightRequest")}
+              </button>
+            )}
+        </div>
+      )}
+
       {/* Items */}
       <div className="space-y-4">
         {Array.isArray(items) &&
@@ -767,8 +980,13 @@ export default function Cart() {
                             event.target.value,
                           )
                         }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.preventDefault();
+                        }}
                         disabled={
                           weightRequestStatus === "pending" ||
+                          weightRequestStatus === "accepted" ||
+                          isCancellingWeightRequest ||
                           isSendingWeightRequest
                         }
                         className="w-36 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-yellow-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white disabled:opacity-60"
@@ -818,43 +1036,6 @@ export default function Cart() {
             </div>
           ))}
       </div>
-
-      {weightItems.length > 0 && (
-        <div className="p-5 mt-6 space-y-3 border border-yellow-200 bg-yellow-50/70 dark:border-yellow-500/20 dark:bg-yellow-500/5 rounded-2xl">
-          <h3 className="font-bold text-gray-900 dark:text-white">
-            {t("weightRequestTitle")}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-zinc-300">
-            {weightRequestStatus === "pending"
-              ? t("weightRequestPending")
-              : weightRequestStatus === "accepted"
-                ? t("weightRequestAccepted")
-                : weightRequestStatus === "rejected"
-                  ? t("weightRequestRejected")
-                  : t("weightRequestInstructions")}
-          </p>
-          {weightRequestError && (
-            <p className="text-sm font-medium text-red-600 dark:text-red-400">
-              {weightRequestError}
-            </p>
-          )}
-          {weightRequestStatus !== "pending" &&
-            weightRequestStatus !== "accepted" && (
-              <button
-                type="button"
-                onClick={handleSendWeightRequest}
-                disabled={!weightRequestRestored || isSendingWeightRequest}
-                className="w-full px-4 py-3 font-bold text-gray-900 transition-colors bg-yellow-400 rounded-xl hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSendingWeightRequest
-                  ? t("sendingWeightRequest")
-                  : weightRequestStatus === "rejected"
-                    ? t("resendWeightRequest")
-                    : t("sendWeightRequest")}
-              </button>
-            )}
-        </div>
-      )}
 
       {/* Summary */}
       <div className="p-6 mt-8 bg-white border border-gray-100/60 dark:bg-zinc-900 rounded-3xl">
