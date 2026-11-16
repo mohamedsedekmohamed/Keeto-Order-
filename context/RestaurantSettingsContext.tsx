@@ -9,9 +9,10 @@ import React, {
   useMemo,
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import api from "@/api/api";
+import { getSharedRequest } from "@/app/hooks/useGet";
 import { getRestaurantId, setRestaurantId as storeRestaurantId } from "./Restaurantid";
 import { useTenant } from "./TenantContext";
+import { useToken } from "./TokenContext";
 
 export interface OrderNowSetting {
   hotline?: boolean;
@@ -94,6 +95,7 @@ export function RestaurantSettingsProvider({
 }) {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { token } = useToken();
 
   // Try to resolve restaurant slug or ID from various sources
   const paramSlug = (params?.slug as string) || "";
@@ -126,8 +128,9 @@ export function RestaurantSettingsProvider({
         setIsLoading(true);
         setError(null);
 
-        const response = await api.get<RestaurantSettingsApiResponse>(
-          `/api/user/settings/${idToFetch}`
+        const response = await getSharedRequest<RestaurantSettingsApiResponse>(
+          `/api/user/settings/${idToFetch}`,
+          token,
         );
 
         const responseData = response?.data?.data?.data || response?.data?.data || response?.data;
@@ -142,7 +145,7 @@ export function RestaurantSettingsProvider({
         setIsLoading(false);
       }
     },
-    []
+    [token]
   );
 
   useEffect(() => {

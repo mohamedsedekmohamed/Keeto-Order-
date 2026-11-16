@@ -22,6 +22,9 @@ export interface CartItem {
   note?: string; // ملاحظة إضافية من المستخدم
   unitPrice: string | number;
   totalPrice: string | number;
+  sold_by?: string;
+  weight?: string | number | null;
+  weight_unit?: string | null;
   variations: CartVariation[] | any[];
 }
 

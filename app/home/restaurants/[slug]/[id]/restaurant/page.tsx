@@ -21,14 +21,13 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useRef, useState } from "react";
-import { setCartItems } from "@/redux/cartSlice";
+import { setCartItems, type CartItem } from "@/redux/cartSlice";
 import { useToken } from "@/context/TokenContext";
 import { useTenant } from "@/context/TenantContext";
 import { setRestaurantId } from "@/context/Restaurantid";
-import useGet from "@/app/hooks/useGet";
+import useGet, { getSharedRequest } from "@/app/hooks/useGet";
 import { AnimatePresence } from "framer-motion";
 
-import api from "@/api/api";
 import LogoNav from "@/components/LogoNav";
 import NewKeetaLogo from "@/public/PicWhite.jpeg";
 import FulfillmentSelectDialog, {
@@ -78,6 +77,12 @@ interface PopupApiResponse {
   };
 }
 
+interface CartApiResponse {
+  data?: {
+    data?: CartItem[] | { items?: CartItem[] };
+  };
+}
+
 // Which section a popup/slider link asks the page to scroll to.
 type FocusTarget =
   | { type: "subcategory" | "product"; id: string }
@@ -112,10 +117,19 @@ export default function Restaurant() {
   const fetchCart = async () => {
     const requestedFor = restaurantName;
     try {
-      const res = await api.get("/api/user/cart");
+      const res = await getSharedRequest<CartApiResponse>(
+        "/api/user/cart",
+        getToken(requestedFor),
+      );
       if (activeRestaurantRef.current !== requestedFor) return; // stale response, ignore
-      if (res?.data?.data?.data) {
-        dispatch(setCartItems(res.data.data.data));
+      const cartPayload = res?.data?.data?.data;
+      const cartItems: CartItem[] | undefined = Array.isArray(cartPayload)
+        ? cartPayload
+        : cartPayload?.items;
+      if (Array.isArray(cartItems)) {
+        dispatch(setCartItems(cartItems));
+      } else {
+        console.error("Unexpected cart response: expected an items array");
       }
     } catch (err) {
       if (activeRestaurantRef.current !== requestedFor) return; // stale error, ignore

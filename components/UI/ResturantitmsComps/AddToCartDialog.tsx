@@ -13,6 +13,7 @@ interface AddToCartDialogProps {
   selectedOptions: Record<string, string[]>;
   selectedAddons: string[];
   quantity: number;
+  weight: string;
   note: string;
   totalPrice: number;
   loading: boolean;
@@ -21,6 +22,7 @@ interface AddToCartDialogProps {
   onSelectVariation: (variation: Variation, option: VariationOption) => void;
   onToggleAddon: (addonId: string) => void;
   onQuantityChange: (quantity: number) => void;
+  onWeightChange: (weight: string) => void;
   onNoteChange: (note: string) => void;
   onSubmit: () => void;
 }
@@ -31,6 +33,7 @@ export default function AddToCartDialog({
   selectedOptions,
   selectedAddons,
   quantity,
+  weight,
   note,
   totalPrice,
   loading,
@@ -39,6 +42,7 @@ export default function AddToCartDialog({
   onSelectVariation,
   onToggleAddon,
   onQuantityChange,
+  onWeightChange,
   onNoteChange,
   onSubmit,
 }: AddToCartDialogProps) {
@@ -155,6 +159,23 @@ export default function AddToCartDialog({
               isRtl={isRtl}
               onToggle={onToggleAddon}
             />
+          )}
+
+          {item.sold_by === "weight" && (
+            <label className="block space-y-2">
+              <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                {isRtl ? "الوزن المطلوب" : "Requested weight"}
+                {item.weight_unit ? ` (${item.weight_unit})` : ""}
+              </span>
+              <input
+                type="number"
+                min="0.001"
+                step="any"
+                value={weight}
+                onChange={(event) => onWeightChange(event.target.value)}
+                className="w-full p-3 text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl outline-none focus:ring-2 focus:ring-yellow-400 transition-all duration-200"
+              />
+            </label>
           )}
 
           <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">

@@ -147,6 +147,7 @@ export default function RestaurantItms({
   // ── Item modal & Cart conflict states ─────────────────────────────
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [selectedWeight, setSelectedWeight] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<
     Record<string, string[]>
   >({});
@@ -173,6 +174,7 @@ export default function RestaurantItms({
       string,
       {
         quantity: number;
+        weight: string;
         selectedOptions: Record<string, string[]>;
         selectedAddons: string[];
       }
@@ -556,6 +558,7 @@ export default function RestaurantItms({
     }
     setSelectedItem(item);
     setQuantity(1);
+    setSelectedWeight("");
     setSelectedAddons([]);
     setNote("");
     const init: Record<string, string[]> = {};
@@ -672,14 +675,21 @@ export default function RestaurantItms({
 
   const calculateTotalPrice = () => {
     if (!selectedItem) return 0;
-    let total = getEffectivePrice(selectedItem);
+    const weightMultiplier =
+      selectedItem.sold_by === "weight" ? Number(selectedWeight) || 0 : 1;
+    let total = getEffectivePrice(selectedItem) * weightMultiplier;
 
     Object.entries(selectedOptions).forEach(([vId, optIds]) => {
       const v = selectedItem.variations?.find((x: any) => x.id === vId);
       if (v)
         optIds.forEach((oId) => {
           const o = v.options.find((x: any) => x.id === oId);
-          if (o) total += parseFloat(o.additionalPrice || "0");
+          if (o) {
+            const optionPrice = Number(o.additionalPrice) || 0;
+            total +=
+              optionPrice *
+              (o.price_mode === "per_weight" ? weightMultiplier : 1);
+          }
         });
     });
 
@@ -732,6 +742,7 @@ export default function RestaurantItms({
     });
     return {
       quantity: 1,
+      weight: "",
       selectedOptions: init,
       selectedAddons: [] as string[],
     };
@@ -825,17 +836,32 @@ export default function RestaurantItms({
     });
   };
 
+  const handleRecommendedWeightChange = (foodId: string, weight: string) => {
+    setRecommendedSelections((prev) => {
+      const sel = prev[foodId];
+      if (!sel) return prev;
+      return { ...prev, [foodId]: { ...sel, weight } };
+    });
+  };
+
   const calculateRecommendedItemPrice = (food: any) => {
     const sel = recommendedSelections[food.id];
     if (!sel) return getEffectivePrice(food);
-    let total = getEffectivePrice(food);
+    const weightMultiplier =
+      food.sold_by === "weight" ? Number(sel.weight) || 0 : 1;
+    let total = getEffectivePrice(food) * weightMultiplier;
 
     Object.entries(sel.selectedOptions).forEach(([vId, optIds]) => {
       const v = food.variations?.find((x: any) => x.id === vId);
       if (v)
         optIds.forEach((oId) => {
           const o = v.options.find((x: any) => x.id === oId);
-          if (o) total += parseFloat(o.additionalPrice || "0");
+          if (o) {
+            const optionPrice = Number(o.additionalPrice) || 0;
+            total +=
+              optionPrice *
+              (o.price_mode === "per_weight" ? weightMultiplier : 1);
+          }
         });
     });
 
@@ -879,6 +905,14 @@ export default function RestaurantItms({
       return;
     }
 
+    if (
+      food.sold_by === "weight" &&
+      (!Number.isFinite(Number(sel.weight)) || Number(sel.weight) <= 0)
+    ) {
+      toast.error(t("enterWeightForAllItems"));
+      return;
+    }
+
     const variations = Object.entries(sel.selectedOptions).flatMap(
       ([vId, optIds]) =>
         optIds.map((oId) => ({ variationId: vId, optionId: oId })),
@@ -897,6 +931,7 @@ export default function RestaurantItms({
       variations,
       addons,
       note: "",
+      ...(food.sold_by === "weight" ? { weight: Number(sel.weight) } : {}),
     };
 
     try {
@@ -975,6 +1010,9 @@ export default function RestaurantItms({
       variations,
       addons,
       note,
+      ...(selectedItem.sold_by === "weight"
+        ? { weight: Number(selectedWeight) }
+        : {}),
       ...fulfillmentData,
     };
 
@@ -1058,6 +1096,14 @@ export default function RestaurantItms({
           ? `يرجى اختيار ${minRequired} خيار(ات) على الأقل من "${vName}"`
           : `Please select at least ${minRequired} option(s) for "${vName}"`,
       );
+      return;
+    }
+
+    if (
+      selectedItem.sold_by === "weight" &&
+      (!Number.isFinite(Number(selectedWeight)) || Number(selectedWeight) <= 0)
+    ) {
+      toast.error(t("enterWeightForAllItems"));
       return;
     }
 
@@ -1447,6 +1493,7 @@ export default function RestaurantItms({
             selectedOptions={selectedOptions}
             selectedAddons={selectedAddons}
             quantity={quantity}
+            weight={selectedWeight}
             note={note}
             totalPrice={calculateTotalPrice()}
             loading={loading}
@@ -1455,6 +1502,7 @@ export default function RestaurantItms({
             onSelectVariation={handleOptionSelect}
             onToggleAddon={handleAddonToggle}
             onQuantityChange={setQuantity}
+            onWeightChange={setSelectedWeight}
             onNoteChange={setNote}
             onSubmit={handleAddToCartSubmit}
           />
@@ -1596,6 +1644,28 @@ export default function RestaurantItms({
                                 ? food.descriptionAr || food.description
                                 : food.description}
                             </p>
+                          )}
+
+                          {food.sold_by === "weight" && (
+                            <label className="block space-y-1.5">
+                              <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                                {t("requestedWeight")}
+                                {food.weight_unit ? ` (${food.weight_unit})` : ""}
+                              </span>
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="any"
+                                value={sel.weight}
+                                onChange={(event) =>
+                                  handleRecommendedWeightChange(
+                                    food.id,
+                                    event.target.value,
+                                  )
+                                }
+                                className="w-full px-3 py-2 text-sm text-zinc-800 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400"
+                              />
+                            </label>
                           )}
 
                           {/* ── Variations ── */}

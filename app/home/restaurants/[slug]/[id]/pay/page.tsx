@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "../../../../../../context/LanguageContext";
+import { useMenu } from "@/context/RestaurantContext";
 import { useTenant } from "@/context/TenantContext";
 import useGet from "@/app/hooks/useGet";
 import usePost from "@/app/hooks/usePost";
@@ -87,6 +88,7 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState<string | null>(null);
 
   const { t } = useLanguage();
+  const { menu, isLoading: isLoadingMenu } = useMenu();
   const isRtl = t("dir") === "rtl";
   const router = useRouter();
   const params = useParams();
@@ -100,6 +102,7 @@ export default function Checkout() {
   // before the menu page has ever run for this restaurant), so every use
   // below has to tolerate it being null.
   const restaurantId = getRestaurantId(restaurantName);
+  const [weightRequestApproved, setWeightRequestApproved] = useState(false);
 
   const [orderType, setOrderType] = useState<
     "delivery" | "takeaway" | "dine_in"
@@ -308,9 +311,74 @@ export default function Checkout() {
   const paymentMethods = data?.paymentMethods || [];
   const rawCartData = cartRes?.data?.data;
 
-  const cartItems: CartItem[] = Array.isArray(rawCartData?.items)
-    ? rawCartData.items
-    : [];
+  const menuFoodById = useMemo(() => {
+    const foods = new Map<string, { sold_by?: string; weight_unit?: string | null }>();
+    menu?.forEach((category) =>
+      category.foods.forEach((food) =>
+        foods.set(food.id, {
+          sold_by: food.sold_by,
+          weight_unit: food.weight_unit,
+        }),
+      ),
+    );
+    return foods;
+  }, [menu]);
+  const cartItems: CartItem[] = useMemo(
+    () =>
+      (Array.isArray(rawCartData?.items) ? rawCartData.items : []).map(
+        (item: CartItem) => {
+          const food = item.foodId ? menuFoodById.get(item.foodId) : undefined;
+          return {
+            ...item,
+            sold_by: item.sold_by ?? food?.sold_by,
+            weight_unit: item.weight_unit ?? food?.weight_unit,
+          };
+        },
+      ),
+    [menuFoodById, rawCartData?.items],
+  );
+  const weightCartItems = useMemo(
+    () => cartItems.filter((item) => item.sold_by === "weight"),
+    [cartItems],
+  );
+
+  useEffect(() => {
+    if (isLoadingCart || isLoadingMenu) return;
+    if (weightCartItems.length === 0) {
+      setWeightRequestApproved(true);
+      return;
+    }
+
+    if (!restaurantId) {
+      setWeightRequestApproved(false);
+      return;
+    }
+
+    const savedState = localStorage.getItem(
+      `weight-request-${restaurantId}`,
+    );
+    if (!savedState) {
+      setWeightRequestApproved(false);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedState);
+      const approvedCartIds = Array.isArray(parsed?.cartIds)
+        ? parsed.cartIds.map(String).sort()
+        : [];
+      const currentCartIds = weightCartItems
+        .map((item) => String(item.cartId))
+        .sort();
+      setWeightRequestApproved(
+        parsed?.status === "accepted" &&
+          JSON.stringify(approvedCartIds) === JSON.stringify(currentCartIds),
+      );
+    } catch (error) {
+      console.error("Failed to read approved weight request", error);
+      setWeightRequestApproved(false);
+    }
+  }, [cartRes, isLoadingCart, isLoadingMenu, restaurantId, weightCartItems]);
 
   const subtotal = useMemo(() => {
     if (rawCartData?.totalSummary?.subtotal !== undefined) {
@@ -558,6 +626,9 @@ export default function Checkout() {
   };
 
   const handleConfirmOrder = async () => {
+    if (weightCartItems.length > 0 && !weightRequestApproved) {
+      return toast.error(t("weightRequestMustBeAccepted"));
+    }
     if (!selectedPayment) return toast.error(t("selectPaymentError"));
 
     if (activeOrderType === "delivery") {
@@ -1154,8 +1225,17 @@ export default function Checkout() {
       </section>
 
       {/* Confirm Button */}
+      {weightCartItems.length > 0 && !weightRequestApproved && (
+        <p className="w-full max-w-2xl mt-4 text-sm font-semibold text-amber-700 dark:text-amber-400">
+          {t("weightRequestMustBeAccepted")}
+        </p>
+      )}
       <button
-        disabled={isSubmitting || isOrderBlocked}
+        disabled={
+          isSubmitting ||
+          isOrderBlocked ||
+          (weightCartItems.length > 0 && !weightRequestApproved)
+        }
         onClick={handleConfirmOrder}
         className="relative flex items-center justify-center w-full max-w-2xl gap-3 px-6 py-4 overflow-hidden font-bold text-theme-first-text transition-all duration-300 shadow-lg group bg-yellow-400 hover:bg-yellow-500 rounded-2xl shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
       >

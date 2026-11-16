@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { toast } from "react-hot-toast";
 import api from "../../api/api";
-import { AxiosError } from "axios";
+import { AxiosError, type AxiosResponse } from "axios";
 import { useToken } from "@/context/TokenContext";
 
 type UseGetReturn<T> = {
@@ -12,6 +12,33 @@ type UseGetReturn<T> = {
   error: string | null;
   refetch: () => Promise<void>;
 };
+
+const inFlightGetRequests = new Map<string, Promise<AxiosResponse<unknown>>>();
+
+export function getSharedRequest<T>(
+  url: string,
+  token: string | null,
+): Promise<AxiosResponse<T>> {
+  const key = JSON.stringify([token, url]);
+  const existingRequest = inFlightGetRequests.get(key);
+  if (existingRequest) {
+    return existingRequest as Promise<AxiosResponse<T>>;
+  }
+
+  const request = api.get<T>(url);
+  inFlightGetRequests.set(
+    key,
+    request as Promise<AxiosResponse<unknown>>,
+  );
+  const removeRequest = () => {
+    if (inFlightGetRequests.get(key) === request) {
+      inFlightGetRequests.delete(key);
+    }
+  };
+  void request.then(removeRequest, removeRequest);
+
+  return request;
+}
 
 // 1. Changed parameter type to string | null
 export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
@@ -27,20 +54,20 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
   // restaurantId going from a slug fallback to the real id) it would never
   // fetch again until the component fully remounts (hard refresh).
   const lastFetchedUrl = useRef<string | null>(null);
-  const { isReady } = useToken();
+  const { isReady, token } = useToken();
 
   const fetchData = useCallback(async (): Promise<void> => {
     if (!url) return; // 2. Guard clause to prevent fetching null URLs
 
     try {
       setLoading(true);
-      const res = await api.get<T>(url);
+      const res = await getSharedRequest<T>(url, token);
       setData(res.data);
       setError(null);
     } catch (err) {
       const axiosError = err as AxiosError<any>;
 
-      let errorMsg =
+      const errorMsg =
         axiosError.response?.data?.error?.message ||
         axiosError.response?.data?.message ||
         axiosError.message ||
@@ -68,7 +95,7 @@ export default function useGet<T = any>(url: string | null): UseGetReturn<T> {
     } finally {
       setLoading(false);
     }
-  }, [url]);
+  }, [token, url]);
 
   useEffect(() => {
     if (!isReady || !url) return; // 3. Don't run if context isn't ready or url is null

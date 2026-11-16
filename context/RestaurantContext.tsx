@@ -38,7 +38,8 @@ export interface VariationOption {
   name: string;
   nameAr: string;
   nameFr?: string;
-  additionalPrice: string;
+  additionalPrice: string | number;
+  price_mode?: string;
 }
 
 export interface Variation {
@@ -99,6 +100,8 @@ export interface MenuItem {
   discountPrice?: number | string | null;
   discountNote?: string | null;
   image: string;
+  sold_by?: string;
+  weight_unit?: string | null;
   isFavorite?: boolean;
   variations: Variation[];
   // Embedded refs from the API response
@@ -143,7 +146,6 @@ export const useMenu = () => useContext(MenuContext);
 
 import { useEffect } from "react";
 import {
-  RestaurantSettingsProvider,
   useRestaurantSettings,
   useThemeSettings,
 } from "./RestaurantSettingsContext";
@@ -216,19 +218,14 @@ export default function RestaurantAndMenuProvider({
   }, [restaurant?.id, restaurantSlug]);
 
   return (
-    <RestaurantSettingsProvider
-      key={restaurant?.id || restaurantId}
-      restaurantId={restaurant?.id || restaurantId}
+    <RestaurantContext.Provider
+      value={{ restaurant, isLoading: loading || false, isError: !!error }}
     >
-      <RestaurantContext.Provider
-        value={{ restaurant, isLoading: loading || false, isError: !!error }}
+      <MenuContext.Provider
+        value={{ menu, isLoading: loading || false, isError: !!error }}
       >
-        <MenuContext.Provider
-          value={{ menu, isLoading: loading || false, isError: !!error }}
-        >
-          {children}
-        </MenuContext.Provider>
-      </RestaurantContext.Provider>
-    </RestaurantSettingsProvider>
+        {children}
+      </MenuContext.Provider>
+    </RestaurantContext.Provider>
   );
 }
