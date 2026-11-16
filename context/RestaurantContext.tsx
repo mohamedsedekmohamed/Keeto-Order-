@@ -40,6 +40,7 @@ export interface VariationOption {
   nameFr?: string;
   additionalPrice: string | number;
   price_mode?: string;
+  weight_value?: string | number | null;
 }
 
 export interface Variation {
@@ -51,6 +52,7 @@ export interface Variation {
   selectionType: "single" | "multiple" | string;
   min: number | null;
   max: number | null;
+  is_weight_group?: boolean;
   options: VariationOption[];
 }
 
@@ -102,6 +104,7 @@ export interface MenuItem {
   image: string;
   sold_by?: string;
   weight_unit?: string | null;
+  allow_custom_weight?: boolean;
   isFavorite?: boolean;
   variations: Variation[];
   // Embedded refs from the API response

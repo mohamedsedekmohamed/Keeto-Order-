@@ -558,16 +558,21 @@ export default function RestaurantItms({
     }
     setSelectedItem(item);
     setQuantity(1);
-    setSelectedWeight("");
+    let initialWeight = "";
     setSelectedAddons([]);
     setNote("");
     const init: Record<string, string[]> = {};
     (item.variations || []).forEach((v) => {
-      init[v.id] =
+      const initialOption =
         v.selectionType === "single" && v.isRequired && v.options.length > 0
-          ? [v.options[0].id]
-          : [];
+          ? v.options[0]
+          : null;
+      init[v.id] = initialOption ? [initialOption.id] : [];
+      if (v.is_weight_group && initialOption?.weight_value != null) {
+        initialWeight = String(initialOption.weight_value);
+      }
     });
+    setSelectedWeight(initialWeight);
     setSelectedOptions(init);
   };
 
@@ -636,6 +641,9 @@ export default function RestaurantItms({
       toast.error(t("loginFirst"));
       return;
     }
+    const isSelected = (selectedOptions[variation.id] || []).includes(
+      option.id,
+    );
     setSelectedOptions((prev) => {
       const cur = prev[variation.id] || [];
 
@@ -654,6 +662,13 @@ export default function RestaurantItms({
       if (variation.max !== null && cur.length >= variation.max) return prev;
       return { ...prev, [variation.id]: [...cur, option.id] };
     });
+    if (variation.is_weight_group) {
+      setSelectedWeight(
+        isSelected || option.weight_value == null
+          ? ""
+          : String(option.weight_value),
+      );
+    }
   };
 
   const handleAddonToggle = (addonId: string) => {

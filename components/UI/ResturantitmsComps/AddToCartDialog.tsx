@@ -161,7 +161,7 @@ export default function AddToCartDialog({
             />
           )}
 
-          {item.sold_by === "weight" && (
+          {item.sold_by === "weight" && item.allow_custom_weight !== false && (
             <label className="block space-y-2">
               <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
                 {isRtl ? "الوزن المطلوب" : "Requested weight"}
