@@ -102,6 +102,7 @@ export interface MenuItem {
   discountPrice?: number | string | null;
   discountNote?: string | null;
   image: string;
+  order_level?: number;
   sold_by?: string;
   weight_unit?: string | null;
   allow_custom_weight?: boolean;

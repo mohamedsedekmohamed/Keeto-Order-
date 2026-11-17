@@ -24,6 +24,7 @@ export interface CartItem {
   totalPrice: string | number;
   sold_by?: string;
   weight?: string | number | null;
+  allow_custom_weight?: boolean;
   finalWeight?: string | number | null;
   weightRequestId?: string | null;
   weight_unit?: string | null;

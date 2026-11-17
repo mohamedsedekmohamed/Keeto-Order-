@@ -216,9 +216,20 @@ export default function RestaurantItms({
         subMap.get(key)!.foods.push(food as MenuItem);
       });
 
-      const subCategories = Array.from(subMap.values()).sort(
-        (a, b) => a.orderLevel - b.orderLevel,
-      );
+      const subCategories = Array.from(subMap.values())
+        .map((sub) => ({
+          ...sub,
+          foods: [...sub.foods].sort((a, b) => {
+            const aOrder = a.order_level;
+            const bOrder = b.order_level;
+            if (typeof aOrder !== "number") {
+              return typeof bOrder === "number" ? 1 : 0;
+            }
+            if (typeof bOrder !== "number") return -1;
+            return aOrder - bOrder;
+          }),
+        }))
+        .sort((a, b) => a.orderLevel - b.orderLevel);
 
       return {
         id: cat.id,

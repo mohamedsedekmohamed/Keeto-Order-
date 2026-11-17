@@ -185,6 +185,8 @@ export default function Cart() {
           ...item,
           sold_by: item.sold_by ?? food?.sold_by,
           weight_unit: item.weight_unit ?? food?.weight_unit,
+          allow_custom_weight:
+            item.allow_custom_weight ?? food?.allow_custom_weight,
         };
       }),
     [menuFoodById],
@@ -570,6 +572,12 @@ export default function Cart() {
       )
     : totalPrice;
   const handleWeightInputChange = (cartId: string, value: string) => {
+    if (
+      items.find((item) => item.cartId === cartId)?.allow_custom_weight ===
+      false
+    ) {
+      return;
+    }
     setWeightInputs((previous) => ({ ...previous, [cartId]: value }));
   };
 
@@ -578,13 +586,16 @@ export default function Cart() {
       return;
     }
 
-    const weights = weightItems.map((item) => ({
-      item,
-      weight: (
-        weightInputs[item.cartId] ??
-        (item.weight == null ? "" : String(item.weight))
-      ).trim(),
-    }));
+    const weights = weightItems.map((item) => {
+      const rawWeight =
+        item.allow_custom_weight === false
+          ? (item.finalWeight ?? item.weight)
+          : (weightInputs[item.cartId] ?? item.weight);
+      return {
+        item,
+        weight: rawWeight == null ? "" : String(rawWeight).trim(),
+      };
+    });
     if (
       weights.some(
         ({ item, weight }) =>
@@ -602,6 +613,7 @@ export default function Cart() {
     setWeightRequestError(null);
     try {
       for (const { item, weight } of weights) {
+        if (item.allow_custom_weight === false) continue;
         await api.put(`/api/user/cart/${encodeURIComponent(item.cartId)}`, {
           weight,
         });
@@ -984,6 +996,7 @@ export default function Cart() {
                           if (event.key === "Enter") event.preventDefault();
                         }}
                         disabled={
+                          item.allow_custom_weight === false ||
                           weightRequestStatus === "pending" ||
                           weightRequestStatus === "accepted" ||
                           isCancellingWeightRequest ||

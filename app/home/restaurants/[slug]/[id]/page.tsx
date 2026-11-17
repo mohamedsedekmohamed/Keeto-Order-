@@ -425,10 +425,12 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="mt-3 w-full max-w-md px-6 text-center"
         >
-          <p className="flex items-center justify-center gap-2 text-sm font-semibold text-gray-700 dark:text-zinc-300">
-            <Phone size={16} style={{ color: firstColor }} />
+          <p className="flex items-center justify-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
+            <Phone size={20} style={{ color: firstColor }} />
             <span>{t("hotline")}:</span>
-            <span dir="ltr">{restaurant.callcenterphone}</span>
+            <span dir="ltr" className="text-xl font-extrabold tracking-wide">
+              {restaurant.callcenterphone}
+            </span>
           </p>
         </motion.div>
       )}
