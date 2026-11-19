@@ -102,6 +102,19 @@ export interface BundleItem {
   foods: BundleFoodItem[];
 }
 
+interface ProfilePhoneDetails {
+  phone?: string | null;
+  alternatePhone?: string | null;
+}
+
+interface ProfileResponse {
+  data?: {
+    data?: {
+      user?: ProfilePhoneDetails;
+    };
+  };
+}
+
 interface BundlesApiResponse {
   success: boolean;
   message?: string;
@@ -142,6 +155,34 @@ export default function RestaurantBundles({
   const { getToken } = useToken();
   const token = getToken(restaurantSlug);
   const dispatch = useAppDispatch();
+  const { data: profileResponse } = useGet<ProfileResponse>(
+    token ? "/api/user/profile" : null,
+  );
+  const profileUser = profileResponse?.data?.data?.user;
+  const hasRequiredPhoneDetails = (user: ProfilePhoneDetails) =>
+    /^01\d{9}$/.test(user.phone?.trim() || "") &&
+    /^01\d{9}$/.test(user.alternatePhone?.trim() || "");
+  const requirePhoneDetails = () => {
+    toast.error(t("phoneDetailsRequired"));
+    router.push(
+      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
+    );
+  };
+  const handlePhoneRequirementError = (message: string) => {
+    if (
+      !message.toLowerCase().includes(
+        "phone number or alternative phone number is required",
+      )
+    ) {
+      return false;
+    }
+
+    toast.error(t("phoneOrAlternatePhoneRequired"));
+    router.push(
+      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
+    );
+    return true;
+  };
 
   const accent = firstColor || "#facc15";
   const accentText = textFirstColor || "#111827";
@@ -276,6 +317,10 @@ export default function RestaurantBundles({
       router.push(`/auth/sign-in/?callbackSlug=${restaurantSlug}`);
       return;
     }
+    if (profileUser && !hasRequiredPhoneDetails(profileUser)) {
+      requirePhoneDetails();
+      return;
+    }
     if (!selectedBundle) return;
 
     // Check stored fulfillment (delivery address or branch)
@@ -321,6 +366,7 @@ export default function RestaurantBundles({
         toast.error(t("loginFirst") || "Please login first");
       } else if (status === 400) {
         const rawMsg = error?.response?.data?.error?.message || "";
+        if (handlePhoneRequirementError(rawMsg)) return;
         setFormError(rawMsg || (isRTL ? "حدث خطأ ما، حاول مرة أخرى" : "Something went wrong"));
       } else {
         setFormError(isRTL ? "حدث خطأ ما، حاول مرة أخرى" : "Something went wrong");

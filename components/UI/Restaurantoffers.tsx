@@ -119,6 +119,19 @@ interface OfferGroup {
   items: OfferItem[];
 }
 
+interface ProfilePhoneDetails {
+  phone?: string | null;
+  alternatePhone?: string | null;
+}
+
+interface ProfileResponse {
+  data?: {
+    data?: {
+      user?: ProfilePhoneDetails;
+    };
+  };
+}
+
 function groupOffersByDiscount(
   offers: OfferItem[],
   lang: "ar" | "fr" | "en",
@@ -201,6 +214,34 @@ export default function RestaurantOffers({
   const { getToken } = useToken();
   const token = getToken(restaurantSlug);
   const dispatch = useAppDispatch();
+  const { data: profileResponse } = useGet<ProfileResponse>(
+    token ? "/api/user/profile" : null,
+  );
+  const profileUser = profileResponse?.data?.data?.user;
+  const hasRequiredPhoneDetails = (user: ProfilePhoneDetails) =>
+    /^01\d{9}$/.test(user.phone?.trim() || "") &&
+    /^01\d{9}$/.test(user.alternatePhone?.trim() || "");
+  const requirePhoneDetails = () => {
+    toast.error(t("phoneDetailsRequired"));
+    router.push(
+      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
+    );
+  };
+  const handlePhoneRequirementError = (message: string) => {
+    if (
+      !message.toLowerCase().includes(
+        "phone number or alternative phone number is required",
+      )
+    ) {
+      return false;
+    }
+
+    toast.error(t("phoneOrAlternatePhoneRequired"));
+    router.push(
+      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
+    );
+    return true;
+  };
 
   const { data } = useGet(
     restaurantId ? `/api/user/offers/restaurant/${restaurantId}/offers` : null,
@@ -485,6 +526,7 @@ export default function RestaurantOffers({
         setShowConflictDialog(true);
       } else if (status === 400) {
         const rawMsg = error?.response?.data?.error?.message || "";
+        if (handlePhoneRequirementError(rawMsg)) return;
         const errorMsg =
           lang === "ar"
             ? rawMsg?.toLowerCase().includes("unavailable")
@@ -513,6 +555,10 @@ export default function RestaurantOffers({
   const handleAddToCart = async () => {
     if (!token) {
       router.push(`/auth/sign-in/?callbackSlug=${restaurantSlug}`);
+      return;
+    }
+    if (profileUser && !hasRequiredPhoneDetails(profileUser)) {
+      requirePhoneDetails();
       return;
     }
     if (!selectedOffer) return;

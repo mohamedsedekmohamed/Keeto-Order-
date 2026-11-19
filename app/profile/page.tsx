@@ -906,7 +906,12 @@ export default function ProfilePage() {
       return;
     }
 
-    if (formData.alternatePhone && !phoneRegex.test(altPhoneDigits)) {
+    if (!altPhoneDigits) {
+      toast.error(t("phoneDetailsRequired"));
+      return;
+    }
+
+    if (!phoneRegex.test(altPhoneDigits)) {
       toast.error(
         t("invalidAlternatePhone") ||
         "رقم الهاتف البديل يجب أن يتكون من 11 رقمًا ويبدأ بـ 01",
@@ -1415,6 +1420,7 @@ export default function ProfilePage() {
                             <input
                               type="tel"
                               name="alternatePhone"
+                              required
                               inputMode="numeric"
                               pattern="[0-9]*"
                               maxLength={11}

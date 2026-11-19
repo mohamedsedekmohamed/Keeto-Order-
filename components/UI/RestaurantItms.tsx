@@ -55,6 +55,19 @@ interface DerivedCategory {
   coverImage: string;
 }
 
+interface ProfilePhoneDetails {
+  phone?: string | null;
+  alternatePhone?: string | null;
+}
+
+interface ProfileResponse {
+  data?: {
+    data?: {
+      user?: ProfilePhoneDetails;
+    };
+  };
+}
+
 const getSubCategoryUniqueId = (catId: string, subId: string) =>
   subId === "__no_sub__" ? `${catId}__no_sub__` : `${catId}__${subId}`;
 
@@ -88,6 +101,34 @@ export default function RestaurantItms({
   // ── Auth ──────────────────────────────────────────────────────────
   const { getToken } = useToken();
   const token = getToken(restaurantSlug);
+  const { data: profileResponse } = useGet<ProfileResponse>(
+    token ? "/api/user/profile" : null,
+  );
+  const profileUser = profileResponse?.data?.data?.user;
+  const hasRequiredPhoneDetails = (user: ProfilePhoneDetails) =>
+    /^01\d{9}$/.test(user?.phone?.trim() || "") &&
+    /^01\d{9}$/.test(user?.alternatePhone?.trim() || "");
+  const requirePhoneDetails = () => {
+    toast.error(t("phoneDetailsRequired"));
+    router.push(
+      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
+    );
+  };
+  const handlePhoneRequirementError = (message: string) => {
+    if (
+      !message.toLowerCase().includes(
+        "phone number or alternative phone number is required",
+      )
+    ) {
+      return false;
+    }
+
+    toast.error(t("phoneOrAlternatePhoneRequired"));
+    router.push(
+      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
+    );
+    return true;
+  };
 
   // ── Favorites ─────────────────────────────────────────────────────
   const [favoritesList, setFavoritesList] = useState<string[]>([]);
@@ -908,6 +949,10 @@ export default function RestaurantItms({
       router.push("/auth/sign-in/?callbackSlug=" + restaurantSlug);
       return;
     }
+    if (profileUser && !hasRequiredPhoneDetails(profileUser)) {
+      requirePhoneDetails();
+      return;
+    }
 
     const sel =
       recommendedSelections[food.id] || initRecommendedSelection(food);
@@ -986,6 +1031,7 @@ export default function RestaurantItms({
         setShowRecommendedModal(false);
       } else if (status === 400) {
         const rawMsg: string = error?.response?.data?.error?.message || "";
+        if (handlePhoneRequirementError(rawMsg)) return;
         const errorMsg = isRtl
           ? rawMsg.toLowerCase().includes("unavailable")
             ? "هذا المنتج غير متوفر حاليًا في الفرع المحدد."
@@ -1015,6 +1061,10 @@ export default function RestaurantItms({
     fulfillmentData: { addressId?: string; branchId?: string } = {},
   ) => {
     if (!selectedItem) return;
+    if (profileUser && !hasRequiredPhoneDetails(profileUser)) {
+      requirePhoneDetails();
+      return;
+    }
 
     const variations = Object.entries(selectedOptions).flatMap(
       ([vId, optIds]) =>
@@ -1072,6 +1122,7 @@ export default function RestaurantItms({
         setShowConflictDialog(true);
       } else if (status === 400) {
         const rawMsg: string = error?.response?.data?.error?.message || "";
+        if (handlePhoneRequirementError(rawMsg)) return;
         const errorMsg = isRtl
           ? rawMsg.toLowerCase().includes("unavailable")
             ? "هذا المنتج غير متوفر حاليًا في الفرع المحدد."

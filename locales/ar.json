@@ -210,6 +210,8 @@
   "cancellationReason": "سبب الإلغاء",
   "invalidAlternatePhone": " رقم الهاتف البديل يجب أن يكون 11 رقم و يبدأ ب 01",
   "invalidPhone": " رقم الهاتف يجب أن يكون 11 رقم ويبدأ ب 01",
+  "phoneDetailsRequired": "يرجى إضافة رقم هاتفك ورقم هاتف بديل للمتابعة.",
+  "phoneOrAlternatePhoneRequired": "يجب إدخال رقم الهاتف أو رقم الهاتف البديل.",
   "backToShop": "العودة للتسوق",
   "gotIt": "تم",
   "ready": "جاهز",

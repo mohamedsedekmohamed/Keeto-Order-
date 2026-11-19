@@ -34,6 +34,8 @@
   "backToShop": "Back to Shop",
   "invalidPhone": "phone number must be 11 and start with 01 ",
   "invalidAlternatePhone": "alternate phone number must be 11 and start with 01",
+  "phoneDetailsRequired": "Please add both your phone number and an alternate phone number to continue.",
+  "phoneOrAlternatePhoneRequired": "A phone number or alternate phone number is required.",
   "freeDeliveryUnlocked": "Free delivery unlocked",
   "addMoreForFreeDelivery": "add More for Free Delivery",
   "freeDeliveryMinOrderNote": "Add more items to your cart to unlock free delivery. The minimum order amount for free delivery is",
