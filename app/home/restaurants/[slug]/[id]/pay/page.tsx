@@ -71,6 +71,13 @@ type CartItem = {
   [key: string]: any;
 };
 
+const isPaymentMethodDisabled = (method: {
+  name?: string;
+  visaEnabledForLocation?: boolean;
+}) =>
+  method.name?.toLowerCase() === "visa" &&
+  method.visaEnabledForLocation === false;
+
 export default function Checkout() {
   const [orderNote, setOrderNote] = useState("");
 
@@ -207,11 +214,12 @@ export default function Checkout() {
   const cartQuery = useMemo(() => {
     const qs = new URLSearchParams();
     if (restaurantId) qs.set("restaurantId", restaurantId);
+    qs.set("orderSource", orderSource);
     qs.set("serviceModule", orderType);
     if (selectedBranch) qs.set("branchId", selectedBranch);
     if (selectedAddress) qs.set("addressId", selectedAddress);
     return qs.toString();
-  }, [restaurantId, orderType, selectedBranch, selectedAddress]);
+  }, [orderSource, restaurantId, orderType, selectedBranch, selectedAddress]);
 
   const { data: cartRes, loading: isLoadingCart } = useGet<any>(
     `/api/user/cart?${cartQuery}`,
@@ -544,10 +552,25 @@ export default function Checkout() {
     if (data?.branches?.length === 1 && !branchHandledThisPass) {
       setSelectedBranch(data.branches[0].id);
     }
-    if (paymentMethods.length > 0 && !selectedPayment) {
-      setSelectedPayment(paymentMethods[0].id);
+    const selectedMethod = paymentMethods.find(
+      (method: { id: string }) => method.id === selectedPayment,
+    );
+    if (!selectedMethod || isPaymentMethodDisabled(selectedMethod)) {
+      const firstEnabledMethod = paymentMethods.find(
+        (method: { name?: string; visaEnabledForLocation?: boolean }) =>
+          !isPaymentMethodDisabled(method),
+      );
+      if (firstEnabledMethod?.id !== selectedPayment) {
+        setSelectedPayment(firstEnabledMethod?.id || "");
+      }
     }
-  }, [data, selectedAddress, selectedBranch, selectedPayment, paymentMethods]);
+  }, [
+    data,
+    selectedAddress,
+    selectedBranch,
+    selectedPayment,
+    paymentMethods,
+  ]);
 
   // Guests skip the "Add Address" button entirely: as soon as we know
   // they're on delivery with no address yet, pop the address form open
@@ -657,7 +680,12 @@ export default function Checkout() {
     if (weightCartItems.length > 0 && !weightRequestApproved) {
       return toast.error(t("weightRequestMustBeAccepted"));
     }
-    if (!selectedPayment) return toast.error(t("selectPaymentError"));
+    const selectedMethod = paymentMethods.find(
+      (method: { id: string }) => method.id === selectedPayment,
+    );
+    if (!selectedPayment || !selectedMethod || isPaymentMethodDisabled(selectedMethod)) {
+      return toast.error(t("selectPaymentError"));
+    }
 
     if (activeOrderType === "delivery") {
       if (!selectedAddress) return toast.error(t("selectAddressError"));
@@ -934,19 +962,35 @@ export default function Checkout() {
         </h3>
         <div className="grid grid-cols-1 gap-3">
           {paymentMethods.map(
-            (method: { id: string; name: string; nameAr?: string }) => {
+            (method: {
+              id: string;
+              name: string;
+              nameAr?: string;
+              visaEnabledForLocation?: boolean;
+            }) => {
               const isRtl = t("dir") === "rtl";
+              const isDisabled = isPaymentMethodDisabled(method);
               const displayName =
                 isRtl && method.nameAr ? method.nameAr : t(method.name);
 
               return (
                 <div
                   key={method.id}
-                  onClick={() => setSelectedPayment(method.id)}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedPayment === method.id
-                    ? "border-yellow-400 bg-white dark:bg-zinc-900"
-                    : "border-gray-100 dark:border-zinc-800"
-                    }`}
+                  onClick={
+                    isDisabled
+                      ? undefined
+                      : () => setSelectedPayment(method.id)
+                  }
+                  aria-disabled={isDisabled}
+                  className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
+                    isDisabled
+                      ? "cursor-not-allowed opacity-50"
+                      : "cursor-pointer"
+                  } ${
+                    selectedPayment === method.id
+                      ? "border-yellow-400 bg-white dark:bg-zinc-900"
+                      : "border-gray-100 dark:border-zinc-800"
+                  }`}
                 >
                   <div className="flex-1">
                     <p className="font-bold">{displayName}</p>

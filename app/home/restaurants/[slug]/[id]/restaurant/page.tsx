@@ -100,6 +100,15 @@ export default function Restaurant() {
   const { getToken, isReady } = useToken();
   const token = getToken(restaurantName);
   const cartItems = useAppSelector((state: any) => state.cart.items);
+  const getOrderSource = () => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem(`login_source_${restaurantName}`) ||
+        "online_order_web"
+      );
+    }
+    return "online_order_web";
+  };
 
   // Local state to track dynamic cart animation burst
   const [isAnimate, setIsAnimate] = useState(false);
@@ -118,7 +127,7 @@ export default function Restaurant() {
     const requestedFor = restaurantName;
     try {
       const res = await getSharedRequest<CartApiResponse>(
-        "/api/user/cart",
+        `/api/user/cart?orderSource=${encodeURIComponent(getOrderSource())}`,
         getToken(requestedFor),
       );
       if (activeRestaurantRef.current !== requestedFor) return; // stale response, ignore

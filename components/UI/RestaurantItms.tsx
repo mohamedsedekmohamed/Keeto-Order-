@@ -1007,7 +1007,10 @@ export default function RestaurantItms({
 
     try {
       setAddingRecommendedId(food.id);
-      await api.post("/api/user/cart", payload);
+      await api.post(
+        `/api/user/cart?orderSource=${encodeURIComponent(getOrderSource())}`,
+        payload,
+      );
       const newExpiry = Date.now() + 60 * 60 * 1000;
       localStorage.setItem("cart-expiry", newExpiry.toString());
 
@@ -1094,7 +1097,10 @@ export default function RestaurantItms({
 
     try {
       setLoading(true);
-      await api.post("/api/user/cart", payload);
+      await api.post(
+        `/api/user/cart?orderSource=${encodeURIComponent(getOrderSource())}`,
+        payload,
+      );
       const newExpiry = Date.now() + 60 * 60 * 1000;
       localStorage.setItem("cart-expiry", newExpiry.toString());
 
@@ -1236,7 +1242,10 @@ export default function RestaurantItms({
     try {
       setLoading(true);
       await handleClearCart();
-      await api.post("/api/user/cart", pendingCartPayload);
+      await api.post(
+        `/api/user/cart?orderSource=${encodeURIComponent(getOrderSource())}`,
+        pendingCartPayload,
+      );
       const newExpiry = Date.now() + 60 * 60 * 1000;
       localStorage.setItem("cart-expiry", newExpiry.toString());
 

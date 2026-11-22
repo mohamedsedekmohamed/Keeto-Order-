@@ -187,6 +187,16 @@ export default function RestaurantBundles({
   const accent = firstColor || "#facc15";
   const accentText = textFirstColor || "#111827";
 
+  const getOrderSource = () => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem(`login_source_${restaurantSlug}`) ||
+        "online_order_web"
+      );
+    }
+    return "online_order_web";
+  };
+
   // 1. Fetch All Bundles: GET /api/user/bundles?restaurantId=${restaurantId}
   const { data: apiResponse, loading: fetchingBundles } = useGet(
     restaurantId ? `/api/user/bundles?restaurantId=${restaurantId}` : null,
@@ -290,7 +300,7 @@ export default function RestaurantBundles({
       setSubmitting(true);
       await handleClearCart();
       await api.post(
-        `/api/user/cart?offerId=${encodeURIComponent(selectedBundle.id)}`,
+        `/api/user/cart?offerId=${encodeURIComponent(selectedBundle.id)}&orderSource=${encodeURIComponent(getOrderSource())}`,
         pendingPayload,
       );
       const newExpiry = Date.now() + 60 * 60 * 1000;
@@ -346,7 +356,7 @@ export default function RestaurantBundles({
       setFormError(null);
 
       await api.post(
-        `/api/user/cart?offerId=${encodeURIComponent(selectedBundle.id)}`,
+        `/api/user/cart?offerId=${encodeURIComponent(selectedBundle.id)}&orderSource=${encodeURIComponent(getOrderSource())}`,
         payload,
       );
 

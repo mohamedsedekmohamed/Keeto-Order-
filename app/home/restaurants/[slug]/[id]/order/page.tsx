@@ -140,6 +140,14 @@ export default function Cart() {
   const basePath = `/home/restaurants/${restaurantName}`;
   const router = useRouter();
   const restaurantId = params?.id as string;
+  const orderSource =
+    typeof window !== "undefined"
+      ? localStorage.getItem(`login_source_${restaurantName}`) ||
+        "online_order_web"
+      : "online_order_web";
+  const cartQuery = new URLSearchParams();
+  if (restaurantId) cartQuery.set("restaurantId", restaurantId);
+  cartQuery.set("orderSource", orderSource);
   const { data } = useGet<any>(
     `/api/user/restaurants/resturant-schedules/${restaurantId}`,
   );
@@ -224,7 +232,7 @@ export default function Cart() {
     loading: fetchingCart,
     refetch,
   } = useGet<any>(
-    restaurantId ? `/api/user/cart?restaurantId=${restaurantId}` : null,
+    restaurantId ? `/api/user/cart?${cartQuery.toString()}` : null,
   );
   const weightRequestPollActionsRef = useRef({
     persistWeightRequestState,
