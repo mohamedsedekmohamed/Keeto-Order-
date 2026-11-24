@@ -36,6 +36,7 @@ import {
 import api from "@/api/api";
 import useDelete from "@/app/hooks/useDelete";
 import { useToken } from "@/context/TokenContext";
+import { cancelStoredWeightRequest } from "@/lib/weightRequest";
 
 interface DerivedSubCategory {
   id: string; // subcategory id OR "__no_sub__"
@@ -1227,9 +1228,11 @@ export default function RestaurantItms({
 
   const handleClearCart = async () => {
     try {
+      await cancelStoredWeightRequest(restaurantId, "The cart was cleared");
       await deleteData("/api/user/cart");
       dispatch(clearCartLocal());
       localStorage.removeItem("cart-expiry");
+      localStorage.removeItem(`weight-request-${restaurantId}`);
     } catch (error) {
       toast.error(t("failedClearCart"));
       throw error;

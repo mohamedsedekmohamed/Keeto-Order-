@@ -26,6 +26,7 @@ import { useAppDispatch } from "@/redux/hooks";
 import { clearCartLocal } from "@/redux/cartSlice";
 import { normalizeLang, localizedField, toImageSrc } from "@/lib/Localization";
 import { AnimatePresence, motion } from "framer-motion";
+import { cancelStoredWeightRequest } from "@/lib/weightRequest";
 
 // ─────────────────────────────────────────────
 // Type Definitions
@@ -284,9 +285,11 @@ export default function RestaurantBundles({
   // Clear cart helper on conflict
   const handleClearCart = async () => {
     try {
+      await cancelStoredWeightRequest(restaurantId, "The cart was cleared");
       await api.delete("/api/user/cart");
       dispatch(clearCartLocal());
       localStorage.removeItem("cart-expiry");
+      localStorage.removeItem(`weight-request-${restaurantId}`);
     } catch (err) {
       console.error("Error clearing cart:", err);
       throw err;

@@ -24,6 +24,7 @@ import api from "@/api/api";
 import { useAppDispatch } from "@/redux/hooks";
 import { clearCartLocal } from "@/redux/cartSlice";
 import { normalizeLang, localizedField, toImageSrc } from "@/lib/Localization";
+import { cancelStoredWeightRequest } from "@/lib/weightRequest";
 
 // ─────────────────────────────────────────────
 // Restaurant Offers section
@@ -420,9 +421,11 @@ export default function RestaurantOffers({
 
   const handleClearCart = async () => {
     try {
+      await cancelStoredWeightRequest(restaurantId, "The cart was cleared");
       await api.delete("/api/user/cart");
       dispatch(clearCartLocal());
       localStorage.removeItem("cart-expiry");
+      localStorage.removeItem(`weight-request-${restaurantId}`);
     } catch (error) {
       console.error(error);
       throw error;
