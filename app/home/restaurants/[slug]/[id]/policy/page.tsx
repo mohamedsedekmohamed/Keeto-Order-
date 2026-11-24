@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import useGet from "@/app/hooks/useGet"; // adjust path as needed
-import { getRestaurantId } from "@/context/Restaurantid"; // adjust path as needed
+import useGet from "@/app/hooks/useGet";
 import { ChevronLeft } from "lucide-react";
 
 type PolicyItem = {
@@ -133,14 +132,10 @@ function parsePolicyBody(
 }
 
 export default function PolicyPage() {
-  const params = useParams<{ slug: string }>();
+  const params = useParams<{ slug: string; id: string }>();
   const slug = params?.slug;
+  const restaurantId = params?.id;
   const router = useRouter();
-  const [restaurantId, setRestaurantIdState] = useState<string | null>(null);
-
-  useEffect(() => {
-    setRestaurantIdState(getRestaurantId(slug));
-  }, [slug]);
 
   const { data, loading, error, refetch } = useGet<PolicyResponse>(
     restaurantId ? `/api/user/policy/${restaurantId}` : null,

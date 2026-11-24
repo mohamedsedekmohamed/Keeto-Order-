@@ -550,7 +550,10 @@ export default function Home() {
             ))}
         </div>
       )}
-      <Link href={`${basePath}/policy`} className="w-full max-w-md px-6 mt-6">
+      <Link
+        href={`${basePath}/${params?.id}/policy`}
+        className="w-full max-w-md px-6 mt-6"
+      >
         <h3 className="font-bold text-gray-900 text-center mb-2.5 dark:text-white">
           {t("privacyandsupport")}
         </h3>
