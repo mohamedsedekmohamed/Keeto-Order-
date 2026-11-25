@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cairo, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ConditionalTopNav from "@/components/Conditionaltopnav";
 import { Providers } from "../context/providers";
@@ -20,6 +20,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const cairo = Cairo({
+  variable: "--font-cairo",
+  subsets: ["arabic"],
+  weight: "variable",
+});
+
 export const metadata: Metadata = {
   title: "Keeto ",
   description:
@@ -35,7 +41,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} ${cairo.variable}`}
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         <Providers>
           <LanguageProvider>

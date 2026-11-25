@@ -1471,7 +1471,7 @@ export default function RestaurantItms({
                   <div className="flex items-center gap-2 mb-6">
                     <LayoutGrid className="w-5 h-5 text-yellow-400" />
                     <h2 className="text-xl font-black text-gray-800 dark:text-zinc-100">
-                      {isRtl ? "الأقسام" : "Categories"}
+                      {t("categories")}
                     </h2>
                   </div>
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
