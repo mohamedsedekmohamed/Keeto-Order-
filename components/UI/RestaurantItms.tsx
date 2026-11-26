@@ -15,6 +15,7 @@ import FoodAddonOptions, {
 } from "./ResturantitmsComps/FoodAddonOptions";
 import FoodCard from "./ResturantitmsComps/FoodCard";
 import AddToCartDialog from "./ResturantitmsComps/AddToCartDialog";
+import PhoneDetailsPopup from "./PhoneDetailsPopup";
 import FoodVariationOptions from "./ResturantitmsComps/FoodVariationOptions";
 import FulfillmentDialog from "./ResturantitmsComps/FulfillmentDialog";
 import SubCategoryCard from "./ResturantitmsComps/SubCategoryCard";
@@ -102,18 +103,20 @@ export default function RestaurantItms({
   // ── Auth ──────────────────────────────────────────────────────────
   const { getToken } = useToken();
   const token = getToken(restaurantSlug);
-  const { data: profileResponse } = useGet<ProfileResponse>(
+  const {
+    data: profileResponse,
+    refetch: refetchProfile,
+  } = useGet<ProfileResponse>(
     token ? "/api/user/profile" : null,
   );
   const profileUser = profileResponse?.data?.data?.user;
+  const [hasSavedPhoneDetails, setHasSavedPhoneDetails] = useState(false);
+  const [showPhoneDetailsPopup, setShowPhoneDetailsPopup] = useState(false);
   const hasRequiredPhoneDetails = (user: ProfilePhoneDetails) =>
     /^01\d{9}$/.test(user?.phone?.trim() || "") &&
     /^01\d{9}$/.test(user?.alternatePhone?.trim() || "");
   const requirePhoneDetails = () => {
-    toast.error(t("phoneDetailsRequired"));
-    router.push(
-      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
-    );
+    setShowPhoneDetailsPopup(true);
   };
   const handlePhoneRequirementError = (message: string) => {
     if (
@@ -125,9 +128,7 @@ export default function RestaurantItms({
     }
 
     toast.error(t("phoneOrAlternatePhoneRequired"));
-    router.push(
-      `/profile?callbackSlug=${encodeURIComponent(restaurantSlug)}&tab=general`,
-    );
+    setShowPhoneDetailsPopup(true);
     return true;
   };
 
@@ -950,7 +951,11 @@ export default function RestaurantItms({
       router.push("/auth/sign-in/?callbackSlug=" + restaurantSlug);
       return;
     }
-    if (profileUser && !hasRequiredPhoneDetails(profileUser)) {
+    if (
+      profileUser &&
+      !hasRequiredPhoneDetails(profileUser) &&
+      !hasSavedPhoneDetails
+    ) {
       requirePhoneDetails();
       return;
     }
@@ -1065,7 +1070,11 @@ export default function RestaurantItms({
     fulfillmentData: { addressId?: string; branchId?: string } = {},
   ) => {
     if (!selectedItem) return;
-    if (profileUser && !hasRequiredPhoneDetails(profileUser)) {
+    if (
+      profileUser &&
+      !hasRequiredPhoneDetails(profileUser) &&
+      !hasSavedPhoneDetails
+    ) {
       requirePhoneDetails();
       return;
     }
@@ -1856,6 +1865,18 @@ export default function RestaurantItms({
               </div>
             </div>
           </div>
+        )}
+
+        {showPhoneDetailsPopup && (
+          <PhoneDetailsPopup
+            initialPhone={profileUser?.phone || ""}
+            initialAlternatePhone={profileUser?.alternatePhone || ""}
+            onSuccess={() => {
+              setHasSavedPhoneDetails(true);
+              setShowPhoneDetailsPopup(false);
+              void refetchProfile();
+            }}
+          />
         )}
       </div>
     </div>
